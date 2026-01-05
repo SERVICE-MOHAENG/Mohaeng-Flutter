@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
+import 'package:mohaeng_app_service/features/auth/presentation/view/ui/login_screen.dart';
 import 'package:mohaeng_app_service/features/splash/presentation/ui/splash_screen.dart';
 
 Future<void> main() async {
@@ -20,7 +21,8 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(fontFamily: 'Pretendard'),
         initialRoute: AppRoutes.splash,
         routes: {
-          AppRoutes.splash: (_) => SplashScreen()
+          AppRoutes.splash: (_) => SplashScreen(),
+          AppRoutes.login: (_) => LoginScreen(),
         }
       ),
     );
