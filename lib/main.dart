@@ -19,6 +19,7 @@ class MyApp extends StatelessWidget {
       designSize: Size(375, 812),
       child: MaterialApp(
         theme: ThemeData(fontFamily: 'Pretendard'),
+        debugShowCheckedModeBanner: false,
         initialRoute: AppRoutes.splash,
         routes: {
           AppRoutes.splash: (_) => SplashScreen(),
