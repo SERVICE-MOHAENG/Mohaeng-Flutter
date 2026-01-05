@@ -7,4 +7,6 @@ class MImages {
   static const String naverLogo = 'assets/images/logo/naver_logo.png';
   static const String googleLogo = 'assets/images/logo/google_logo.png';
 
+  static const String blockImage = 'assets/images/circle_block.png';
+
 }
