@@ -44,7 +44,7 @@ class _SplashScreenState extends State<SplashScreen> {
             Text(
               'MoHaeng',
               style: TextStyle(
-                fontFamily: 'Gmarket Sans',
+                fontFamily: 'GmarketSansBold',
                 color: MColor.white100,
                 fontSize: 27.sp,
               ),
