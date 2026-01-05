@@ -4,6 +4,8 @@ import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/features/auth/data/auth_api.dart';
+import 'package:mohaeng_app_service/features/auth/data/auth_token_storage.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/widgets/Oauth_button.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/widgets/auth_text_field.dart';
 
@@ -17,14 +19,19 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   late final TextEditingController _emailController;
   late final TextEditingController _passwordController;
+  late final AuthApi _authApi;
+  late final AuthTokenStorage _tokenStorage;
 
   bool _keepLogin = false;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _emailController = TextEditingController();
     _passwordController = TextEditingController();
+    _tokenStorage = AuthTokenStorage();
+    _authApi = AuthApi(tokenStorage: _tokenStorage);
   }
 
   @override
@@ -226,9 +233,7 @@ class _LoginScreenState extends State<LoginScreen> {
           SizedBox(
             height: 44.h,
             child: ElevatedButton(
-              onPressed: () {
-                // TODO: 로그인 로직
-              },
+              onPressed: _isLoading ? null : _handleLogin,
               style: ElevatedButton.styleFrom(
                 elevation: 0,
                 backgroundColor: MColor.primary500,
@@ -236,18 +241,84 @@ class _LoginScreenState extends State<LoginScreen> {
                   borderRadius: BorderRadius.circular(6.r),
                 ),
               ),
-              child: Text(
-                '로그인',
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              child: _isLoading
+                  ? SizedBox(
+                      width: 18.w,
+                      height: 18.w,
+                      child: const CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : Text(
+                      '로그인',
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage('이메일과 비밀번호를 입력해주세요.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await _authApi.login(email: email, password: password);
+      final payload = _extractTokenPayload(response);
+      final accessToken = payload['accessToken'];
+      final refreshToken = payload['refreshToken'];
+
+      if (accessToken is! String || refreshToken is! String) {
+        throw const FormatException('토큰이 없습니다.');
+      }
+
+      await _tokenStorage.saveTokens(
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+      );
+
+      if (!mounted) return;
+      _showMessage('로그인 성공');
+      // TODO: 로그인 성공 후 화면 이동 로직
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage('로그인 실패: $error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Map<String, dynamic> _extractTokenPayload(Map<String, dynamic> response) {
+    final data = response['data'];
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    return response;
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 
