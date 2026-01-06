@@ -5,6 +5,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/features/auth/data/auth_api.dart';
+import 'package:mohaeng_app_service/features/auth/presentation/view/ui/complete_sign_up_screen.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/widgets/auth_text_field.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -22,15 +24,24 @@ class _SignUpScreenState extends State<SignUpScreen>
   late final TextEditingController emailController;
   late final TextEditingController passwordController;
   late final TextEditingController passwordCheckController;
+  late final AuthApi _authApi;
   late final List<_SignUpStep> _steps;
 
   Color _waveColor = MColor.primary500;
 
   int currentIndex = 0;
+  bool _isSubmitting = false;
+
+  bool _hasLetter = false;
+  bool _hasNumber = false;
+  bool _hasSpecial = false;
+  bool _hasValidLength = false;
+  bool _passwordsMatch = false;
 
   @override
   void initState() {
     super.initState();
+    _authApi = AuthApi();
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
@@ -43,6 +54,8 @@ class _SignUpScreenState extends State<SignUpScreen>
     emailController = TextEditingController();
     passwordController = TextEditingController();
     passwordCheckController = TextEditingController();
+    passwordController.addListener(_updatePasswordValidation);
+    passwordCheckController.addListener(_updatePasswordValidation);
     _steps = [
       _SignUpStep(
         title: '사용자님의\n이름을 입력해주세요!',
@@ -71,6 +84,7 @@ class _SignUpScreenState extends State<SignUpScreen>
         keyboardType: TextInputType.visiblePassword,
         textInputAction: TextInputAction.next,
         obscureText: true,
+        showPasswordRules: true,
         secondaryLabel: '비밀번호 재확인',
         secondaryHintText: '비밀번호를 다시 입력해주세요.',
         secondaryController: passwordCheckController,
@@ -88,12 +102,113 @@ class _SignUpScreenState extends State<SignUpScreen>
     _controller.forward(from: 0);
   }
 
-  void _handleNext() {
-    _startWave();
+  void _updatePasswordValidation() {
+    final password = passwordController.text;
+    final confirm = passwordCheckController.text;
+
+    final hasLetter = RegExp(r'[A-Za-z]').hasMatch(password);
+    final hasNumber = RegExp(r'\d').hasMatch(password);
+    final hasSpecial = RegExp(r'[^A-Za-z0-9]').hasMatch(password);
+    final hasValidLength = password.length >= 8 && password.length <= 30;
+    final passwordsMatch = confirm.isNotEmpty && password == confirm;
+
     setState(() {
-      if (currentIndex < _steps.length - 1) {
-        currentIndex += 1;
+      _hasLetter = hasLetter;
+      _hasNumber = hasNumber;
+      _hasSpecial = hasSpecial;
+      _hasValidLength = hasValidLength;
+      _passwordsMatch = passwordsMatch;
+    });
+  }
+
+  bool get _isPasswordValid {
+    return _hasLetter && _hasNumber && _hasSpecial && _hasValidLength;
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  bool _validateCurrentStep() {
+    final step = _currentStep;
+    final primaryText = step.controller.text.trim();
+    if (primaryText.isEmpty) {
+      _showSnack('${step.label}을(를) 입력해주세요.');
+      return false;
+    }
+    if (step.secondaryController != null) {
+      final secondaryText = step.secondaryController!.text.trim();
+      if (secondaryText.isEmpty) {
+        final label = step.secondaryLabel ?? '항목';
+        _showSnack('$label을(를) 입력해주세요.');
+        return false;
       }
+    }
+    if (step.showPasswordRules) {
+      if (!_isPasswordValid) {
+        _showSnack('비밀번호 조건을 확인해주세요.');
+        return false;
+      }
+      if (!_passwordsMatch) {
+        _showSnack('비밀번호가 일치하지 않아요.');
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Future<void> _submitSignUp(BuildContext context) async {
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      await _authApi.signUp(
+        name: nameController.text.trim(),
+        email: emailController.text.trim(),
+        password: passwordController.text,
+        passwordConfirm: passwordCheckController.text,
+      );
+
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const CompleteSignUpScreen(),
+        ),
+      );
+    } catch (error) {
+      final message = error.toString().replaceFirst('Exception: ', '');
+      _showSnack(message);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleNext(BuildContext context) async {
+    if (_isSubmitting) {
+      return;
+    }
+    if (!_validateCurrentStep()) {
+      return;
+    }
+    _startWave();
+    if (currentIndex >= _steps.length - 1) {
+      await _submitSignUp(context);
+      return;
+    }
+    setState(() {
+      currentIndex += 1;
     });
   }
 
@@ -164,6 +279,8 @@ class _SignUpScreenState extends State<SignUpScreen>
   }
 
   Widget _buildBottomSheet(VoidCallback onTapSignUp) {
+    final isLastStep = currentIndex >= _steps.length - 1;
+    final buttonLabel = isLastStep ? '가입하기' : '다음';
     return Padding(
       padding: EdgeInsets.only(bottom: 32.h),
       child: Column(
@@ -195,15 +312,16 @@ class _SignUpScreenState extends State<SignUpScreen>
             ],
           ),
           SizedBox(height: 15.h),
-          _buildCustomButton(() {
-            _handleNext();
-          }),
+          _buildCustomButton(
+            _isSubmitting ? null : () => _handleNext(context),
+            label: buttonLabel,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildCustomButton(VoidCallback onPressed) {
+  Widget _buildCustomButton(VoidCallback? onPressed, {required String label}) {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
@@ -213,7 +331,7 @@ class _SignUpScreenState extends State<SignUpScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.r)),
       ),
       child: Text(
-        '다음',
+        label,
         style: TextStyle(
           fontFamily: 'GmarketSansMedium',
           fontSize: 12.sp,
@@ -266,6 +384,10 @@ class _SignUpScreenState extends State<SignUpScreen>
           textInputAction: step.textInputAction,
           obscureText: step.obscureText,
         ),
+        if (step.showPasswordRules) ...[
+          SizedBox(height: 8.h),
+          _buildPasswordRules(),
+        ],
         if (hasSecondary) ...[
           SizedBox(height: 16.h),
           Text(
@@ -284,8 +406,51 @@ class _SignUpScreenState extends State<SignUpScreen>
             textInputAction: step.secondaryTextInputAction,
             obscureText: step.secondaryObscureText,
           ),
+          if (step.showPasswordRules) _buildPasswordMatchStatus(),
         ],
       ],
+    );
+  }
+
+  Widget _buildPasswordRules() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildRuleText('8~30자', _hasValidLength),
+        SizedBox(height: 6.h),
+        _buildRuleText('영문 포함', _hasLetter),
+        SizedBox(height: 6.h),
+        _buildRuleText('숫자 포함', _hasNumber),
+        SizedBox(height: 6.h),
+        _buildRuleText('특수문자 포함', _hasSpecial),
+      ],
+    );
+  }
+
+  Widget _buildRuleText(String text, bool isValid) {
+    return Text(
+      text,
+      style: MTextStyles.labelM.copyWith(
+        color: isValid ? MColor.primary500 : MColor.gray400,
+      ),
+    );
+  }
+
+  Widget _buildPasswordMatchStatus() {
+    if (passwordCheckController.text.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final color = _passwordsMatch ? MColor.primary500 : MColor.error500;
+    final message =
+        _passwordsMatch ? '비밀번호가 일치해요.' : '비밀번호가 일치하지 않아요.';
+
+    return Padding(
+      padding: EdgeInsets.only(top: 8.h),
+      child: Text(
+        message,
+        style: MTextStyles.labelM.copyWith(color: color),
+      ),
     );
   }
 }
@@ -299,6 +464,7 @@ class _SignUpStep {
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final bool obscureText;
+  final bool showPasswordRules;
   final String? secondaryLabel;
   final String? secondaryHintText;
   final TextEditingController? secondaryController;
@@ -315,6 +481,7 @@ class _SignUpStep {
     this.keyboardType,
     this.textInputAction,
     this.obscureText = false,
+    this.showPasswordRules = false,
     this.secondaryLabel,
     this.secondaryHintText,
     this.secondaryController,
