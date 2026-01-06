@@ -8,5 +8,5 @@ class MImages {
   static const String googleLogo = 'assets/images/logo/google_logo.png';
 
   static const String blockImage = 'assets/images/circle_block.png';
-
+  static const String completeIcon = 'assets/images/complete.png';
 }
