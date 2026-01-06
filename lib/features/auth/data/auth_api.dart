@@ -20,20 +20,47 @@ class AuthApi {
         data: {'email': email, 'password': password},
       );
 
-      final data = response.data;
-      if (data is Map<String, dynamic>) {
-        return data;
-      }
-      if (data is String) {
-        final decoded = jsonDecode(data);
-        if (decoded is Map<String, dynamic>) {
-          return decoded;
-        }
-      }
-      throw const FormatException('응답 형식이 올바르지 않습니다.');
+      return _parseResponse(response.data);
     } on DioException catch (error) {
       final status = error.response?.statusCode;
       throw Exception('로그인 실패: ${status ?? '네트워크 오류'}');
     }
+  }
+
+  Future<Map<String, dynamic>> signUp({
+    required String name,
+    required String email,
+    required String password,
+    required String passwordConfirm,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/v1/users',
+        data: {
+          'name': name,
+          'email': email,
+          'password': password,
+          'passwordConfirm': passwordConfirm,
+        },
+      );
+
+      return _parseResponse(response.data);
+    } on DioException catch (error) {
+      final status = error.response?.statusCode;
+      throw Exception('회원가입 실패: ${status ?? '네트워크 오류'}');
+    }
+  }
+
+  Map<String, dynamic> _parseResponse(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    if (data is String) {
+      final decoded = jsonDecode(data);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+    }
+    throw const FormatException('응답 형식이 올바르지 않습니다.');
   }
 }
