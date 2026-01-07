@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart' as kakao;
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
@@ -25,6 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _keepLogin = false;
   bool _isLoading = false;
+  bool _isOauthLoading = false;
 
   @override
   void initState() {
@@ -399,9 +402,7 @@ class _LoginScreenState extends State<LoginScreen> {
             backgroundColor: MColor.yellow100,
             imagePath: MImages.kakaoLogo,
             borderColor: MColor.yellow100,
-            onPressed: () {
-              //TODO 카카오 오어스 로직 추가
-            },
+            onPressed: _handleKakaoLogin,
           ),
           SizedBox(height: 8.h),
           OauthButton(
@@ -417,5 +418,61 @@ class _LoginScreenState extends State<LoginScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _handleKakaoLogin() async {
+    if (_isOauthLoading) {
+      return;
+    }
+
+    setState(() {
+      _isOauthLoading = true;
+    });
+
+    try {
+      kakao.OAuthToken token;
+      final kakaoTalkInstalled = await kakao.isKakaoTalkInstalled();
+      if (kakaoTalkInstalled) {
+        try {
+          token = await kakao.UserApi.instance.loginWithKakaoTalk();
+        } on kakao.KakaoClientException catch (error) {
+          if (error.reason == kakao.ClientErrorCause.cancelled) {
+            return;
+          }
+          token = await kakao.UserApi.instance.loginWithKakaoAccount();
+        } on PlatformException catch (error) {
+          if (error.code == 'CANCELED') {
+            return;
+          }
+          token = await kakao.UserApi.instance.loginWithKakaoAccount();
+        }
+      } else {
+        token = await kakao.UserApi.instance.loginWithKakaoAccount();
+      }
+
+      debugPrint('Kakao OAuth token received. Expires at: ${token.expiresAt}');
+      if (!mounted) return;
+      _showMessage('카카오 로그인 성공');
+      // TODO: 서버 로그인 연동 시 accessToken 전달
+    } on kakao.KakaoAuthException catch (error) {
+      if (!mounted) return;
+      final message = error.errorDescription ?? '카카오 로그인에 실패했어요.';
+      _showMessage(message);
+    } on kakao.KakaoClientException catch (error) {
+      if (error.reason == kakao.ClientErrorCause.cancelled) {
+        return;
+      }
+      if (!mounted) return;
+      _showMessage('카카오 로그인 실패: ${error.message ?? error.msg}');
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage('카카오 로그인 실패: $error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isOauthLoading = false;
+        });
+      }
+    }
   }
 }

@@ -101,9 +101,12 @@ class _AuthInterceptor extends Interceptor {
 
   static const String _loginPath = '/api/v1/auth/login';
   static const String _refreshPath = '/api/v1/auth/refresh';
+  static const String _kakaoLoginPath = '/api/v1/auth/kakao';
 
   bool _isAuthEndpoint(String path) {
-    return path.contains(_loginPath) || path.contains(_refreshPath);
+    return path.contains(_loginPath) ||
+        path.contains(_refreshPath) ||
+        path.contains(_kakaoLoginPath);
   }
 
   Future<String?> _refreshAccessToken() async {

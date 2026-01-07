@@ -27,6 +27,22 @@ class AuthApi {
     }
   }
 
+  Future<Map<String, dynamic>> loginWithKakao({
+    required String accessToken,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/v1/auth/kakao',
+        data: {'accessToken': accessToken},
+      );
+
+      return _parseResponse(response.data);
+    } on DioException catch (error) {
+      final status = error.response?.statusCode;
+      throw Exception('카카오 로그인 실패: ${status ?? '네트워크 오류'}');
+    }
+  }
+
   Future<Map<String, dynamic>> signUp({
     required String name,
     required String email,
