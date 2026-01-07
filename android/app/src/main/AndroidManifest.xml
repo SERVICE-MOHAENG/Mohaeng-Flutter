@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <queries>
+        <package android:name="com.kakao.talk" />
+    </queries>
     <application
         android:label="mohaeng_app_service"
         android:name="${applicationName}"
