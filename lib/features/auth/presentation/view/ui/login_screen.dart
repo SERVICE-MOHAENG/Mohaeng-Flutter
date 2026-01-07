@@ -53,11 +53,11 @@ class _LoginScreenState extends State<LoginScreen> {
       body: Column(
         children: [
           _buildAppBar(),
-          SizedBox(height: 25.h),
+          SizedBox(height: 20.h),
           _buildEmailLogin(),
-          SizedBox(height: 25.h),
+          SizedBox(height: 20.h),
           _buildAuth(),
-          SizedBox(height: 35.h),
+          SizedBox(height: 30.h),
           _buildOAuth(
             onTapSignUp: () {
               Navigator.pushNamed(context, AppRoutes.signup);
