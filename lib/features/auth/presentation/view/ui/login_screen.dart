@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart' as kakao;
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
-import 'package:mohaeng_app_service/features/auth/data/auth_api.dart';
-import 'package:mohaeng_app_service/features/auth/data/auth_token_storage.dart';
+import 'package:mohaeng_app_service/features/auth/data/auth_repository_impl.dart';
+import 'package:mohaeng_app_service/features/auth/data/kakao_login_repository_impl.dart';
+import 'package:mohaeng_app_service/features/auth/domain/entities/kakao_login_result.dart';
+import 'package:mohaeng_app_service/features/auth/domain/usecases/login_use_case.dart';
+import 'package:mohaeng_app_service/features/auth/domain/usecases/kakao_login_use_case.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/widgets/Oauth_button.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/widgets/auth_text_field.dart';
 
@@ -22,8 +23,8 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   late final TextEditingController _emailController;
   late final TextEditingController _passwordController;
-  late final AuthApi _authApi;
-  late final AuthTokenStorage _tokenStorage;
+  late final LoginUseCase _loginUseCase;
+  late final KakaoLoginUseCase _kakaoLoginUseCase;
 
   bool _keepLogin = false;
   bool _isLoading = false;
@@ -34,8 +35,8 @@ class _LoginScreenState extends State<LoginScreen> {
     super.initState();
     _emailController = TextEditingController();
     _passwordController = TextEditingController();
-    _tokenStorage = AuthTokenStorage();
-    _authApi = AuthApi(tokenStorage: _tokenStorage);
+    _loginUseCase = LoginUseCase(AuthRepositoryImpl());
+    _kakaoLoginUseCase = KakaoLoginUseCase(KakaoLoginRepositoryImpl());
   }
 
   @override
@@ -283,20 +284,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final response = await _authApi.login(email: email, password: password);
-      final payload = _extractTokenPayload(response);
-      final accessToken = payload['accessToken'];
-      final refreshToken = payload['refreshToken'];
-
-      if (accessToken is! String || refreshToken is! String) {
-        throw const FormatException('토큰이 없습니다.');
-      }
-
-      await _tokenStorage.saveTokens(
-        accessToken: accessToken,
-        refreshToken: refreshToken,
-      );
-
+      await _loginUseCase(email: email, password: password);
       if (!mounted) return;
       _showMessage('로그인 성공');
       // TODO: 로그인 성공 후 화면 이동 로직
@@ -310,14 +298,6 @@ class _LoginScreenState extends State<LoginScreen> {
         });
       }
     }
-  }
-
-  Map<String, dynamic> _extractTokenPayload(Map<String, dynamic> response) {
-    final data = response['data'];
-    if (data is Map<String, dynamic>) {
-      return data;
-    }
-    return response;
   }
 
   void _showMessage(String message) {
@@ -430,43 +410,20 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      kakao.OAuthToken token;
-      final kakaoTalkInstalled = await kakao.isKakaoTalkInstalled();
-      if (kakaoTalkInstalled) {
-        try {
-          token = await kakao.UserApi.instance.loginWithKakaoTalk();
-        } on kakao.KakaoClientException catch (error) {
-          if (error.reason == kakao.ClientErrorCause.cancelled) {
-            return;
-          }
-          token = await kakao.UserApi.instance.loginWithKakaoAccount();
-        } on PlatformException catch (error) {
-          if (error.code == 'CANCELED') {
-            return;
-          }
-          token = await kakao.UserApi.instance.loginWithKakaoAccount();
-        }
-      } else {
-        token = await kakao.UserApi.instance.loginWithKakaoAccount();
-      }
+      final result = await _kakaoLoginUseCase();
 
-      debugPrint('Kakao OAuth token received. Expires at: ${token.expiresAt}');
       if (!mounted) return;
-      _showMessage('카카오 로그인 성공');
-      // TODO: 서버 로그인 연동 시 accessToken 전달
-    } on kakao.KakaoAuthException catch (error) {
-      if (!mounted) return;
-      final message = error.errorDescription ?? '카카오 로그인에 실패했어요.';
-      _showMessage(message);
-    } on kakao.KakaoClientException catch (error) {
-      if (error.reason == kakao.ClientErrorCause.cancelled) {
+      if (result.status == KakaoLoginStatus.cancelled) {
         return;
       }
-      if (!mounted) return;
-      _showMessage('카카오 로그인 실패: ${error.message ?? error.msg}');
-    } catch (error) {
-      if (!mounted) return;
-      _showMessage('카카오 로그인 실패: $error');
+      if (result.status == KakaoLoginStatus.failure) {
+        _showMessage(result.message ?? '카카오 로그인에 실패했어요.');
+        return;
+      }
+
+      debugPrint('Kakao OAuth token received. Expires at: ${result.expiresAt}');
+      _showMessage('카카오 로그인 성공');
+      // TODO: 서버 로그인 연동 시 accessToken 전달
     } finally {
       if (mounted) {
         setState(() {

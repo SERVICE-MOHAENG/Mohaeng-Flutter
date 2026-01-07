@@ -5,7 +5,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
-import 'package:mohaeng_app_service/features/auth/data/auth_api.dart';
+import 'package:mohaeng_app_service/features/auth/data/auth_repository_impl.dart';
+import 'package:mohaeng_app_service/features/auth/domain/usecases/sign_up_use_case.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/ui/complete_sign_up_screen.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/widgets/auth_text_field.dart';
 
@@ -24,7 +25,7 @@ class _SignUpScreenState extends State<SignUpScreen>
   late final TextEditingController emailController;
   late final TextEditingController passwordController;
   late final TextEditingController passwordCheckController;
-  late final AuthApi _authApi;
+  late final SignUpUseCase _signUpUseCase;
   late final List<_SignUpStep> _steps;
 
   Color _waveColor = MColor.primary500;
@@ -41,7 +42,7 @@ class _SignUpScreenState extends State<SignUpScreen>
   @override
   void initState() {
     super.initState();
-    _authApi = AuthApi();
+    _signUpUseCase = SignUpUseCase(AuthRepositoryImpl());
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
@@ -168,7 +169,7 @@ class _SignUpScreenState extends State<SignUpScreen>
     });
 
     try {
-      await _authApi.signUp(
+      await _signUpUseCase(
         name: nameController.text.trim(),
         email: emailController.text.trim(),
         password: passwordController.text,
