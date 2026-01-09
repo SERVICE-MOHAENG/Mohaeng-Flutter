@@ -30,6 +30,9 @@ class KakaoLoginRepositoryImpl implements KakaoLoginRepository {
 
       return KakaoLoginResult.success(token.accessToken, token.expiresAt);
     } on kakao.KakaoAuthException catch (error) {
+      if (error.error == kakao.AuthErrorCause.accessDenied) {
+        return KakaoLoginResult.cancelled();
+      }
       final message = error.errorDescription ?? '카카오 로그인에 실패했어요.';
       return KakaoLoginResult.failure(message);
     } on kakao.KakaoClientException catch (error) {
@@ -40,7 +43,19 @@ class KakaoLoginRepositoryImpl implements KakaoLoginRepository {
         '카카오 로그인 실패: ${error.message ?? error.msg}',
       );
     } catch (error) {
+      if (_isCancelledMessage(error.toString())) {
+        return KakaoLoginResult.cancelled();
+      }
       return KakaoLoginResult.failure('카카오 로그인 실패: $error');
     }
+  }
+
+  bool _isCancelledMessage(String? message) {
+    if (message == null || message.isEmpty) return false;
+    final lower = message.toLowerCase();
+    return lower.contains('cancel') ||
+        lower.contains('canceled') ||
+        lower.contains('cancelled') ||
+        message.contains('취소');
   }
 }

@@ -6,10 +6,16 @@ import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
 import 'package:mohaeng_app_service/features/auth/data/auth_repository_impl.dart';
+import 'package:mohaeng_app_service/features/auth/data/google_login_repository_impl.dart';
 import 'package:mohaeng_app_service/features/auth/data/kakao_login_repository_impl.dart';
+import 'package:mohaeng_app_service/features/auth/data/naver_login_repository_impl.dart';
+import 'package:mohaeng_app_service/features/auth/domain/entities/google_login_result.dart';
 import 'package:mohaeng_app_service/features/auth/domain/entities/kakao_login_result.dart';
+import 'package:mohaeng_app_service/features/auth/domain/entities/naver_login_result.dart';
 import 'package:mohaeng_app_service/features/auth/domain/usecases/login_use_case.dart';
+import 'package:mohaeng_app_service/features/auth/domain/usecases/google_login_use_case.dart';
 import 'package:mohaeng_app_service/features/auth/domain/usecases/kakao_login_use_case.dart';
+import 'package:mohaeng_app_service/features/auth/domain/usecases/naver_login_use_case.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/widgets/Oauth_button.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/widgets/auth_text_field.dart';
 
@@ -24,7 +30,9 @@ class _LoginScreenState extends State<LoginScreen> {
   late final TextEditingController _emailController;
   late final TextEditingController _passwordController;
   late final LoginUseCase _loginUseCase;
+  late final GoogleLoginUseCase _googleLoginUseCase;
   late final KakaoLoginUseCase _kakaoLoginUseCase;
+  late final NaverLoginUseCase _naverLoginUseCase;
 
   bool _keepLogin = false;
   bool _isLoading = false;
@@ -36,7 +44,9 @@ class _LoginScreenState extends State<LoginScreen> {
     _emailController = TextEditingController();
     _passwordController = TextEditingController();
     _loginUseCase = LoginUseCase(AuthRepositoryImpl());
+    _googleLoginUseCase = GoogleLoginUseCase(GoogleLoginRepositoryImpl());
     _kakaoLoginUseCase = KakaoLoginUseCase(KakaoLoginRepositoryImpl());
+    _naverLoginUseCase = NaverLoginUseCase(NaverLoginRepositoryImpl());
   }
 
   @override
@@ -48,22 +58,37 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return MLayout(
       backgroundColor: MColor.white100,
-      body: Column(
-        children: [
-          _buildAppBar(),
-          SizedBox(height: 20.h),
-          _buildEmailLogin(),
-          SizedBox(height: 20.h),
-          _buildAuth(),
-          SizedBox(height: 30.h),
-          _buildOAuth(
-            onTapSignUp: () {
-              Navigator.pushNamed(context, AppRoutes.signup);
-            },
-          ),
-        ],
+      body: SafeArea(
+        top: false,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.only(bottom: bottomInset),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Column(
+                  children: [
+                    _buildAppBar(),
+                    SizedBox(height: 20.h),
+                    _buildEmailLogin(),
+                    SizedBox(height: 20.h),
+                    _buildAuth(),
+                    SizedBox(height: 30.h),
+                    _buildOAuth(
+                      onTapSignUp: () {
+                        Navigator.pushNamed(context, AppRoutes.signup);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -372,7 +397,7 @@ class _LoginScreenState extends State<LoginScreen> {
             imagePath: MImages.googleLogo,
             borderColor: MColor.gray200,
             onPressed: () {
-              //TODO 구글 오어스 로직 추가
+              _handleGoogleLogin();
             },
           ),
           SizedBox(height: 8.h),
@@ -392,7 +417,7 @@ class _LoginScreenState extends State<LoginScreen> {
             imagePath: MImages.naverLogo,
             borderColor: MColor.green100,
             onPressed: () {
-              //TODO 네이버 오어스 로직 추가
+              _handleNaverLogin();
             },
           ),
         ],
@@ -423,6 +448,77 @@ class _LoginScreenState extends State<LoginScreen> {
 
       debugPrint('Kakao OAuth token received. Expires at: ${result.expiresAt}');
       _showMessage('카카오 로그인 성공');
+      // TODO: 서버 로그인 연동 시 accessToken 전달
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isOauthLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleGoogleLogin() async {
+    if (_isOauthLoading) {
+      return;
+    }
+
+    setState(() {
+      _isOauthLoading = true;
+    });
+
+    try {
+      final result = await _googleLoginUseCase();
+
+      if (!mounted) return;
+      if (result.status == GoogleLoginStatus.cancelled) {
+        return;
+      }
+      if (result.status == GoogleLoginStatus.failure) {
+        _showMessage(result.message ?? '구글 로그인에 실패했어요.');
+        return;
+      }
+
+      debugPrint(
+        'Google OAuth token received. '
+        'AccessToken: ${result.accessToken != null}',
+      );
+      _showMessage('구글 로그인 성공');
+      // TODO: 서버 로그인 연동 시 accessToken 전달
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isOauthLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleNaverLogin() async {
+    if (_isOauthLoading) {
+      return;
+    }
+
+    setState(() {
+      _isOauthLoading = true;
+    });
+
+    try {
+      final result = await _naverLoginUseCase();
+
+      if (!mounted) return;
+      if (result.status == NaverLoginStatus.cancelled) {
+        return;
+      }
+      if (result.status == NaverLoginStatus.failure) {
+        _showMessage(result.message ?? '네이버 로그인에 실패했어요.');
+        return;
+      }
+
+      if (result.expiresAt != null) {
+        debugPrint('Naver OAuth token received. Expires at: ${result.expiresAt}');
+      }
+      _showMessage('네이버 로그인 성공');
       // TODO: 서버 로그인 연동 시 accessToken 전달
     } finally {
       if (mounted) {
