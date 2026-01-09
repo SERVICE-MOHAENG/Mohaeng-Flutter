@@ -17,6 +17,8 @@ dependencies:
   flutter_secure_storage: ^10.0.0
   dio: ^5.9.0
   kakao_flutter_sdk_user: ^1.10.0
+  flutter_naver_login: ^2.1.1
+  google_sign_in: ^6.2.2
 
 dev_dependencies:
   flutter_test:
