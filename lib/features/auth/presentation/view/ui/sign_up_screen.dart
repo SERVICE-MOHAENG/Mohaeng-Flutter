@@ -13,6 +13,7 @@ import 'package:mohaeng_app_service/features/auth/domain/usecases/sign_up_use_ca
 import 'package:mohaeng_app_service/features/auth/domain/usecases/verify_email_otp_use_case.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/ui/complete_sign_up_screen.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/widgets/auth_text_field.dart';
+import 'package:mohaeng_app_service/features/auth/presentation/view/widgets/terms_bottom_sheet.dart';
 import 'package:pinput/pinput.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -360,6 +361,18 @@ class _SignUpScreenState extends State<SignUpScreen>
     } catch (_) {}
   }
 
+  Future<bool?> _showTermsBottomSheet() {
+    FocusScope.of(context).unfocus();
+    return showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => TermsBottomSheet(
+        onConfirm: () => Navigator.of(context).pop(true),
+      ),
+    );
+  }
+
   Future<void> _handleNext(BuildContext context) async {
     if (_isBusy) {
       return;
@@ -382,7 +395,10 @@ class _SignUpScreenState extends State<SignUpScreen>
       return;
     }
     if (currentIndex >= _steps.length - 1) {
-      await _submitSignUp(context);
+      final agreed = await _showTermsBottomSheet();
+      if (agreed == true) {
+        await _submitSignUp(context);
+      }
       return;
     }
     _moveToStep(currentIndex + 1, animateWave: true);
@@ -419,63 +435,91 @@ class _SignUpScreenState extends State<SignUpScreen>
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return MLayout(
-      backgroundColor: MColor.white100,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: _buildWavePainter(),
+    return Stack(
+      children: [
+        MLayout(
+          backgroundColor: MColor.white100,
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: _buildWavePainter(),
+              ),
+              Positioned(
+                top: 6.h,
+                left: 4.w,
+                child: SafeArea(
+                  bottom: false,
+                  child: _buildBackButton(),
+                ),
+              ),
+              Positioned(
+                top: 70.h,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final allowScroll = bottomInset > 0;
+                      return SingleChildScrollView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        physics: allowScroll
+                            ? const ClampingScrollPhysics()
+                            : const NeverScrollableScrollPhysics(),
+                        padding: EdgeInsets.only(
+                          bottom: allowScroll ? 140.h + bottomInset : 0,
+                        ),
+                        child: ConstrainedBox(
+                          constraints:
+                              BoxConstraints(minHeight: constraints.maxHeight),
+                          child: _buildStepContent(),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
-          Positioned(
-            top: 6.h,
-            left: 4.w,
-            child: SafeArea(
-              bottom: false,
-              child: _buildBackButton(),
-            ),
+          bottomSheet: AnimatedPadding(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            padding: EdgeInsets.only(bottom: bottomInset),
+            child: _buildBottomSheet(() {
+              Navigator.pop(context);
+            }),
           ),
-          Positioned(
-            top: 70.h,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
-              bottom: false,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final allowScroll = bottomInset > 0;
-                  return SingleChildScrollView(
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    physics: allowScroll
-                        ? const ClampingScrollPhysics()
-                        : const NeverScrollableScrollPhysics(),
-                    padding: EdgeInsets.only(
-                      bottom: allowScroll ? 140.h + bottomInset : 0,
-                    ),
-                    child: ConstrainedBox(
-                      constraints:
-                          BoxConstraints(minHeight: constraints.maxHeight),
-                      child: _buildStepContent(),
-                    ),
-                  );
-                },
+        ),
+        if (_isBusy) _buildLoadingOverlay(),
+      ],
+    );
+  }
+
+  Widget _buildLoadingOverlay() {
+    return Positioned.fill(
+      child: AbsorbPointer(
+        absorbing: true,
+        child: Container(
+          color: MColor.black100.withOpacity(0.2),
+          child: Center(
+            child: SizedBox(
+              width: 32.r,
+              height: 32.r,
+              child: CircularProgressIndicator(
+                strokeWidth: 3.r,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  MColor.primary500,
+                ),
               ),
             ),
           ),
-        ],
-      ),
-      bottomSheet: AnimatedPadding(
-        duration: const Duration(milliseconds: 150),
-        curve: Curves.easeOut,
-        padding: EdgeInsets.only(bottom: bottomInset),
-        child: _buildBottomSheet(() {
-          Navigator.pop(context);
-        }),
+        ),
       ),
     );
   }

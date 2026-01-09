@@ -155,7 +155,12 @@ class _LoginScreenState extends State<LoginScreen> {
         children: [
           _buildLoginItem('이메일', 'example@email.com', _emailController),
           SizedBox(height: 15.h),
-          _buildLoginItem('비밀번호', '비밀번호를 입력해주세요.', _passwordController),
+          _buildLoginItem(
+            '비밀번호',
+            '비밀번호를 입력해주세요.',
+            _passwordController,
+            obscureText: true,
+          ),
         ],
       ),
     );
@@ -165,6 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
     String text,
     String hintText,
     TextEditingController controller,
+    {bool obscureText = false}
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -178,7 +184,11 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         SizedBox(height: 10.h),
-        AuthTextField(controller: controller, hintText: hintText),
+        AuthTextField(
+          controller: controller,
+          hintText: hintText,
+          obscureText: obscureText,
+        ),
       ],
     );
   }
