@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:mohaeng_app_service/core/network/dio_logger.dart';
 import 'package:mohaeng_app_service/features/auth/data/auth_token_storage.dart';
 
 class DioClient {
@@ -17,6 +18,8 @@ class DioClient {
         tokenStorage: _tokenStorage,
       ),
     );
+    _dio.interceptors.add(DioLoggerInterceptor());
+    _refreshDio.interceptors.add(DioLoggerInterceptor());
   }
 
   final Dio _dio;
