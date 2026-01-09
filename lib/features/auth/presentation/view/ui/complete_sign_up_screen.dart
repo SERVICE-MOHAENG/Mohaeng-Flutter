@@ -7,7 +7,12 @@ import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
 
 class CompleteSignUpScreen extends StatelessWidget {
-  const CompleteSignUpScreen({super.key});
+  const CompleteSignUpScreen({
+    super.key,
+    required this.userName,
+  });
+
+  final String userName;
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +32,7 @@ class CompleteSignUpScreen extends StatelessWidget {
         Image.asset(MImages.completeIcon, width: 100.w, height: 100.h),
         SizedBox(height: 25.h),
         Text(
-          '손희찬님,\n모행에 오신걸 환영해요!',
+          '${userName}님,\n모행에 오신걸 환영해요!',
           textAlign: TextAlign.center,
           style: MTextStyles.bodyM.copyWith(color: MColor.gray800),
         ),

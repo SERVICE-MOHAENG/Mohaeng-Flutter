@@ -67,6 +67,33 @@ class AuthApi {
     }
   }
 
+  Future<void> sendEmailOtp({required String email}) async {
+    try {
+      await _dio.post(
+        '/api/v1/auth/email/otp/send',
+        data: {'email': email},
+      );
+    } on DioException catch (error) {
+      final status = error.response?.statusCode;
+      throw Exception('이메일 인증번호 전송 실패: ${status ?? '네트워크 오류'}');
+    }
+  }
+
+  Future<void> verifyEmailOtp({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      await _dio.post(
+        '/api/v1/auth/email/otp/verify',
+        data: {'email': email, 'otp': otp},
+      );
+    } on DioException catch (error) {
+      final status = error.response?.statusCode;
+      throw Exception('이메일 인증번호 확인 실패: ${status ?? '네트워크 오류'}');
+    }
+  }
+
   Map<String, dynamic> _parseResponse(dynamic data) {
     if (data is Map<String, dynamic>) {
       return data;

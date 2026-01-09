@@ -12,4 +12,11 @@ abstract class AuthRepository {
     required String password,
     required String passwordConfirm,
   });
+
+  Future<void> sendEmailOtp({required String email});
+
+  Future<void> verifyEmailOtp({
+    required String email,
+    required String otp,
+  });
 }

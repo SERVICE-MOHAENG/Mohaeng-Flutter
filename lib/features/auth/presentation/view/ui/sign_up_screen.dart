@@ -1,14 +1,19 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
 import 'package:mohaeng_app_service/features/auth/data/auth_repository_impl.dart';
+import 'package:mohaeng_app_service/features/auth/domain/usecases/send_email_otp_use_case.dart';
 import 'package:mohaeng_app_service/features/auth/domain/usecases/sign_up_use_case.dart';
+import 'package:mohaeng_app_service/features/auth/domain/usecases/verify_email_otp_use_case.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/ui/complete_sign_up_screen.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/widgets/auth_text_field.dart';
+import 'package:pinput/pinput.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -19,19 +24,30 @@ class SignUpScreen extends StatefulWidget {
 
 class _SignUpScreenState extends State<SignUpScreen>
     with SingleTickerProviderStateMixin {
+  static const Duration _codeTotalDuration = Duration(minutes: 3);
+  static final RegExp _emailRegex =
+      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
   late final AnimationController _controller;
   late final Animation<double> _waveAnimation;
   late final TextEditingController nameController;
   late final TextEditingController emailController;
+  late final TextEditingController emailCodeController;
   late final TextEditingController passwordController;
   late final TextEditingController passwordCheckController;
   late final SignUpUseCase _signUpUseCase;
+  late final SendEmailOtpUseCase _sendEmailOtpUseCase;
+  late final VerifyEmailOtpUseCase _verifyEmailOtpUseCase;
   late final List<_SignUpStep> _steps;
 
   Color _waveColor = MColor.primary500;
+  Duration _codeTimeRemaining = _codeTotalDuration;
+  Timer? _codeTimer;
 
   int currentIndex = 0;
   bool _isSubmitting = false;
+  bool _isOtpSending = false;
+  bool _isOtpVerifying = false;
 
   bool _hasLetter = false;
   bool _hasNumber = false;
@@ -42,7 +58,10 @@ class _SignUpScreenState extends State<SignUpScreen>
   @override
   void initState() {
     super.initState();
-    _signUpUseCase = SignUpUseCase(AuthRepositoryImpl());
+    final repository = AuthRepositoryImpl();
+    _signUpUseCase = SignUpUseCase(repository);
+    _sendEmailOtpUseCase = SendEmailOtpUseCase(repository);
+    _verifyEmailOtpUseCase = VerifyEmailOtpUseCase(repository);
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
@@ -53,8 +72,12 @@ class _SignUpScreenState extends State<SignUpScreen>
     );
     nameController = TextEditingController();
     emailController = TextEditingController();
+    emailCodeController = TextEditingController();
     passwordController = TextEditingController();
     passwordCheckController = TextEditingController();
+    nameController.addListener(_handleInputChanged);
+    emailController.addListener(_handleInputChanged);
+    emailCodeController.addListener(_handleInputChanged);
     passwordController.addListener(_updatePasswordValidation);
     passwordCheckController.addListener(_updatePasswordValidation);
     _steps = [
@@ -75,6 +98,18 @@ class _SignUpScreenState extends State<SignUpScreen>
         controller: emailController,
         keyboardType: TextInputType.emailAddress,
         textInputAction: TextInputAction.next,
+        isEmailInput: true,
+      ),
+      _SignUpStep(
+        title: '이메일로 전송된\n인증번호를 입력하세요',
+        subtitle: '3:00분 내로 이메일로 전송된\n인증 번호 6자리를 정확히 입력해주세요!',
+        label: '인증 코드',
+        hintText: '',
+        controller: emailCodeController,
+        keyboardType: TextInputType.number,
+        textInputAction: TextInputAction.next,
+        isPinInput: true,
+        pinLength: 6,
       ),
       _SignUpStep(
         title: '비밀번호를\n입력해주세요!',
@@ -92,6 +127,7 @@ class _SignUpScreenState extends State<SignUpScreen>
         secondaryKeyboardType: TextInputType.visiblePassword,
         secondaryTextInputAction: TextInputAction.done,
         secondaryObscureText: true,
+        revealSecondaryWhenPrimaryFilled: true,
       ),
     ];
   }
@@ -101,6 +137,64 @@ class _SignUpScreenState extends State<SignUpScreen>
       _waveColor = MColor.primary500;
     });
     _controller.forward(from: 0);
+  }
+
+  void _handleInputChanged() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
+  bool get _isBusy {
+    return _isSubmitting || _isOtpSending || _isOtpVerifying;
+  }
+
+  void _startCodeTimer() {
+    _codeTimer?.cancel();
+    setState(() {
+      _codeTimeRemaining = _codeTotalDuration;
+    });
+    _codeTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_codeTimeRemaining.inSeconds <= 1) {
+        timer.cancel();
+        if (mounted) {
+          setState(() {
+            _codeTimeRemaining = Duration.zero;
+          });
+        }
+        return;
+      }
+      if (mounted) {
+        setState(() {
+          _codeTimeRemaining -= const Duration(seconds: 1);
+        });
+      }
+    });
+  }
+
+  void _stopCodeTimer() {
+    _codeTimer?.cancel();
+    _codeTimer = null;
+  }
+
+  void _moveToStep(int nextIndex, {bool animateWave = false}) {
+    final leavingPin = _steps[currentIndex].isPinInput;
+    final enteringPin = _steps[nextIndex].isPinInput;
+
+    if (animateWave) {
+      _startWave();
+    }
+
+    setState(() {
+      currentIndex = nextIndex;
+    });
+
+    if (leavingPin && !enteringPin) {
+      _stopCodeTimer();
+    } else if (!leavingPin && enteringPin) {
+      _startCodeTimer();
+    }
   }
 
   void _updatePasswordValidation() {
@@ -126,6 +220,37 @@ class _SignUpScreenState extends State<SignUpScreen>
     return _hasLetter && _hasNumber && _hasSpecial && _hasValidLength;
   }
 
+  bool _isCurrentStepValid() {
+    final step = _currentStep;
+    final primaryText = step.controller.text.trim();
+    if (primaryText.isEmpty) {
+      return false;
+    }
+    if (step.isPinInput && primaryText.length < step.pinLength) {
+      return false;
+    }
+    if (step.isEmailInput && !_emailRegex.hasMatch(primaryText)) {
+      return false;
+    }
+    if (step.secondaryController != null) {
+      final secondaryText = step.secondaryController!.text.trim();
+      final requiresSecondary =
+          !step.revealSecondaryWhenPrimaryFilled || primaryText.isNotEmpty;
+      if (requiresSecondary && secondaryText.isEmpty) {
+        return false;
+      }
+    }
+    if (step.showPasswordRules) {
+      if (!_isPasswordValid) {
+        return false;
+      }
+      if (!_passwordsMatch) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   void _showSnack(String message) {
     if (!mounted) {
       return;
@@ -133,34 +258,6 @@ class _SignUpScreenState extends State<SignUpScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
-  }
-
-  bool _validateCurrentStep() {
-    final step = _currentStep;
-    final primaryText = step.controller.text.trim();
-    if (primaryText.isEmpty) {
-      _showSnack('${step.label}을(를) 입력해주세요.');
-      return false;
-    }
-    if (step.secondaryController != null) {
-      final secondaryText = step.secondaryController!.text.trim();
-      if (secondaryText.isEmpty) {
-        final label = step.secondaryLabel ?? '항목';
-        _showSnack('$label을(를) 입력해주세요.');
-        return false;
-      }
-    }
-    if (step.showPasswordRules) {
-      if (!_isPasswordValid) {
-        _showSnack('비밀번호 조건을 확인해주세요.');
-        return false;
-      }
-      if (!_passwordsMatch) {
-        _showSnack('비밀번호가 일치하지 않아요.');
-        return false;
-      }
-    }
-    return true;
   }
 
   Future<void> _submitSignUp(BuildContext context) async {
@@ -181,7 +278,9 @@ class _SignUpScreenState extends State<SignUpScreen>
       }
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => const CompleteSignUpScreen(),
+          builder: (_) => CompleteSignUpScreen(
+            userName: nameController.text.trim(),
+          ),
         ),
       );
     } catch (error) {
@@ -196,21 +295,105 @@ class _SignUpScreenState extends State<SignUpScreen>
     }
   }
 
+  Future<void> _sendEmailOtp() async {
+    if (_isOtpSending) {
+      return;
+    }
+    setState(() {
+      _isOtpSending = true;
+    });
+
+    try {
+      await _sendEmailOtpUseCase(email: emailController.text.trim());
+    } catch (error) {
+      final message = error.toString().replaceFirst('Exception: ', '');
+      _showSnack(message);
+      rethrow;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isOtpSending = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _verifyEmailOtp() async {
+    if (_isOtpVerifying) {
+      return;
+    }
+    setState(() {
+      _isOtpVerifying = true;
+    });
+
+    try {
+      await _verifyEmailOtpUseCase(
+        email: emailController.text.trim(),
+        otp: emailCodeController.text.trim(),
+      );
+    } catch (error) {
+      final message = error.toString().replaceFirst('Exception: ', '');
+      _showSnack(message);
+      rethrow;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isOtpVerifying = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleResendOtp() async {
+    if (_isOtpSending) {
+      return;
+    }
+    if (!_emailRegex.hasMatch(emailController.text.trim())) {
+      _showSnack('이메일 형식을 확인해주세요.');
+      return;
+    }
+
+    try {
+      await _sendEmailOtp();
+      emailCodeController.clear();
+      _startCodeTimer();
+    } catch (_) {}
+  }
+
   Future<void> _handleNext(BuildContext context) async {
-    if (_isSubmitting) {
+    if (_isBusy) {
       return;
     }
-    if (!_validateCurrentStep()) {
+    if (!_isCurrentStepValid()) {
       return;
     }
-    _startWave();
+    if (_currentStep.isEmailInput) {
+      try {
+        await _sendEmailOtp();
+        _moveToStep(currentIndex + 1, animateWave: true);
+      } catch (_) {}
+      return;
+    }
+    if (_currentStep.isPinInput) {
+      try {
+        await _verifyEmailOtp();
+        _moveToStep(currentIndex + 1, animateWave: true);
+      } catch (_) {}
+      return;
+    }
     if (currentIndex >= _steps.length - 1) {
       await _submitSignUp(context);
       return;
     }
-    setState(() {
-      currentIndex += 1;
-    });
+    _moveToStep(currentIndex + 1, animateWave: true);
+  }
+
+  void _handleBack(BuildContext context) {
+    if (currentIndex > 0) {
+      _moveToStep(currentIndex - 1);
+      return;
+    }
+    Navigator.pop(context);
   }
 
   _SignUpStep get _currentStep {
@@ -224,8 +407,10 @@ class _SignUpScreenState extends State<SignUpScreen>
   @override
   void dispose() {
     _controller.dispose();
+    _codeTimer?.cancel();
     nameController.dispose();
     emailController.dispose();
+    emailCodeController.dispose();
     passwordController.dispose();
     passwordCheckController.dispose();
     super.dispose();
@@ -244,6 +429,14 @@ class _SignUpScreenState extends State<SignUpScreen>
             left: 0,
             right: 0,
             child: _buildWavePainter(),
+          ),
+          Positioned(
+            top: 6.h,
+            left: 4.w,
+            child: SafeArea(
+              bottom: false,
+              child: _buildBackButton(),
+            ),
           ),
           Positioned(
             top: 70.h,
@@ -305,9 +498,23 @@ class _SignUpScreenState extends State<SignUpScreen>
     );
   }
 
+  Widget _buildBackButton() {
+    return IconButton(
+      onPressed: () => _handleBack(context),
+      icon: Icon(Icons.arrow_back_ios_new_rounded, color: MColor.gray700),
+      splashRadius: 18.r,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(),
+    );
+  }
+
   Widget _buildBottomSheet(VoidCallback onTapSignUp) {
     final isLastStep = currentIndex >= _steps.length - 1;
     final buttonLabel = isLastStep ? '가입하기' : '다음';
+    final isPinStep = _currentStep.isPinInput;
+    final helperText = isPinStep ? '인증 코드가 오지 않았을 경우 ' : '이미 계정이 있으신가요? ';
+    final actionText = isPinStep ? '재전송' : '로그인';
+    final isEnabled = !_isBusy && _isCurrentStepValid();
     return Padding(
       padding: EdgeInsets.only(bottom: 32.h),
       child: Column(
@@ -318,16 +525,16 @@ class _SignUpScreenState extends State<SignUpScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                '이미 계정이 있으신가요? ',
+                helperText,
                 style: MTextStyles.labelM.copyWith(color: MColor.gray500),
               ),
               GestureDetector(
-                onTap: onTapSignUp,
+                onTap: isPinStep ? _handleResendOtp : onTapSignUp,
                 behavior: HitTestBehavior.opaque,
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 4.h, horizontal: 2.w),
                   child: Text(
-                    '로그인',
+                    actionText,
                     style: MTextStyles.labelM.copyWith(
                       color: MColor.primary500,
                       decoration: TextDecoration.underline,
@@ -340,21 +547,26 @@ class _SignUpScreenState extends State<SignUpScreen>
           ),
           SizedBox(height: 15.h),
           _buildCustomButton(
-            _isSubmitting ? null : () => _handleNext(context),
+            isEnabled ? () => _handleNext(context) : null,
             label: buttonLabel,
+            enabled: isEnabled,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCustomButton(VoidCallback? onPressed, {required String label}) {
+  Widget _buildCustomButton(
+    VoidCallback? onPressed, {
+    required String label,
+    required bool enabled,
+  }) {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
         elevation: 0,
         padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 150.w),
-        backgroundColor: MColor.primary500,
+        backgroundColor: enabled ? MColor.primary500 : MColor.primary300,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.r)),
       ),
       child: Text(
@@ -379,10 +591,7 @@ class _SignUpScreenState extends State<SignUpScreen>
             step.title,
             style: MTextStyles.lBodyM.copyWith(color: MColor.black100),
           ),
-          Text(
-            step.subtitle,
-            style: MTextStyles.labelM.copyWith(color: MColor.gray400),
-          ),
+          _buildSubtitle(step),
           SizedBox(height: 30.h),
           _buildItem(step),
         ],
@@ -390,8 +599,39 @@ class _SignUpScreenState extends State<SignUpScreen>
     );
   }
 
+  Widget _buildSubtitle(_SignUpStep step) {
+    if (!step.isPinInput) {
+      return Text(
+        step.subtitle,
+        style: MTextStyles.labelM.copyWith(color: MColor.gray400),
+      );
+    }
+
+    final minutes = _codeTimeRemaining.inMinutes;
+    final seconds = _codeTimeRemaining.inSeconds % 60;
+    final timeText = '$minutes:${seconds.toString().padLeft(2, '0')}';
+
+    return RichText(
+      text: TextSpan(
+        style: MTextStyles.labelM.copyWith(color: MColor.gray400),
+        children: [
+          TextSpan(
+            text: timeText,
+            style: MTextStyles.labelM.copyWith(color: MColor.primary500),
+          ),
+          const TextSpan(
+            text: '분 내로 이메일로 전송된\n인증 번호 6자리를 정확히 입력해주세요!',
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildItem(_SignUpStep step) {
     final hasSecondary = step.secondaryController != null;
+    final showSecondary = hasSecondary &&
+        (!step.revealSecondaryWhenPrimaryFilled ||
+            step.controller.text.trim().isNotEmpty);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -404,14 +644,17 @@ class _SignUpScreenState extends State<SignUpScreen>
           ),
         ),
         SizedBox(height: 10.h),
-        AuthTextField(
-          controller: step.controller,
-          hintText: step.hintText,
-          keyboardType: step.keyboardType,
-          textInputAction: step.textInputAction,
-          obscureText: step.obscureText,
-        ),
-        if (hasSecondary) ...[
+        if (!step.isPinInput)
+          AuthTextField(
+            controller: step.controller,
+            hintText: step.hintText,
+            keyboardType: step.keyboardType,
+            textInputAction: step.textInputAction,
+            obscureText: step.obscureText,
+          )
+        else
+          _buildPinInput(step),
+        if (showSecondary) ...[
           SizedBox(height: 16.h),
           Text(
             step.secondaryLabel ?? '',
@@ -433,6 +676,45 @@ class _SignUpScreenState extends State<SignUpScreen>
       ],
     );
   }
+
+  Widget _buildPinInput(_SignUpStep step) {
+    final baseTheme = PinTheme(
+      width: 45.w,
+      height: 55.w,
+      textStyle: MTextStyles.bodyM.copyWith(color: MColor.gray800),
+      decoration: BoxDecoration(
+        color: MColor.gray100,
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+    );
+
+    return Align(
+      alignment: Alignment.center,
+      child: Pinput(
+        controller: step.controller,
+        length: step.pinLength,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        defaultPinTheme: baseTheme,
+        focusedPinTheme: baseTheme.copyWith(
+          decoration: BoxDecoration(
+            color: MColor.white100,
+            borderRadius: BorderRadius.circular(8.r),
+            border: Border.all(color: MColor.primary500, width: 1.w),
+          ),
+        ),
+        submittedPinTheme: baseTheme.copyWith(
+          decoration: BoxDecoration(
+            color: MColor.white100,
+            borderRadius: BorderRadius.circular(8.r),
+            border: Border.all(color: MColor.gray200, width: 1.w),
+          ),
+        ),
+        separatorBuilder: (_) => SizedBox(width: 8.w),
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      ),
+    );
+  }
 }
 
 class _SignUpStep {
@@ -451,6 +733,10 @@ class _SignUpStep {
   final TextInputType? secondaryKeyboardType;
   final TextInputAction? secondaryTextInputAction;
   final bool secondaryObscureText;
+  final bool isPinInput;
+  final int pinLength;
+  final bool isEmailInput;
+  final bool revealSecondaryWhenPrimaryFilled;
 
   _SignUpStep({
     required this.title,
@@ -468,6 +754,10 @@ class _SignUpStep {
     this.secondaryKeyboardType,
     this.secondaryTextInputAction,
     this.secondaryObscureText = false,
+    this.isPinInput = false,
+    this.pinLength = 6,
+    this.isEmailInput = false,
+    this.revealSecondaryWhenPrimaryFilled = false,
   });
 }
 

@@ -55,6 +55,19 @@ class AuthRepositoryImpl implements AuthRepository {
     );
   }
 
+  @override
+  Future<void> sendEmailOtp({required String email}) {
+    return _authApi.sendEmailOtp(email: email);
+  }
+
+  @override
+  Future<void> verifyEmailOtp({
+    required String email,
+    required String otp,
+  }) {
+    return _authApi.verifyEmailOtp(email: email, otp: otp);
+  }
+
   Map<String, dynamic> _extractTokenPayload(Map<String, dynamic> response) {
     final data = response['data'];
     if (data is Map<String, dynamic>) {
