@@ -233,6 +233,7 @@ class _SignUpScreenState extends State<SignUpScreen>
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return MLayout(
       backgroundColor: MColor.white100,
       body: Stack(
@@ -245,19 +246,44 @@ class _SignUpScreenState extends State<SignUpScreen>
             child: _buildWavePainter(),
           ),
           Positioned(
-            top: 40.h,
+            top: 70.h,
             left: 0,
             right: 0,
+            bottom: 0,
             child: SafeArea(
               bottom: false,
-              child: _buildStepContent(),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final allowScroll = bottomInset > 0;
+                  return SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    physics: allowScroll
+                        ? const ClampingScrollPhysics()
+                        : const NeverScrollableScrollPhysics(),
+                    padding: EdgeInsets.only(
+                      bottom: allowScroll ? 140.h + bottomInset : 0,
+                    ),
+                    child: ConstrainedBox(
+                      constraints:
+                          BoxConstraints(minHeight: constraints.maxHeight),
+                      child: _buildStepContent(),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ],
       ),
-      bottomSheet: _buildBottomSheet(() {
-        Navigator.pop(context);
-      }),
+      bottomSheet: AnimatedPadding(
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: _buildBottomSheet(() {
+          Navigator.pop(context);
+        }),
+      ),
     );
   }
 
@@ -385,10 +411,6 @@ class _SignUpScreenState extends State<SignUpScreen>
           textInputAction: step.textInputAction,
           obscureText: step.obscureText,
         ),
-        if (step.showPasswordRules) ...[
-          SizedBox(height: 8.h),
-          _buildPasswordRules(),
-        ],
         if (hasSecondary) ...[
           SizedBox(height: 16.h),
           Text(
@@ -407,51 +429,8 @@ class _SignUpScreenState extends State<SignUpScreen>
             textInputAction: step.secondaryTextInputAction,
             obscureText: step.secondaryObscureText,
           ),
-          if (step.showPasswordRules) _buildPasswordMatchStatus(),
         ],
       ],
-    );
-  }
-
-  Widget _buildPasswordRules() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildRuleText('8~30자', _hasValidLength),
-        SizedBox(height: 6.h),
-        _buildRuleText('영문 포함', _hasLetter),
-        SizedBox(height: 6.h),
-        _buildRuleText('숫자 포함', _hasNumber),
-        SizedBox(height: 6.h),
-        _buildRuleText('특수문자 포함', _hasSpecial),
-      ],
-    );
-  }
-
-  Widget _buildRuleText(String text, bool isValid) {
-    return Text(
-      text,
-      style: MTextStyles.labelM.copyWith(
-        color: isValid ? MColor.primary500 : MColor.gray400,
-      ),
-    );
-  }
-
-  Widget _buildPasswordMatchStatus() {
-    if (passwordCheckController.text.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final color = _passwordsMatch ? MColor.primary500 : MColor.error500;
-    final message =
-        _passwordsMatch ? '비밀번호가 일치해요.' : '비밀번호가 일치하지 않아요.';
-
-    return Padding(
-      padding: EdgeInsets.only(top: 8.h),
-      child: Text(
-        message,
-        style: MTextStyles.labelM.copyWith(color: color),
-      ),
     );
   }
 }
