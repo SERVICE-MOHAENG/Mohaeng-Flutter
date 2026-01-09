@@ -1,9 +1,19 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val secretProps = Properties()
+val secretPropsFile = rootProject.file("secret.properties")
+if (secretPropsFile.exists()) {
+    secretPropsFile.inputStream().use { secretProps.load(it) }
+}
+
+fun secretProp(name: String): String = secretProps.getProperty(name) ?: ""
 
 android {
     namespace = "com.mohaeng.app.mohaeng_app_service"
@@ -28,6 +38,9 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        resValue("string", "client_id", secretProp("NAVER_CLIENT_ID"))
+        resValue("string", "client_secret", secretProp("NAVER_CLIENT_SECRET"))
+        resValue("string", "client_name", secretProp("NAVER_CLIENT_NAME"))
     }
 
     buildTypes {

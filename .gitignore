@@ -13,6 +13,8 @@
 migrate_working_dir/
 .env
 .env.*
+android/secret.properties
+ios/Flutter/Secrets.xcconfig
 
 
 # IntelliJ related
