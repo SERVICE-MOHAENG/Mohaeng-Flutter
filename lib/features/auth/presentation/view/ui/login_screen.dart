@@ -321,8 +321,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await _loginUseCase(email: email, password: password);
       if (!mounted) return;
-      _showMessage('로그인 성공');
-      // TODO: 로그인 성공 후 화면 이동 로직
+      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.main, (_) => false);
     } catch (error) {
       if (!mounted) return;
       _showMessage('로그인 실패: $error');
