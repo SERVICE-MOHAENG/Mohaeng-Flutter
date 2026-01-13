@@ -12,6 +12,14 @@ dependencies:
     sdk: flutter
 
   cupertino_icons: ^1.0.8
+  flutter_dotenv: ^6.0.0
+  flutter_screenutil: ^5.9.3
+  flutter_secure_storage: ^10.0.0
+  dio: ^5.9.0
+  kakao_flutter_sdk_user: ^1.10.0
+  flutter_naver_login: ^2.1.1
+  google_sign_in: ^6.2.2
+  pinput: ^6.0.1
 
 dev_dependencies:
   flutter_test:
@@ -21,6 +29,12 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - .env
+    - assets/images/
+    - assets/images/logo/
+
   fonts:
     - family: Pretendard
       fonts:
@@ -42,3 +56,11 @@ flutter:
           weight: 800
         - asset: assets/fonts/Pretendard-Black.otf
           weight: 900
+
+    - family: GmarketSansBold
+      fonts:
+        - asset: assets/fonts/GmarketSansBold.otf
+
+    - family: GmarketSansMedium
+      fonts:
+        - asset: assets/fonts/GmarketSansMedium.otf

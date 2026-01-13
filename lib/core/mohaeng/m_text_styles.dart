@@ -1,4 +1,5 @@
-import 'dart:ui';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class MTextStyles {
   MTextStyles._();
@@ -12,7 +13,7 @@ class MTextStyles {
   //베이스 스타일 설정
   static TextStyle _base(double size, FontWeight weight) => TextStyle(
     fontFamily: _font,
-    fontSize: size,
+    fontSize: size.sp,
     fontWeight: weight,
   );
 
