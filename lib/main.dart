@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
+import 'package:mohaeng_app_service/core/widgets/m_tab.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/ui/login_screen.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/ui/sign_up_screen.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view/ui/main_screen.dart';
@@ -40,6 +41,7 @@ class MyApp extends StatelessWidget {
           AppRoutes.login: (_) => LoginScreen(),
           AppRoutes.signup: (_) => SignUpScreen(),
           AppRoutes.main: (_) => MainScreen(),
+          AppRoutes.root: (_) => MTab(),
         },
       ),
     );
