@@ -321,7 +321,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await _loginUseCase(email: email, password: password);
       if (!mounted) return;
-      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.main, (_) => false);
+      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.root, (_) => false);
     } catch (error) {
       if (!mounted) return;
       _showMessage('로그인 실패: $error');
