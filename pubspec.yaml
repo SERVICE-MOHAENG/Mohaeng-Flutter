@@ -20,6 +20,7 @@ dependencies:
   flutter_naver_login: ^2.1.1
   google_sign_in: ^6.2.2
   pinput: ^6.0.1
+  flutter_earth_globe: ^2.2.0
 
 dev_dependencies:
   flutter_test:
@@ -34,6 +35,8 @@ flutter:
     - .env
     - assets/images/
     - assets/images/logo/
+    - assets/images/icons/
+    - assets/images/country/
 
   fonts:
     - family: Pretendard
