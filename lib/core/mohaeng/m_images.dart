@@ -13,4 +13,5 @@ class MImages {
 
   static const String japan = 'assets/images/country/japan.png';
   static const String america = 'assets/images/country/america.png';
+  static const String sibuya = 'assets/images/country/sibuya.png';
 }
