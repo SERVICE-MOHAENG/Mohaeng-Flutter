@@ -3,22 +3,23 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
+import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
 
 class MyPageScreen extends StatelessWidget {
   const MyPageScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: MColor.white100,
+    return MLayout(
+      backgroundColor: MColor.gray50,
       appBar: AppBar(
         title: Text(
           '마이페이지',
-          style: MTextStyles.labelB.copyWith(color: MColor.gray800),
+          style: MTextStyles.labelM.copyWith(color: MColor.black100),
         ),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: MColor.white100,
+        backgroundColor: MColor.gray50,
         surfaceTintColor: MColor.white100,
       ),
       body: SingleChildScrollView(
@@ -37,10 +38,7 @@ class MyPageScreen extends StatelessWidget {
               child: _buildStatsCard(),
             ),
             SizedBox(height: 20.h),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.w),
-              child: _buildScheduleSection(),
-            ),
+            _buildScheduleSection(),
             SizedBox(height: 18.h),
             _buildSettingsSection(),
           ],
@@ -63,12 +61,12 @@ class MyPageScreen extends StatelessWidget {
           children: [
             Text(
               '손희찬님',
-              style: MTextStyles.labelB.copyWith(color: MColor.gray800),
+              style: MTextStyles.lBodyM.copyWith(color: MColor.black100),
             ),
             SizedBox(height: 4.h),
             Text(
               'hxxchxx@dsm.hs.kr',
-              style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
+              style: MTextStyles.labelM.copyWith(color: MColor.gray400),
             ),
           ],
         ),
@@ -78,7 +76,7 @@ class MyPageScreen extends StatelessWidget {
 
   Widget _buildStatsCard() {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 14.h),
+      padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 12.w),
       decoration: BoxDecoration(
         color: MColor.white100,
         borderRadius: BorderRadius.circular(14.r),
@@ -105,9 +103,12 @@ class MyPageScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '내 일정',
-          style: MTextStyles.bodyB.copyWith(color: MColor.gray800),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20.w),
+          child: Text(
+            '내 일정',
+            style: MTextStyles.lBodyM.copyWith(color: MColor.gray800),
+          ),
         ),
         SizedBox(height: 10.h),
         Row(
@@ -118,13 +119,24 @@ class MyPageScreen extends StatelessWidget {
           ],
         ),
         SizedBox(height: 12.h),
-        _buildTripCard(),
-        SizedBox(height: 10.h),
-        _buildTripCard(),
-        SizedBox(height: 10.h),
-        _buildTripCard(),
-        SizedBox(height: 10.h),
-        _buildIndicatorRow(),
+        Container(
+          color: MColor.white100,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildTripCard(),
+                SizedBox(height: 10.h),
+                _buildTripCard(),
+                SizedBox(height: 10.h),
+                _buildTripCard(),
+                SizedBox(height: 10.h),
+                _buildIndicatorRow(),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -133,15 +145,8 @@ class MyPageScreen extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(12.r),
       decoration: BoxDecoration(
-        color: MColor.white100,
+        color: MColor.gray50,
         borderRadius: BorderRadius.circular(12.r),
-        boxShadow: [
-          BoxShadow(
-            color: MColor.black100.withOpacity(0.05),
-            blurRadius: 12.r,
-            offset: Offset(0, 6.h),
-          ),
-        ],
       ),
       child: Row(
         children: [
@@ -237,18 +242,29 @@ class MyPageScreen extends StatelessWidget {
   Widget _buildSettingsSection() {
     return Container(
       color: MColor.gray50,
-      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '설정',
-            style: MTextStyles.bodyB.copyWith(color: MColor.gray800),
+          Padding(
+            padding:  EdgeInsets.symmetric(horizontal: 20.w),
+            child: Text('설정', style: MTextStyles.lBodyM.copyWith(color: MColor.black100)),
           ),
           SizedBox(height: 10.h),
-          _buildSettingItem('비밀번호 변경'),
-          _buildSettingItem('로그아웃'),
-          _buildSettingItem('회원탈퇴'),
+          Container(
+            width: 1.sw,
+            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            decoration: BoxDecoration(
+              color: MColor.white100,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSettingItem('비밀번호 변경'),
+                _buildSettingItem('로그아웃'),
+                _buildSettingItem('회원탈퇴'),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -283,15 +299,15 @@ class _StatItem extends StatelessWidget {
         children: [
           Text(
             value,
-            style: MTextStyles.labelB.copyWith(
-              color: isEmphasized ? MColor.primary500 : MColor.gray800,
+            style: MTextStyles.bodyB.copyWith(
+              color: isEmphasized ? MColor.primary500 : Color(0xff111827),
             ),
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 4.h),
           Text(
             title,
             textAlign: TextAlign.center,
-            style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
+            style: MTextStyles.sLabelM.copyWith(color: Color(0xff4B5563)),
           ),
         ],
       ),
@@ -313,15 +329,14 @@ class _ScheduleTab extends StatelessWidget {
           Text(
             label,
             textAlign: TextAlign.center,
-            style: (isSelected ? MTextStyles.labelB : MTextStyles.labelM)
-                .copyWith(
+            style: MTextStyles.labelM.copyWith(
               color: isSelected ? MColor.gray800 : MColor.gray300,
             ),
           ),
           SizedBox(height: 6.h),
           Container(
             height: 2.h,
-            width: 24.w,
+            width: double.infinity,
             decoration: BoxDecoration(
               color: isSelected ? MColor.primary500 : Colors.transparent,
               borderRadius: BorderRadius.circular(100.r),
