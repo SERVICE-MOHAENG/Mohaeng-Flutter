@@ -562,9 +562,9 @@ class _MainScreenState extends State<MainScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10.r),
-            child: Image.asset(imagePath, width: 58.w, height: 58.w),
+            child: Image.asset(imagePath, width: 75.w, height: 75.w),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 20.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -582,36 +582,28 @@ class _MainScreenState extends State<MainScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
                 ),
-                SizedBox(height: 8.h),
+                SizedBox(height: 16.h),
                 Row(
                   children: [
                     for (int i = 0; i < tags.length; i++) ...[
                       _buildBlogTag(tags[i]),
                       if (i != tags.length - 1) SizedBox(width: 6.w),
                     ],
+                    Spacer(),
+                    Icon(
+                      Icons.favorite_border,
+                      size: 14.w,
+                      color: MColor.gray300,
+                    ),
+                    SizedBox(width: 4.w),
+                    Text(
+                      likeCount.toString(),
+                      style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
+                    ),
                   ],
                 ),
               ],
             ),
-          ),
-          SizedBox(width: 10.w),
-          Column(
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.favorite_border,
-                    size: 14.w,
-                    color: MColor.gray300,
-                  ),
-                  SizedBox(width: 4.w),
-                  Text(
-                    likeCount.toString(),
-                    style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
-                  ),
-                ],
-              ),
-            ],
           ),
         ],
       ),
