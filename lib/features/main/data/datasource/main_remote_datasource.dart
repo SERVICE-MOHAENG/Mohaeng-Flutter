@@ -7,6 +7,7 @@ import 'package:mohaeng_app_service/core/network/query_params.dart';
 import 'package:mohaeng_app_service/features/auth/data/auth_token_storage.dart';
 import 'package:mohaeng_app_service/features/main/data/model/blog_models.dart';
 import 'package:mohaeng_app_service/features/main/data/model/course_models.dart';
+import 'package:mohaeng_app_service/features/main/data/model/user_models.dart';
 
 class MainRemoteDataSource {
   MainRemoteDataSource({
@@ -31,6 +32,8 @@ class MainRemoteDataSource {
 
   static const String _mainCoursesPath = '${ApiEndpoints.courses}/mainpage';
   static const String _mainBlogsPath = '${ApiEndpoints.blogs}/mainpage';
+  static const String _mainUserMePath =
+      '${ApiEndpoints.basePath}/users/mainpage/me';
 
   Future<CoursesResponse> getMainCourses({
     String? countryCode,
@@ -81,6 +84,16 @@ class MainRemoteDataSource {
 
     final payload = _unwrapPayload(response.data);
     return BlogsResponse.fromJson(payload);
+  }
+
+  Future<MainUserResponse> getMainUserMe({CancelToken? cancelToken}) async {
+    final response = await _apiClient.get<dynamic>(
+      _mainUserMePath,
+      cancelToken: cancelToken,
+    );
+
+    final payload = _unwrapPayload(response.data);
+    return MainUserResponse.fromJson(payload);
   }
 }
 
