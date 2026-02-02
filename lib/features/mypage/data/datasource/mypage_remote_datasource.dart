@@ -7,6 +7,7 @@ import 'package:mohaeng_app_service/core/network/query_params.dart';
 import 'package:mohaeng_app_service/features/auth/data/auth_token_storage.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/blog_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/course_models.dart';
+import 'package:mohaeng_app_service/features/mypage/data/model/visited_country_models.dart';
 
 class MyPageRemoteDataSource {
   MyPageRemoteDataSource({
@@ -35,6 +36,9 @@ class MyPageRemoteDataSource {
   static const String _myCourseLikesPath = '${ApiEndpoints.courses}/me/likes';
   static const String _myBlogsPath = '${ApiEndpoints.blogs}/me';
   static const String _myBlogLikesPath = '${ApiEndpoints.blogs}/me/likes';
+  static const String _myVisitedCountriesPath =
+      '${ApiEndpoints.visitedCountries}/me';
+  static const String _visitedCountriesPath = ApiEndpoints.visitedCountries;
 
   Future<CoursesResponse> getMyCourses({
     int page = 1,
@@ -134,6 +138,51 @@ class MyPageRemoteDataSource {
 
     final payload = _unwrapPayload(response.data);
     return BlogItemsResponse.fromJson(payload);
+  }
+
+  Future<VisitedCountryItemsResponse> getVisitedCountries({
+    int page = 1,
+    int limit = 10,
+    CancelToken? cancelToken,
+  }) async {
+    final queryParameters = removeNullQueryParams({
+      'page': _sanitizePage(page),
+      'limit': _sanitizeLimit(limit),
+    });
+
+    final response = await _apiClient.get<dynamic>(
+      _myVisitedCountriesPath,
+      queryParameters: queryParameters,
+      cancelToken: cancelToken,
+    );
+
+    final payload = _unwrapPayload(response.data);
+    return VisitedCountryItemsResponse.fromJson(payload);
+  }
+
+  Future<VisitedCountryResponse> addVisitedCountry({
+    required String countryId,
+    required String visitDate,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await _apiClient.post<dynamic>(
+      _visitedCountriesPath,
+      data: {'countryId': countryId, 'visitDate': visitDate},
+      cancelToken: cancelToken,
+    );
+
+    final payload = _unwrapPayload(response.data);
+    return VisitedCountryResponse.fromJson(payload);
+  }
+
+  Future<void> deleteVisitedCountry({
+    required String id,
+    CancelToken? cancelToken,
+  }) async {
+    await _apiClient.delete<dynamic>(
+      '$_visitedCountriesPath/$id',
+      cancelToken: cancelToken,
+    );
   }
 }
 
