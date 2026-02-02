@@ -5,6 +5,7 @@ import 'package:mohaeng_app_service/core/network/auth_interceptor.dart';
 import 'package:mohaeng_app_service/core/network/endpoints.dart';
 import 'package:mohaeng_app_service/core/network/query_params.dart';
 import 'package:mohaeng_app_service/features/auth/data/auth_token_storage.dart';
+import 'package:mohaeng_app_service/features/mypage/data/model/blog_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/course_models.dart';
 
 class MyPageRemoteDataSource {
@@ -32,6 +33,8 @@ class MyPageRemoteDataSource {
   static const String _myCourseBookmarksPath =
       '${ApiEndpoints.courses}/me/bookmarks';
   static const String _myCourseLikesPath = '${ApiEndpoints.courses}/me/likes';
+  static const String _myBlogsPath = '${ApiEndpoints.blogs}/me';
+  static const String _myBlogLikesPath = '${ApiEndpoints.blogs}/me/likes';
 
   Future<CoursesResponse> getMyCourses({
     int page = 1,
@@ -91,6 +94,46 @@ class MyPageRemoteDataSource {
 
     final payload = _unwrapPayload(response.data);
     return CourseItemsResponse.fromJson(payload);
+  }
+
+  Future<BlogsResponse> getMyBlogs({
+    int page = 1,
+    int limit = 6,
+    CancelToken? cancelToken,
+  }) async {
+    final queryParameters = removeNullQueryParams({
+      'page': _sanitizePage(page),
+      'limit': _sanitizeLimit(limit),
+    });
+
+    final response = await _apiClient.get<dynamic>(
+      _myBlogsPath,
+      queryParameters: queryParameters,
+      cancelToken: cancelToken,
+    );
+
+    final payload = _unwrapPayload(response.data);
+    return BlogsResponse.fromJson(payload);
+  }
+
+  Future<BlogItemsResponse> getMyBlogLikes({
+    int page = 1,
+    int limit = 6,
+    CancelToken? cancelToken,
+  }) async {
+    final queryParameters = removeNullQueryParams({
+      'page': _sanitizePage(page),
+      'limit': _sanitizeLimit(limit),
+    });
+
+    final response = await _apiClient.get<dynamic>(
+      _myBlogLikesPath,
+      queryParameters: queryParameters,
+      cancelToken: cancelToken,
+    );
+
+    final payload = _unwrapPayload(response.data);
+    return BlogItemsResponse.fromJson(payload);
   }
 }
 
