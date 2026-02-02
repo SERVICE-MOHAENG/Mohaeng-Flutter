@@ -1,0 +1,23 @@
+import 'package:mohaeng_app_service/features/main/data/datasource/main_remote_datasource.dart';
+import 'package:mohaeng_app_service/features/main/data/model/course_models.dart';
+import 'package:mohaeng_app_service/features/main/domain/repository/main_repository.dart';
+
+class MainRepositoryImpl implements MainRepository {
+  MainRepositoryImpl({MainRemoteDataSource? remoteDataSource})
+    : _remoteDataSource = remoteDataSource ?? MainRemoteDataSource();
+
+  final MainRemoteDataSource _remoteDataSource;
+
+  @override
+  Future<CoursesResponse> getMainCourses({
+    String? countryCode,
+    int page = 1,
+    int limit = 10,
+  }) {
+    return _remoteDataSource.getMainCourses(
+      countryCode: countryCode,
+      page: page,
+      limit: limit,
+    );
+  }
+}
