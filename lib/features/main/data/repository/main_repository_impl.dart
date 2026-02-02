@@ -1,4 +1,5 @@
 import 'package:mohaeng_app_service/features/main/data/datasource/main_remote_datasource.dart';
+import 'package:mohaeng_app_service/features/main/data/model/blog_models.dart';
 import 'package:mohaeng_app_service/features/main/data/model/course_models.dart';
 import 'package:mohaeng_app_service/features/main/domain/repository/main_repository.dart';
 
@@ -16,6 +17,19 @@ class MainRepositoryImpl implements MainRepository {
   }) {
     return _remoteDataSource.getMainCourses(
       countryCode: countryCode,
+      page: page,
+      limit: limit,
+    );
+  }
+
+  @override
+  Future<BlogsResponse> getMainBlogs({
+    String sortBy = 'latest',
+    int page = 1,
+    int limit = 6,
+  }) {
+    return _remoteDataSource.getMainBlogs(
+      sortBy: sortBy,
       page: page,
       limit: limit,
     );
