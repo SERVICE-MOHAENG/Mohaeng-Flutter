@@ -284,6 +284,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
             for (int i = 0; i < tabs.length; i++)
               Expanded(
                 child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () => setState(() => _scheduleTabIndex = i),
                   child: _ScheduleTab(
                     label: tabs[i],
