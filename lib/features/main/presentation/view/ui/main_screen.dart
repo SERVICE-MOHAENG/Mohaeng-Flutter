@@ -5,7 +5,15 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
+import 'package:mohaeng_app_service/core/network/api_error.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/features/main/data/model/blog_models.dart';
+import 'package:mohaeng_app_service/features/main/data/model/course_models.dart';
+import 'package:mohaeng_app_service/features/main/data/model/user_models.dart';
+import 'package:mohaeng_app_service/features/main/data/repository/main_repository_impl.dart';
+import 'package:mohaeng_app_service/features/main/domain/usecase/get_main_blogs.dart';
+import 'package:mohaeng_app_service/features/main/domain/usecase/get_main_courses.dart';
+import 'package:mohaeng_app_service/features/main/domain/usecase/get_main_user_me.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -16,8 +24,25 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   late final FlutterEarthGlobeController _globeController;
+  late final PageController _coursesPageController;
+  late final GetMainCoursesUsecase _getMainCoursesUsecase;
+  late final GetMainBlogsUsecase _getMainBlogsUsecase;
+  late final GetMainUserMeUsecase _getMainUserMeUsecase;
 
   int currentIndex = 0;
+  bool _isLoadingMainCourses = false;
+  String? _mainCoursesErrorMessage;
+  List<CourseResponse> _mainCourses = const [];
+  String _selectedCountryCode = 'JP';
+
+  bool _isLoadingMainBlogs = false;
+  String? _mainBlogsErrorMessage;
+  List<BlogResponse> _mainBlogs = const [];
+  String _blogSortBy = 'latest';
+
+  bool _isLoadingMainUser = false;
+  String? _mainUserErrorMessage;
+  MainUserResponse? _mainUser;
 
   @override
   void initState() {
@@ -38,12 +63,129 @@ class _MainScreenState extends State<MainScreen> {
       isDayNightCycleEnabled: false,
       dayNightBlendFactor: 0.15,
     );
+    _coursesPageController = PageController();
+    final repository = MainRepositoryImpl();
+    _getMainCoursesUsecase = GetMainCoursesUsecase(repository);
+    _getMainBlogsUsecase = GetMainBlogsUsecase(repository);
+    _getMainUserMeUsecase = GetMainUserMeUsecase(repository);
+    _loadMainCourses(countryCode: _selectedCountryCode);
+    _loadMainBlogs();
+    _loadMainUser();
   }
 
   @override
   void dispose() {
     _globeController.dispose();
+    _coursesPageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadMainCourses({String? countryCode}) async {
+    if (_isLoadingMainCourses) return;
+    final nextCountryCode = (countryCode ?? _selectedCountryCode).trim();
+    setState(() {
+      _isLoadingMainCourses = true;
+      _mainCoursesErrorMessage = null;
+      _selectedCountryCode = nextCountryCode;
+    });
+
+    try {
+      final response = await _getMainCoursesUsecase(
+        countryCode: nextCountryCode,
+        page: 1,
+        limit: 10,
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _mainCourses = response.courses;
+        currentIndex = 0;
+        _isLoadingMainCourses = false;
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_coursesPageController.hasClients) {
+          _coursesPageController.jumpToPage(0);
+        }
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingMainCourses = false;
+        _mainCoursesErrorMessage = switch (error) {
+          ApiError(:final message) => message,
+          _ => '코스를 불러오지 못했어요.',
+        };
+      });
+    }
+  }
+
+  Future<void> _loadMainBlogs({String? sortBy}) async {
+    if (_isLoadingMainBlogs) return;
+
+    final nextSortBy = sortBy == null
+        ? _blogSortBy
+        : (sortBy == 'popular' ? 'popular' : 'latest');
+
+    setState(() {
+      _isLoadingMainBlogs = true;
+      _mainBlogsErrorMessage = null;
+      _blogSortBy = nextSortBy;
+    });
+
+    try {
+      final response = await _getMainBlogsUsecase(
+        sortBy: nextSortBy,
+        page: 1,
+        limit: 6,
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _mainBlogs = response.blogs;
+        _isLoadingMainBlogs = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingMainBlogs = false;
+        _mainBlogsErrorMessage = switch (error) {
+          ApiError(:final message) => message,
+          _ => '블로그를 불러오지 못했어요.',
+        };
+      });
+    }
+  }
+
+  Future<void> _loadMainUser() async {
+    if (_isLoadingMainUser) return;
+    setState(() {
+      _isLoadingMainUser = true;
+      _mainUserErrorMessage = null;
+    });
+
+    try {
+      final user = await _getMainUserMeUsecase();
+      if (!mounted) return;
+
+      setState(() {
+        _mainUser = user;
+        _isLoadingMainUser = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingMainUser = false;
+        _mainUserErrorMessage = switch (error) {
+          ApiError(:final message) => message,
+          _ => '사용자 정보를 불러오지 못했어요.',
+        };
+      });
+    }
   }
 
   @override
@@ -201,6 +343,9 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildGreetingCard() {
+    final name = (_mainUser?.name ?? '여행자').trim();
+    final greeting = _isLoadingMainUser ? '안녕하세요...' : '안녕하세요 $name님,';
+
     return Container(
       padding: EdgeInsets.only(bottom: 28.h, left: 20.w, top: 20.h),
       decoration: BoxDecoration(color: MColor.gray50),
@@ -208,9 +353,16 @@ class _MainScreenState extends State<MainScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '안녕하세요 김모행님,',
+            greeting,
             style: MTextStyles.bodyM.copyWith(color: MColor.gray800),
           ),
+          if (_mainUserErrorMessage != null) ...[
+            SizedBox(height: 6.h),
+            Text(
+              _mainUserErrorMessage!,
+              style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
+            ),
+          ],
           Text.rich(
             TextSpan(
               style: MTextStyles.bodyM.copyWith(color: MColor.gray800),
@@ -338,6 +490,15 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildCourseSection() {
+    final courseContent = _buildMainCoursesContent();
+    final countries = const <({String label, String code})>[
+      (label: '일본', code: 'JP'),
+      (label: '미국', code: 'US'),
+      (label: '프랑스', code: 'FR'),
+      (label: '이집트', code: 'EG'),
+      (label: '독일', code: 'DE'),
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -363,17 +524,17 @@ class _MainScreenState extends State<MainScreen> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _buildFilterChip('전체', isSelected: true),
-                SizedBox(width: 8.w),
-                _buildFilterChip('힐링'),
-                SizedBox(width: 8.w),
-                _buildFilterChip('익스트림'),
-                SizedBox(width: 8.w),
-                _buildFilterChip('관광'),
-                SizedBox(width: 8.w),
-                _buildFilterChip('휴양'),
-                SizedBox(width: 8.w),
-                _buildFilterChip('맛집'),
+                for (int i = 0; i < countries.length; i++) ...[
+                  _buildFilterChip(
+                    countries[i].label,
+                    isSelected: _selectedCountryCode == countries[i].code,
+                    onTap: _isLoadingMainCourses
+                        ? null
+                        : () =>
+                              _loadMainCourses(countryCode: countries[i].code),
+                  ),
+                  if (i != countries.length - 1) SizedBox(width: 8.w),
+                ],
               ],
             ),
           ),
@@ -384,22 +545,7 @@ class _MainScreenState extends State<MainScreen> {
           decoration: BoxDecoration(color: MColor.gray50),
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: 22.h, horizontal: 20.w),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _buildCourseCard(),
-                SizedBox(height: 12.h),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(5, (i) {
-                    return Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4.w),
-                      child: _buildBar(isActive: i == currentIndex),
-                    );
-                  }),
-                ),
-              ],
-            ),
+            child: courseContent,
           ),
         ),
       ],
@@ -407,34 +553,148 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildBar({required bool isActive, double? width, double? height}) {
+    final barWidth = width ?? 24.w;
+    final barHeight = height ?? 2.h;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
-      width: 24.w,
-      height: 2.h,
+      width: barWidth,
+      height: barHeight,
       decoration: BoxDecoration(
         color: isActive ? MColor.gray500 : MColor.gray100,
       ),
     );
   }
 
-  Widget _buildFilterChip(String label, {bool isSelected = false}) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-      decoration: BoxDecoration(
-        color: isSelected ? MColor.primary500 : MColor.gray100,
-        borderRadius: BorderRadius.circular(100.r),
-      ),
-      child: Text(
-        label,
-        style: isSelected
-            ? MTextStyles.labelB.copyWith(color: MColor.white100)
-            : MTextStyles.labelM.copyWith(color: MColor.gray400),
+  Widget _buildFilterChip(
+    String label, {
+    bool isSelected = false,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+        decoration: BoxDecoration(
+          color: isSelected ? MColor.primary500 : MColor.gray100,
+          borderRadius: BorderRadius.circular(100.r),
+        ),
+        child: Text(
+          label,
+          style: isSelected
+              ? MTextStyles.labelB.copyWith(color: MColor.white100)
+              : MTextStyles.labelM.copyWith(color: MColor.gray400),
+        ),
       ),
     );
   }
 
-  Widget _buildCourseCard() {
+  Widget _buildMainCoursesContent() {
+    if (_isLoadingMainCourses) {
+      return SizedBox(
+        height: 120.h,
+        child: Center(
+          child: SizedBox(
+            width: 20.w,
+            height: 20.w,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.w,
+              color: MColor.primary500,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final errorMessage = _mainCoursesErrorMessage;
+    if (errorMessage != null) {
+      return SizedBox(
+        height: 120.h,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                errorMessage,
+                style: MTextStyles.labelM.copyWith(color: MColor.gray500),
+              ),
+              SizedBox(height: 10.h),
+              GestureDetector(
+                onTap: () =>
+                    _loadMainCourses(countryCode: _selectedCountryCode),
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 16.w,
+                    vertical: 8.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: MColor.primary500,
+                    borderRadius: BorderRadius.circular(100.r),
+                  ),
+                  child: Text(
+                    '다시 시도',
+                    style: MTextStyles.labelB.copyWith(color: MColor.white100),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_mainCourses.isEmpty) {
+      return SizedBox(
+        height: 120.h,
+        child: Center(
+          child: Text(
+            '아직 표시할 코스가 없어요.',
+            style: MTextStyles.labelM.copyWith(color: MColor.gray500),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          height: 120.h,
+          child: PageView.builder(
+            controller: _coursesPageController,
+            itemCount: _mainCourses.length,
+            onPageChanged: (i) => setState(() => currentIndex = i),
+            itemBuilder: (context, index) {
+              return _buildCourseCard(course: _mainCourses[index]);
+            },
+          ),
+        ),
+        SizedBox(height: 12.h),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(_mainCourses.length, (i) {
+            return Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4.w),
+              child: _buildBar(isActive: i == currentIndex),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCourseCard({required CourseResponse course}) {
+    final title = (course.title ?? '여행 코스').trim();
+    final daysText = course.days == null ? '일정' : '${course.days}일 일정';
+    final tags = course.tags
+        .where((e) => e.trim().isNotEmpty)
+        .take(2)
+        .map((e) => e.startsWith('#') ? e : '#$e')
+        .toList(growable: false);
+
+    final thumbnail = _buildCourseThumbnail(course.thumbnailUrl);
+
     return Container(
       padding: EdgeInsets.all(14.r),
       decoration: BoxDecoration(
@@ -448,7 +708,7 @@ class _MainScreenState extends State<MainScreen> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12.r),
-                child: Image.asset(MImages.sibuya, width: 75.w, height: 75.h),
+                child: thumbnail,
               ),
               SizedBox(width: 12.w),
               Expanded(
@@ -456,20 +716,27 @@ class _MainScreenState extends State<MainScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '시부야 밤거리',
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: MTextStyles.labelB.copyWith(color: MColor.gray800),
                     ),
                     SizedBox(height: 8.h),
                     Text(
-                      '1일 일정',
+                      daysText,
                       style: MTextStyles.labelM.copyWith(color: MColor.gray500),
                     ),
                     SizedBox(height: 24.h),
                     Row(
                       children: [
-                        _buildTag('#힐링코스'),
-                        SizedBox(width: 8.w),
-                        _buildTag('#친구'),
+                        if (tags.isNotEmpty) ...[
+                          for (int i = 0; i < tags.length; i++) ...[
+                            _buildTag(tags[i]),
+                            if (i != tags.length - 1) SizedBox(width: 8.w),
+                          ],
+                        ] else ...[
+                          _buildTag('#여행코스'),
+                        ],
                         Spacer(),
                         Container(
                           padding: EdgeInsets.symmetric(
@@ -499,7 +766,32 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  Widget _buildCourseThumbnail(String? thumbnailUrl) {
+    final uri = thumbnailUrl == null ? null : Uri.tryParse(thumbnailUrl);
+    final isNetwork = uri != null && uri.hasScheme;
+
+    if (isNetwork) {
+      final url = thumbnailUrl!;
+      return Image.network(
+        url,
+        width: 75.w,
+        height: 75.h,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Image.asset(
+          MImages.sibuya,
+          width: 75.w,
+          height: 75.h,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
+    return Image.asset(MImages.sibuya, width: 75.w, height: 75.h);
+  }
+
   Widget _buildBlogSection() {
+    final blogContent = _buildMainBlogsContent();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -515,36 +807,116 @@ class _MainScreenState extends State<MainScreen> {
         SizedBox(height: 16.h),
         Row(
           children: [
-            _buildBlogFilterChip('최신순', isSelected: true),
+            _buildBlogFilterChip(
+              '최신순',
+              isSelected: _blogSortBy == 'latest',
+              onTap: () => _loadMainBlogs(sortBy: 'latest'),
+            ),
             SizedBox(width: 8.w),
-            _buildBlogFilterChip('인기순'),
+            _buildBlogFilterChip(
+              '인기순',
+              isSelected: _blogSortBy == 'popular',
+              onTap: () => _loadMainBlogs(sortBy: 'popular'),
+            ),
           ],
         ),
         SizedBox(height: 16.h),
-        _buildBlogItem(
-          title: '시부야 깨끗한 첫 착용',
-          description: '오늘은 친구들과 같이 시부야에서 밥기를 하러 가는 날이다. 친구와 머리합에 같이 ...',
-          tags: const ['#당일치기', '#친구'],
-          likeCount: 1002,
-          imagePath: 'assets/images/country/sibuya.png',
-        ),
-        SizedBox(height: 12.h),
-        _buildBlogItem(
-          title: '시부야 깨끗한 첫 착용',
-          description: '오늘은 친구들과 같이 시부야에서 밥기를 하러 가는 날이다. 친구와 머리합에 같이 ...',
-          tags: const ['#당일치기', '#친구'],
-          likeCount: 1002,
-          imagePath: 'assets/images/country/sibuya.png',
-        ),
-        SizedBox(height: 12.h),
-        _buildBlogItem(
-          title: '시부야 깨끗한 첫 착용',
-          description: '오늘은 친구들과 같이 시부야에서 밥기를 하러 가는 날이다. 친구와 머리합에 같이 ...',
-          tags: const ['#당일치기', '#친구'],
-          likeCount: 1002,
-          imagePath: 'assets/images/country/sibuya.png',
-        ),
+        blogContent,
       ],
+    );
+  }
+
+  Widget _buildMainBlogsContent() {
+    if (_isLoadingMainBlogs) {
+      return SizedBox(
+        height: 120.h,
+        child: Center(
+          child: SizedBox(
+            width: 20.w,
+            height: 20.w,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.w,
+              color: MColor.primary500,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final errorMessage = _mainBlogsErrorMessage;
+    if (errorMessage != null) {
+      return SizedBox(
+        height: 120.h,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                errorMessage,
+                style: MTextStyles.labelM.copyWith(color: MColor.gray500),
+              ),
+              SizedBox(height: 10.h),
+              GestureDetector(
+                onTap: _loadMainBlogs,
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 16.w,
+                    vertical: 8.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: MColor.primary500,
+                    borderRadius: BorderRadius.circular(100.r),
+                  ),
+                  child: Text(
+                    '다시 시도',
+                    style: MTextStyles.labelB.copyWith(color: MColor.white100),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_mainBlogs.isEmpty) {
+      return SizedBox(
+        height: 120.h,
+        child: Center(
+          child: Text(
+            '아직 표시할 블로그가 없어요.',
+            style: MTextStyles.labelM.copyWith(color: MColor.gray500),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (int i = 0; i < _mainBlogs.length; i++) ...[
+          _buildBlogListItem(blog: _mainBlogs[i]),
+          if (i != _mainBlogs.length - 1) SizedBox(height: 12.h),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildBlogListItem({required BlogResponse blog}) {
+    final title = (blog.title ?? '여행 블로그').trim();
+    final description = (blog.description ?? '').trim();
+    final tags = blog.tags
+        .where((e) => e.trim().isNotEmpty)
+        .take(2)
+        .map((e) => e.startsWith('#') ? e : '#$e')
+        .toList(growable: false);
+    final likeCountText = (blog.likeCount ?? 0).toString();
+
+    return _buildBlogItem(
+      title: title,
+      description: description.isEmpty ? '내용이 없어요.' : description,
+      tags: tags.isEmpty ? const ['#여행후기'] : tags,
+      likeCountText: likeCountText,
+      thumbnailUrl: blog.thumbnailUrl,
     );
   }
 
@@ -552,8 +924,8 @@ class _MainScreenState extends State<MainScreen> {
     required String title,
     required String description,
     required List<String> tags,
-    required int likeCount,
-    required String imagePath,
+    required String likeCountText,
+    String? thumbnailUrl,
   }) {
     return Container(
       padding: EdgeInsets.symmetric(vertical: 6.h),
@@ -562,7 +934,7 @@ class _MainScreenState extends State<MainScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10.r),
-            child: Image.asset(imagePath, width: 75.w, height: 75.w),
+            child: _buildBlogThumbnail(thumbnailUrl),
           ),
           SizedBox(width: 20.w),
           Expanded(
@@ -597,8 +969,10 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                     SizedBox(width: 4.w),
                     Text(
-                      likeCount.toString(),
-                      style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
+                      likeCountText,
+                      style: MTextStyles.sLabelM.copyWith(
+                        color: MColor.gray400,
+                      ),
                     ),
                   ],
                 ),
@@ -610,18 +984,53 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildBlogFilterChip(String label, {bool isSelected = false}) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 29.w, vertical: 12.h),
-      decoration: BoxDecoration(
-        color: isSelected ? MColor.primary500 : MColor.gray100,
-        borderRadius: BorderRadius.circular(100.r),
-      ),
-      child: Text(
-        label,
-        style: isSelected
-            ? MTextStyles.labelB.copyWith(color: MColor.white100)
-            : MTextStyles.labelM.copyWith(color: MColor.gray400),
+  Widget _buildBlogThumbnail(String? thumbnailUrl) {
+    final uri = thumbnailUrl == null ? null : Uri.tryParse(thumbnailUrl);
+    final isNetwork = uri != null && uri.hasScheme;
+
+    if (isNetwork) {
+      final url = thumbnailUrl!;
+      return Image.network(
+        url,
+        width: 75.w,
+        height: 75.w,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Image.asset(
+          'assets/images/country/sibuya.png',
+          width: 75.w,
+          height: 75.w,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
+    return Image.asset(
+      'assets/images/country/sibuya.png',
+      width: 75.w,
+      height: 75.w,
+      fit: BoxFit.cover,
+    );
+  }
+
+  Widget _buildBlogFilterChip(
+    String label, {
+    bool isSelected = false,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 29.w, vertical: 12.h),
+        decoration: BoxDecoration(
+          color: isSelected ? MColor.primary500 : MColor.gray100,
+          borderRadius: BorderRadius.circular(100.r),
+        ),
+        child: Text(
+          label,
+          style: isSelected
+              ? MTextStyles.labelB.copyWith(color: MColor.white100)
+              : MTextStyles.labelM.copyWith(color: MColor.gray400),
+        ),
       ),
     );
   }
@@ -643,7 +1052,9 @@ class _MainScreenState extends State<MainScreen> {
 
   Widget _buildTag(String text, {bool dense = false}) {
     return Container(
-      padding: EdgeInsets.all(4.w.h),
+      padding: dense
+          ? EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h)
+          : EdgeInsets.all(4.w.h),
       decoration: BoxDecoration(
         color: MColor.white100,
         borderRadius: BorderRadius.circular(100.r),
