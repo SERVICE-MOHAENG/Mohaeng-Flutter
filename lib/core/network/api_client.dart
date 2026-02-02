@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:mohaeng_app_service/core/network/api_error.dart';
+import 'package:mohaeng_app_service/core/network/dio_logger.dart';
 import 'package:mohaeng_app_service/core/network/query_params.dart';
 
 final class ApiClient {
@@ -7,6 +8,7 @@ final class ApiClient {
     required String baseUrl,
     Dio? dio,
     List<Interceptor> interceptors = const [],
+    bool addLoggerInterceptor = true,
     Duration connectTimeout = const Duration(seconds: 10),
     Duration receiveTimeout = const Duration(seconds: 10),
   }) : _dio =
@@ -22,6 +24,13 @@ final class ApiClient {
              ),
            ) {
     _dio.interceptors.addAll(interceptors);
+
+    if (addLoggerInterceptor &&
+        !_dio.interceptors.any(
+          (interceptor) => interceptor is DioLoggerInterceptor,
+        )) {
+      _dio.interceptors.add(DioLoggerInterceptor());
+    }
   }
 
   final Dio _dio;
