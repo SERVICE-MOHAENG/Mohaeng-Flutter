@@ -66,7 +66,7 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(
       context,
-      isValid ? AppRoutes.main : AppRoutes.login,
+      isValid ? AppRoutes.root : AppRoutes.login,
       (_) => false,
     );
   }

@@ -3,10 +3,140 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
+import 'package:mohaeng_app_service/core/network/api_error.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/features/main/data/model/user_models.dart';
+import 'package:mohaeng_app_service/features/main/data/repository/main_repository_impl.dart';
+import 'package:mohaeng_app_service/features/main/domain/usecase/get_main_user_me.dart';
+import 'package:mohaeng_app_service/features/mypage/data/model/blog_models.dart';
+import 'package:mohaeng_app_service/features/mypage/data/model/course_models.dart';
+import 'package:mohaeng_app_service/features/mypage/data/model/visited_country_models.dart';
+import 'package:mohaeng_app_service/features/mypage/data/repository/mypage_repository_impl.dart';
+import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_blogs.dart';
+import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_course_bookmarks.dart';
+import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_courses.dart';
+import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_visited_countries.dart';
 
-class MyPageScreen extends StatelessWidget {
+class MyPageScreen extends StatefulWidget {
   const MyPageScreen({super.key});
+
+  @override
+  State<MyPageScreen> createState() => _MyPageScreenState();
+}
+
+class _MyPageScreenState extends State<MyPageScreen> {
+  late final GetMainUserMeUsecase _getMainUserMeUsecase;
+  late final GetMyCoursesUsecase _getMyCoursesUsecase;
+  late final GetMyCourseBookmarksUsecase _getMyCourseBookmarksUsecase;
+  late final GetMyBlogsUsecase _getMyBlogsUsecase;
+  late final GetVisitedCountriesUsecase _getVisitedCountriesUsecase;
+
+  int _scheduleTabIndex = 0;
+
+  bool _isLoadingUser = false;
+  String? _userErrorMessage;
+  MainUserResponse? _user;
+
+  bool _isLoading = false;
+  String? _loadErrorMessage;
+
+  CoursesResponse? _myCourses;
+  CourseItemsResponse? _myCourseBookmarks;
+
+  BlogsResponse? _myBlogs;
+
+  VisitedCountryItemsResponse? _visitedCountries;
+
+  @override
+  void initState() {
+    super.initState();
+    final repository = MyPageRepositoryImpl();
+    _getMainUserMeUsecase = GetMainUserMeUsecase(MainRepositoryImpl());
+    _getMyCoursesUsecase = GetMyCoursesUsecase(repository);
+    _getMyCourseBookmarksUsecase = GetMyCourseBookmarksUsecase(repository);
+    _getMyBlogsUsecase = GetMyBlogsUsecase(repository);
+    _getVisitedCountriesUsecase = GetVisitedCountriesUsecase(repository);
+
+    _loadUser();
+    _refreshAll();
+  }
+
+  Future<void> _refreshAll() async {
+    if (_isLoading) return;
+    setState(() {
+      _isLoading = true;
+      _loadErrorMessage = null;
+    });
+
+    final errors = <String>[];
+    CoursesResponse? myCourses;
+    CourseItemsResponse? myCourseBookmarks;
+    BlogsResponse? myBlogs;
+    VisitedCountryItemsResponse? visitedCountries;
+
+    try {
+      myCourses = await _getMyCoursesUsecase(page: 1, limit: 20);
+    } catch (error) {
+      errors.add(_errorMessage(error, fallback: '내 여행 일정(코스)을 불러오지 못했어요.'));
+    }
+
+    try {
+      myCourseBookmarks = await _getMyCourseBookmarksUsecase(
+        page: 1,
+        limit: 20,
+      );
+    } catch (error) {
+      errors.add(_errorMessage(error, fallback: '북마크한 코스를 불러오지 못했어요.'));
+    }
+
+    try {
+      myBlogs = await _getMyBlogsUsecase(page: 1, limit: 6);
+    } catch (error) {
+      errors.add(_errorMessage(error, fallback: '작성한 여행 기록(블로그)을 불러오지 못했어요.'));
+    }
+
+    try {
+      visitedCountries = await _getVisitedCountriesUsecase(page: 1, limit: 10);
+    } catch (error) {
+      errors.add(_errorMessage(error, fallback: '방문한 국가를 불러오지 못했어요.'));
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _myCourses = myCourses;
+      _myCourseBookmarks = myCourseBookmarks;
+      _myBlogs = myBlogs;
+      _visitedCountries = visitedCountries;
+      _isLoading = false;
+      _loadErrorMessage = errors.isEmpty ? null : errors.first;
+    });
+  }
+
+  Future<void> _loadUser() async {
+    if (_isLoadingUser) return;
+    setState(() {
+      _isLoadingUser = true;
+      _userErrorMessage = null;
+    });
+
+    try {
+      final user = await _getMainUserMeUsecase();
+      if (!mounted) return;
+      setState(() {
+        _user = user;
+        _isLoadingUser = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingUser = false;
+        _userErrorMessage = switch (error) {
+          ApiError(:final message) => message,
+          _ => '사용자 정보를 불러오지 못했어요.',
+        };
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,84 +152,122 @@ class MyPageScreen extends StatelessWidget {
         backgroundColor: MColor.gray50,
         surfaceTintColor: MColor.white100,
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.zero,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: 8.h),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.w),
-              child: _buildProfileHeader(),
-            ),
-            SizedBox(height: 12.h),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.w),
-              child: _buildStatsCard(),
-            ),
-            SizedBox(height: 20.h),
-            _buildScheduleSection(),
-            SizedBox(height: 18.h),
-            _buildSettingsSection(),
-          ],
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await Future.wait([_loadUser(), _refreshAll()]);
+        },
+        child: SingleChildScrollView(
+          padding: EdgeInsets.zero,
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(height: 8.h),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20.w),
+                child: _buildProfileHeader(),
+              ),
+              SizedBox(height: 12.h),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20.w),
+                child: _buildStatsCard(),
+              ),
+              SizedBox(height: 23.h),
+              _buildScheduleSection(),
+              SizedBox(height: 18.h),
+              _buildSettingsSection(),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildProfileHeader() {
+    final name = _user?.name?.trim();
+    final email = _user?.email?.trim();
+    final imageUrl = _user?.profileImage?.trim();
+    final showName = (name == null || name.isEmpty) ? null : name;
+    final showEmail = (email == null || email.isEmpty) ? null : email;
+    final showImageUrl = (imageUrl == null || imageUrl.isEmpty)
+        ? null
+        : imageUrl;
+
     return Row(
       children: [
-        CircleAvatar(
-          radius: 26.r,
-          backgroundColor: MColor.gray100,
-          child: Icon(Icons.person, size: 26.w, color: MColor.gray300),
-        ),
+        _buildProfileAvatar(showImageUrl),
         SizedBox(width: 12.w),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '손희찬님',
+              _isLoadingUser ? '불러오는 중…' : (showName ?? '사용자'),
               style: MTextStyles.lBodyM.copyWith(color: MColor.black100),
             ),
             SizedBox(height: 4.h),
             Text(
-              'hxxchxx@dsm.hs.kr',
+              _isLoadingUser ? '' : (showEmail ?? ''),
               style: MTextStyles.labelM.copyWith(color: MColor.gray400),
             ),
+            if (!_isLoadingUser && _userErrorMessage != null)
+              Padding(
+                padding: EdgeInsets.only(top: 4.h),
+                child: Text(
+                  _userErrorMessage!,
+                  style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
+                ),
+              ),
           ],
         ),
       ],
     );
   }
 
+  Widget _buildProfileAvatar(String? imageUrl) {
+    final uri = imageUrl == null ? null : Uri.tryParse(imageUrl);
+    final isNetwork = uri != null && uri.hasScheme;
+
+    if (isNetwork) {
+      return CircleAvatar(
+        radius: 26.r,
+        backgroundColor: MColor.gray100,
+        backgroundImage: NetworkImage(imageUrl!),
+        onBackgroundImageError: (exception, stackTrace) {},
+        child: const SizedBox.shrink(),
+      );
+    }
+
+    return CircleAvatar(
+      radius: 26.r,
+      backgroundColor: MColor.gray100,
+      child: Icon(Icons.person, size: 26.w, color: MColor.gray300),
+    );
+  }
+
   Widget _buildStatsCard() {
+    final visitedCount = _visitedCountries?.total.toString() ?? '-';
+    final blogCount = _myBlogs?.total.toString() ?? '-';
+    final bookmarkCount = _myCourseBookmarks?.total.toString() ?? '-';
+
     return Container(
       padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 12.w),
       decoration: BoxDecoration(
         color: MColor.white100,
         borderRadius: BorderRadius.circular(14.r),
-        boxShadow: [
-          BoxShadow(
-            color: MColor.black100.withOpacity(0.05),
-            blurRadius: 12.r,
-            offset: Offset(0, 6.h),
-          ),
-        ],
       ),
       child: Row(
-        children: const [
-          _StatItem(title: '총 이용 횟수', value: '8'),
-          _StatItem(title: '방문한 국가', value: '16', isEmphasized: true),
-          _StatItem(title: '작성한 여행 기록', value: '8'),
-          _StatItem(title: '찜한 여행지', value: '12'),
+        children: [
+          const _StatItem(title: '총 이용 횟수', value: '-'),
+          _StatItem(title: '방문한 국가', value: visitedCount, isEmphasized: true),
+          _StatItem(title: '작성한 여행 기록', value: blogCount),
+          _StatItem(title: '찜한 여행지', value: bookmarkCount),
         ],
       ),
     );
   }
 
   Widget _buildScheduleSection() {
+    final tabs = const ['내 여행 일정', '여행 기록', '북마크'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -112,10 +280,18 @@ class MyPageScreen extends StatelessWidget {
         ),
         SizedBox(height: 10.h),
         Row(
-          children: const [
-            _ScheduleTab(label: '내 여행 일정', isSelected: true),
-            _ScheduleTab(label: '여행 기록'),
-            _ScheduleTab(label: '북마크'),
+          children: [
+            for (int i = 0; i < tabs.length; i++)
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() => _scheduleTabIndex = i),
+                  child: _ScheduleTab(
+                    label: tabs[i],
+                    isSelected: _scheduleTabIndex == i,
+                  ),
+                ),
+              ),
           ],
         ),
         SizedBox(height: 12.h),
@@ -123,25 +299,175 @@ class MyPageScreen extends StatelessWidget {
           color: MColor.white100,
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _buildTripCard(),
-                SizedBox(height: 10.h),
-                _buildTripCard(),
-                SizedBox(height: 10.h),
-                _buildTripCard(),
-                SizedBox(height: 10.h),
-                _buildIndicatorRow(),
-              ],
-            ),
+            child: _buildScheduleTabContent(),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildTripCard() {
+  Widget _buildScheduleTabContent() {
+    final message = _loadErrorMessage;
+
+    bool isMissingSelectedTabData() {
+      return switch (_scheduleTabIndex) {
+        0 => _myCourses == null,
+        1 => _myBlogs == null,
+        _ => _myCourseBookmarks == null,
+      };
+    }
+
+    if (_isLoading && isMissingSelectedTabData()) {
+      return SizedBox(
+        height: 180.h,
+        child: Center(
+          child: SizedBox(
+            width: 20.w,
+            height: 20.w,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.w,
+              color: MColor.primary500,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (!_isLoading && message != null && isMissingSelectedTabData()) {
+      return SizedBox(
+        height: 180.h,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                message,
+                style: MTextStyles.labelM.copyWith(color: MColor.gray400),
+              ),
+              SizedBox(height: 10.h),
+              GestureDetector(
+                onTap: _refreshAll,
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 16.w,
+                    vertical: 8.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: MColor.primary500,
+                    borderRadius: BorderRadius.circular(100.r),
+                  ),
+                  child: Text(
+                    '다시 시도',
+                    style: MTextStyles.labelB.copyWith(color: MColor.white100),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return switch (_scheduleTabIndex) {
+      0 => _buildCourseCards(
+        courses: _myCourses?.courses ?? const <CourseResponse>[],
+        emptyText: '내 여행 일정(코스)이 없어요.',
+      ),
+      1 => _buildBlogCards(
+        blogs: _myBlogs?.blogs ?? const <BlogResponse>[],
+        emptyText: '작성한 여행 기록(블로그)이 없어요.',
+      ),
+      2 => _buildCourseCards(
+        courses: _myCourseBookmarks?.items ?? const <CourseResponse>[],
+        emptyText: '북마크한 코스가 없어요.',
+      ),
+      _ => SizedBox(
+        height: 60.h,
+        child: Center(
+          child: Text(
+            '표시할 데이터가 없어요.',
+            style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
+          ),
+        ),
+      ),
+    };
+  }
+
+  Widget _buildCourseCards({
+    required List<CourseResponse> courses,
+    required String emptyText,
+    bool showTitle = true,
+  }) {
+    if (courses.isEmpty) {
+      return SizedBox(
+        height: 60.h,
+        child: Center(
+          child: Text(
+            emptyText,
+            style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
+          ),
+        ),
+      );
+    }
+
+    final display = courses.take(3).toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        for (int i = 0; i < display.length; i++) ...[
+          _buildTripCard(course: display[i]),
+          if (i != display.length - 1) SizedBox(height: 10.h),
+        ],
+        if (showTitle) ...[
+          SizedBox(height: 10.h),
+          _buildIndicatorRow(count: display.length),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildBlogCards({
+    required List<BlogResponse> blogs,
+    required String emptyText,
+    bool showTitle = true,
+  }) {
+    if (blogs.isEmpty) {
+      return SizedBox(
+        height: 60.h,
+        child: Center(
+          child: Text(
+            emptyText,
+            style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
+          ),
+        ),
+      );
+    }
+
+    final display = blogs.take(3).toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        for (int i = 0; i < display.length; i++) ...[
+          _buildBlogCard(blog: display[i]),
+          if (i != display.length - 1) SizedBox(height: 10.h),
+        ],
+        if (showTitle) ...[
+          SizedBox(height: 10.h),
+          _buildIndicatorRow(count: display.length),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTripCard({required CourseResponse course}) {
+    final title = (course.title ?? '여행 코스').trim();
+    final daysText = course.days == null ? '일정' : '${course.days}일 일정';
+    final tags = course.tags
+        .where((e) => e.trim().isNotEmpty)
+        .take(2)
+        .map((e) => e.startsWith('#') ? e : '#$e')
+        .toList(growable: false);
+
     return Container(
       padding: EdgeInsets.all(12.r),
       decoration: BoxDecoration(
@@ -152,7 +478,7 @@ class MyPageScreen extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10.r),
-            child: Image.asset(MImages.sibuya, width: 58.w, height: 58.w),
+            child: _buildCourseThumbnail(course.thumbnailUrl),
           ),
           SizedBox(width: 10.w),
           Expanded(
@@ -160,20 +486,27 @@ class MyPageScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '시부야 밤거리',
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: MTextStyles.labelB.copyWith(color: MColor.gray800),
                 ),
                 SizedBox(height: 4.h),
                 Text(
-                  '1일 일정',
+                  daysText,
                   style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
                 ),
                 SizedBox(height: 10.h),
                 Row(
                   children: [
-                    _buildTag('#당일치기'),
-                    SizedBox(width: 6.w),
-                    _buildTag('#친구'),
+                    if (tags.isNotEmpty) ...[
+                      for (int i = 0; i < tags.length; i++) ...[
+                        _buildTag(tags[i]),
+                        if (i != tags.length - 1) SizedBox(width: 6.w),
+                      ],
+                    ] else ...[
+                      _buildTag('#여행코스'),
+                    ],
                     Spacer(),
                     _buildPrimaryButton('바로가기'),
                   ],
@@ -186,17 +519,143 @@ class MyPageScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildIndicatorRow() {
+  Widget _buildCourseThumbnail(String? thumbnailUrl) {
+    final uri = thumbnailUrl == null ? null : Uri.tryParse(thumbnailUrl);
+    final isNetwork = uri != null && uri.hasScheme;
+
+    if (isNetwork) {
+      final url = thumbnailUrl!;
+      return Image.network(
+        url,
+        width: 58.w,
+        height: 58.w,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Image.asset(
+          MImages.sibuya,
+          width: 58.w,
+          height: 58.w,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
+    return Image.asset(MImages.sibuya, width: 58.w, height: 58.w);
+  }
+
+  Widget _buildBlogCard({required BlogResponse blog}) {
+    final title = (blog.title ?? '여행 기록').trim();
+    final description = (blog.description ?? '').trim();
+    final tags = blog.tags
+        .where((e) => e.trim().isNotEmpty)
+        .take(2)
+        .map((e) => e.startsWith('#') ? e : '#$e')
+        .toList(growable: false);
+
+    return Container(
+      padding: EdgeInsets.all(12.r),
+      decoration: BoxDecoration(
+        color: MColor.gray50,
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10.r),
+            child: _buildBlogThumbnail(blog.thumbnailUrl),
+          ),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: MTextStyles.labelB.copyWith(color: MColor.gray800),
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  description.isEmpty ? '내용이 없어요.' : description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
+                ),
+                SizedBox(height: 10.h),
+                Row(
+                  children: [
+                    if (tags.isNotEmpty) ...[
+                      for (int i = 0; i < tags.length; i++) ...[
+                        _buildTag(tags[i]),
+                        if (i != tags.length - 1) SizedBox(width: 6.w),
+                      ],
+                    ] else ...[
+                      _buildTag('#여행후기'),
+                    ],
+                    const Spacer(),
+                    Icon(
+                      Icons.favorite_border,
+                      size: 14.w,
+                      color: MColor.gray300,
+                    ),
+                    SizedBox(width: 4.w),
+                    Text(
+                      (blog.likeCount ?? 0).toString(),
+                      style: MTextStyles.sLabelM.copyWith(
+                        color: MColor.gray400,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBlogThumbnail(String? thumbnailUrl) {
+    final uri = thumbnailUrl == null ? null : Uri.tryParse(thumbnailUrl);
+    final isNetwork = uri != null && uri.hasScheme;
+
+    if (isNetwork) {
+      final url = thumbnailUrl!;
+      return Image.network(
+        url,
+        width: 58.w,
+        height: 58.w,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Image.asset(
+          MImages.sibuya,
+          width: 58.w,
+          height: 58.w,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
+    return Image.asset(MImages.sibuya, width: 58.w, height: 58.w);
+  }
+
+  Widget _buildIndicatorRow({int count = 3}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _buildIndicatorDot(isActive: true),
-        SizedBox(width: 6.w),
-        _buildIndicatorDot(),
-        SizedBox(width: 6.w),
-        _buildIndicatorDot(),
+        for (int i = 0; i < count; i++) ...[
+          _buildIndicatorDot(isActive: i == 0),
+          if (i != count - 1) SizedBox(width: 6.w),
+        ],
       ],
     );
+  }
+
+  String _errorMessage(Object error, {required String fallback}) {
+    return switch (error) {
+      ApiError(:final message) => message,
+      _ => fallback,
+    };
   }
 
   Widget _buildIndicatorDot({bool isActive = false}) {
@@ -246,16 +705,17 @@ class MyPageScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding:  EdgeInsets.symmetric(horizontal: 20.w),
-            child: Text('설정', style: MTextStyles.lBodyM.copyWith(color: MColor.black100)),
+            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            child: Text(
+              '설정',
+              style: MTextStyles.lBodyM.copyWith(color: MColor.black100),
+            ),
           ),
           SizedBox(height: 10.h),
           Container(
             width: 1.sw,
             padding: EdgeInsets.symmetric(horizontal: 20.w),
-            decoration: BoxDecoration(
-              color: MColor.white100,
-            ),
+            decoration: BoxDecoration(color: MColor.white100),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -323,27 +783,25 @@ class _ScheduleTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: MTextStyles.labelM.copyWith(
-              color: isSelected ? MColor.gray800 : MColor.gray300,
-            ),
+    return Column(
+      children: [
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: MTextStyles.labelM.copyWith(
+            color: isSelected ? MColor.gray800 : MColor.gray300,
           ),
-          SizedBox(height: 6.h),
-          Container(
-            height: 2.h,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: isSelected ? MColor.primary500 : Colors.transparent,
-              borderRadius: BorderRadius.circular(100.r),
-            ),
+        ),
+        SizedBox(height: 6.h),
+        Container(
+          height: 2.h,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: isSelected ? MColor.primary500 : Colors.transparent,
+            borderRadius: BorderRadius.circular(100.r),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
