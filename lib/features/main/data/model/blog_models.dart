@@ -1,34 +1,50 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:mohaeng_app_service/features/main/data/model/pagination_models.dart';
 
-class BlogsResponse {
-  const BlogsResponse({required this.blogs, required this.meta});
+part 'blog_models.g.dart';
 
+@JsonSerializable(explicitToJson: true)
+class BlogsResponse {
+  const BlogsResponse({
+    required this.blogs,
+    required this.page,
+    required this.limit,
+    required this.total,
+    required this.totalPages,
+  });
+
+  @JsonKey(fromJson: _readBlogsList, toJson: _writeBlogsList)
   final List<BlogResponse> blogs;
-  final PaginationMeta meta;
+
+  @JsonKey(fromJson: _readPageInt, toJson: _writeInt)
+  final int page;
+
+  @JsonKey(fromJson: _readLimitInt, toJson: _writeInt)
+  final int limit;
+
+  @JsonKey(fromJson: _readTotalInt, toJson: _writeInt)
+  final int total;
+
+  @JsonKey(fromJson: _readTotalPagesInt, toJson: _writeInt)
+  final int totalPages;
+
+  PaginationMeta get meta => PaginationMeta(
+    page: page,
+    limit: limit,
+    total: total,
+    totalPages: totalPages,
+  );
 
   factory BlogsResponse.fromJson(Map<String, dynamic> json) {
     final nested = json['data'];
     final payload = nested is Map<String, dynamic> ? nested : json;
-
-    final blogsRaw = payload['blogs'];
-    final blogsList = blogsRaw is List
-        ? blogsRaw
-              .whereType<Map<String, dynamic>>()
-              .map(BlogResponse.fromJson)
-              .toList()
-        : const <BlogResponse>[];
-
-    return BlogsResponse(
-      blogs: blogsList,
-      meta: PaginationMeta.fromJson(payload),
-    );
+    return _$BlogsResponseFromJson(payload);
   }
 
-  Map<String, dynamic> toJson() {
-    return {'blogs': blogs.map((e) => e.toJson()).toList(), ...meta.toJson()};
-  }
+  Map<String, dynamic> toJson() => _$BlogsResponseToJson(this);
 }
 
+@JsonSerializable()
 class BlogResponse {
   const BlogResponse({
     this.id,
@@ -42,54 +58,90 @@ class BlogResponse {
     this.updatedAt,
   });
 
+  @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
   final int? id;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? title;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? description;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? countryCode;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? thumbnailUrl;
+
+  @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
   final int? likeCount;
+
+  @JsonKey(fromJson: _readStringList, toJson: _writeStringList)
   final List<String> tags;
 
   /// ISO8601 string.
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? createdAt;
 
   /// ISO8601 string.
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? updatedAt;
 
   factory BlogResponse.fromJson(Map<String, dynamic> json) {
-    final tagsRaw = json['tags'];
+    final normalized = <String, dynamic>{...json};
 
-    return BlogResponse(
-      id: _readIntNullable(json['id'] ?? json['blogId']),
-      title: _readStringNullable(json['title']),
-      description: _readStringNullable(
-        json['description'] ?? json['summary'] ?? json['content'],
-      ),
-      countryCode: _readStringNullable(json['countryCode']),
-      thumbnailUrl: _readStringNullable(
-        json['thumbnailUrl'] ?? json['imageUrl'] ?? json['thumbnail'],
-      ),
-      likeCount: _readIntNullable(json['likeCount'] ?? json['likes']),
-      tags: _readStringList(tagsRaw),
-      createdAt: _readStringNullable(json['createdAt']),
-      updatedAt: _readStringNullable(json['updatedAt']),
-    );
+    if (!normalized.containsKey('id') && normalized['blogId'] != null) {
+      normalized['id'] = normalized['blogId'];
+    }
+    if (!normalized.containsKey('description')) {
+      normalized['description'] =
+          normalized['summary'] ??
+          normalized['content'] ??
+          normalized['description'];
+    }
+    if (!normalized.containsKey('thumbnailUrl')) {
+      normalized['thumbnailUrl'] =
+          normalized['imageUrl'] ??
+          normalized['thumbnail'] ??
+          normalized['thumbnailUrl'];
+    }
+    if (!normalized.containsKey('likeCount') && normalized['likes'] != null) {
+      normalized['likeCount'] = normalized['likes'];
+    }
+
+    return _$BlogResponseFromJson(normalized);
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'description': description,
-      'countryCode': countryCode,
-      'thumbnailUrl': thumbnailUrl,
-      'likeCount': likeCount,
-      'tags': tags,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
-    };
-  }
+  Map<String, dynamic> toJson() => _$BlogResponseToJson(this);
 }
+
+List<BlogResponse> _readBlogsList(Object? value) {
+  if (value is! List) return const <BlogResponse>[];
+  return value
+      .whereType<Map<String, dynamic>>()
+      .map(BlogResponse.fromJson)
+      .toList();
+}
+
+List<Map<String, dynamic>> _writeBlogsList(List<BlogResponse> value) =>
+    value.map((e) => e.toJson()).toList();
+
+int _readIntWithFallback(Object? value, int fallback) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value) ?? fallback;
+  return fallback;
+}
+
+int _readPageInt(Object? value) => _readIntWithFallback(value, 1);
+
+int _readLimitInt(Object? value) => _readIntWithFallback(value, 6);
+
+int _readTotalInt(Object? value) => _readIntWithFallback(value, 0);
+
+int _readTotalPagesInt(Object? value) => _readIntWithFallback(value, 0);
+
+int _writeInt(int value) => value;
 
 int? _readIntNullable(Object? value) {
   if (value is int) return value;
@@ -98,11 +150,15 @@ int? _readIntNullable(Object? value) {
   return null;
 }
 
+int? _writeIntNullable(int? value) => value;
+
 String? _readStringNullable(Object? value) {
   if (value == null) return null;
   final s = value.toString().trim();
   return s.isEmpty ? null : s;
 }
+
+String? _writeStringNullable(String? value) => value;
 
 List<String> _readStringList(Object? value) {
   if (value is! List) return const <String>[];
@@ -113,3 +169,5 @@ List<String> _readStringList(Object? value) {
       .where((e) => e.isNotEmpty)
       .toList();
 }
+
+List<String> _writeStringList(List<String> value) => value;
