@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
@@ -258,32 +259,24 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildSearchBar() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
-      decoration: BoxDecoration(
-        color: MColor.black100,
-        borderRadius: BorderRadius.circular(100.r),
-        border: Border.all(width: 1.w, color: MColor.gray500),
-        boxShadow: _cardShadow(),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              '여행일정을 짜고 싶으신가요?',
-              style: MTextStyles.bodyM.copyWith(color: MColor.gray200),
-            ),
+    return GestureDetector(
+      onTap: () {
+        Navigator.pushNamed(context, AppRoutes.roadmap);
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(100.r),
+          color: MColor.primary500,
+        ),
+        child: Text(
+          '바로가기',
+          style: TextStyle(
+            fontFamily: 'GmarketSansBold',
+            fontSize: 12.sp,
+            color: MColor.white100,
           ),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 2.h),
-            decoration: BoxDecoration(
-              color: MColor.primary500,
-              border: Border.all(width: 1.w, color: MColor.gray200),
-              borderRadius: BorderRadius.circular(100.r),
-            ),
-            child: Image.asset(MImages.sendIcon, width: 25.w, height: 25.h),
-          ),
-        ],
+        ),
       ),
     );
   }
