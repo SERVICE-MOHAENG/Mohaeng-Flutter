@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
@@ -185,7 +186,8 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () {},
+        onPressed: () =>
+            Navigator.pushNamed(context, AppRoutes.roadmapSchedule),
         style: ElevatedButton.styleFrom(
           elevation: 0,
           backgroundColor: MColor.primary500,
