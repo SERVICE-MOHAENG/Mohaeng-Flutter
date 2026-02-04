@@ -9,6 +9,7 @@ import 'package:mohaeng_app_service/features/auth/presentation/view/ui/login_scr
 import 'package:mohaeng_app_service/features/auth/presentation/view/ui/sign_up_screen.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view/ui/main_screen.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/region_select_screen.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/schedule_select_screen.dart';
 import 'package:mohaeng_app_service/features/splash/presentation/ui/splash_screen.dart';
 
 Future<void> main() async {
@@ -44,6 +45,7 @@ class MyApp extends StatelessWidget {
           AppRoutes.main: (_) => MainScreen(),
           AppRoutes.root: (_) => MTab(),
           AppRoutes.roadmap: (_) => RegionSelectScreen(),
+          AppRoutes.roadmapSchedule: (_) => ScheduleSelectScreen(),
         },
       ),
     );
