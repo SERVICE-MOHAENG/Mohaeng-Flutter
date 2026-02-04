@@ -8,4 +8,5 @@ class AppRoutes {
   static const root = '/root';
   static const roadmap = '/roadmap';
   static const roadmapSchedule = '/roadmap/schedule';
+  static const roadmapPeople = '/roadmap/people';
 }
