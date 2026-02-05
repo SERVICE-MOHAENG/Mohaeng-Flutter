@@ -10,6 +10,9 @@ class MImages {
   static const String blockImage = 'assets/images/circle_block.png';
   static const String completeIcon = 'assets/images/icons/complete.png';
   static const String sendIcon = 'assets/images/icons/send_icon.png';
+  static const String plusIcon = 'assets/images/icons/plus_icon.png';
+  static const String minusIcon = 'assets/images/icons/minus_icon.png';
+
 
   static const String japan = 'assets/images/country/japan.png';
   static const String america = 'assets/images/country/america.png';
