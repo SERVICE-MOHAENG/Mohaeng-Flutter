@@ -43,9 +43,9 @@ class _ScheduleSelectScreenState extends State<ScheduleSelectScreen> {
           children: [
             SizedBox(height: 40.h),
             _buildDescription(),
-            SizedBox(height: 20.h),
+            SizedBox(height: 24.h),
             _buildCountryChips(),
-            SizedBox(height: 20.h),
+            SizedBox(height: 24.h),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.w),
               child: _buildMonthHeader(),
