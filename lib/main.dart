@@ -13,6 +13,7 @@ import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/concep
 import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/people_select_screen.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/region_select_screen.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/schedule_select_screen.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/travel_style_select_screen.dart';
 import 'package:mohaeng_app_service/features/splash/presentation/ui/splash_screen.dart';
 
 Future<void> main() async {
@@ -52,6 +53,7 @@ class MyApp extends StatelessWidget {
           AppRoutes.roadmapPeople: (_) => PeopleSelectScreen(),
           AppRoutes.roadmapCompanion: (_) => CompanionSelectScreen(),
           AppRoutes.roadmapConcept: (_) => ConceptSelectScreen(),
+          AppRoutes.roadmapTravelStyle: (_) => TravelStyleSelectScreen(),
         },
       ),
     );

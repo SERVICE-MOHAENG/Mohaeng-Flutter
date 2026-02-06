@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
@@ -131,7 +132,7 @@ class _ConceptSelectScreenState extends State<ConceptSelectScreen> {
   }
 
   void _onTapNext() {
-    // TODO: 다음 단계 화면이 결정되면 라우팅을 붙여주세요.
+    Navigator.pushNamed(context, AppRoutes.roadmapTravelStyle);
   }
 }
 

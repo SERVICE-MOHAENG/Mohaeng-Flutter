@@ -11,4 +11,5 @@ class AppRoutes {
   static const roadmapPeople = '/roadmap/people';
   static const roadmapCompanion = '/roadmap/companion';
   static const roadmapConcept = '/roadmap/concept';
+  static const roadmapTravelStyle = '/roadmap/travel-style';
 }
