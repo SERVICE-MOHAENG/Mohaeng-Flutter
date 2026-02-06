@@ -35,6 +35,21 @@ class MImages {
   static const String conceptCultureArt = 'assets/images/concept/문화 예술.png';
   static const String conceptActivity = 'assets/images/concept/액티비티.png';
 
+  // travel styles
+  static const String travelStyleTight = 'assets/images/travel_style/빡빡.png';
+  static const String travelStyleRelaxed = 'assets/images/travel_style/널널.png';
+  static const String travelStylePlanner = 'assets/images/travel_style/계획.png';
+  static const String travelStyleSpontaneous = 'assets/images/travel_style/즉흥.png';
+  static const String travelStyleTourist = 'assets/images/travel_style/관광지.png';
+  static const String travelStyleLocal = 'assets/images/travel_style/로컬.png';
+  static const String travelStyleActive = 'assets/images/travel_style/활동.png';
+  static const String travelStyleRest = 'assets/images/travel_style/휴식.png';
+  static const String travelStyleEfficient = 'assets/images/travel_style/효율.png';
+  static const String travelStyleEmotional = 'assets/images/travel_style/감성.png';
+  static const String travelBudgetValue = 'assets/images/travel_style/가성비.png';
+  static const String travelBudgetBasic = 'assets/images/travel_style/기본.png';
+  static const String travelBudgetPremium = 'assets/images/travel_style/프리미엄.png';
+  static const String travelBudgetLuxury = 'assets/images/travel_style/럭셔리.png';
 
   static const String japan = 'assets/images/country/japan.png';
   static const String america = 'assets/images/country/america.png';
