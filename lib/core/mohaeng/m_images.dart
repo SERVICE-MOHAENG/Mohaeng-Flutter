@@ -21,6 +21,20 @@ class MImages {
   static const String companionFamily = 'assets/images/companion/family.png';
   static const String companionWorker = 'assets/images/companion/worker.png';
 
+  // concepts
+  static const String conceptSightseeing = 'assets/images/concept/관광.png';
+  static const String conceptFood = 'assets/images/concept/먹방.png';
+  static const String conceptFamily = 'assets/images/concept/가족여행.png';
+  static const String conceptHealing = 'assets/images/concept/힐링.png';
+  static const String conceptNature = 'assets/images/concept/자연.png';
+  static const String conceptShopping = 'assets/images/concept/쇼핑.png';
+  static const String conceptCity = 'assets/images/concept/도시 여행.png';
+  static const String conceptPhoto = 'assets/images/concept/사진 인생샷.png';
+  static const String conceptUnique = 'assets/images/concept/이색 여행.png';
+  static const String conceptHoneymoon = 'assets/images/concept/신혼 여행.png';
+  static const String conceptCultureArt = 'assets/images/concept/문화 예술.png';
+  static const String conceptActivity = 'assets/images/concept/액티비티.png';
+
 
   static const String japan = 'assets/images/country/japan.png';
   static const String america = 'assets/images/country/america.png';
