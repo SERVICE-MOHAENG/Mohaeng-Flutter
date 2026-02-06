@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
@@ -72,6 +73,22 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
         fit: StackFit.expand,
         children: [
           Image.asset(MImages.america, fit: BoxFit.cover),
+          Positioned(
+            left: 4.w,
+            top: MediaQuery.paddingOf(context).top + 6.h,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: MColor.white100,
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: Icon(Icons.arrow_back_ios_new, size: 20.sp),
+                color: MColor.black100,
+                splashRadius: 22.r,
+              ),
+            ),
+          ),
           Positioned(
             left: 0,
             right: 0,
@@ -185,7 +202,8 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () {},
+        onPressed: () =>
+            Navigator.pushNamed(context, AppRoutes.roadmapSchedule),
         style: ElevatedButton.styleFrom(
           elevation: 0,
           backgroundColor: MColor.primary500,

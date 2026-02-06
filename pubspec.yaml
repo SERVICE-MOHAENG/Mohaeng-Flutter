@@ -40,6 +40,9 @@ flutter:
     - assets/images/logo/
     - assets/images/icons/
     - assets/images/country/
+    - assets/images/companion/
+    - assets/images/concept/
+    - assets/images/travel_style/
 
   fonts:
     - family: Pretendard
