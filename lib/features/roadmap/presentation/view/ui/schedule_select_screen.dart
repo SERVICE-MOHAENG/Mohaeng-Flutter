@@ -41,6 +41,8 @@ class _ScheduleSelectScreenState extends State<ScheduleSelectScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            SizedBox(height: 6.h),
+            _buildTopBar(),
             SizedBox(height: 40.h),
             _buildDescription(),
             SizedBox(height: 24.h),
@@ -63,6 +65,21 @@ class _ScheduleSelectScreenState extends State<ScheduleSelectScreen> {
             const Spacer(),
             SizedBox(height: 16.h),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    return SizedBox(
+      height: 44.h,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: Icon(Icons.arrow_back_ios_new, size: 20.sp),
+          color: MColor.black100,
+          splashRadius: 22.r,
         ),
       ),
     );

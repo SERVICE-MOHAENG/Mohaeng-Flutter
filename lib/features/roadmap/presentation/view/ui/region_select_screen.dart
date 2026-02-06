@@ -74,6 +74,22 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
         children: [
           Image.asset(MImages.america, fit: BoxFit.cover),
           Positioned(
+            left: 4.w,
+            top: MediaQuery.paddingOf(context).top + 6.h,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: MColor.white100,
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: Icon(Icons.arrow_back_ios_new, size: 20.sp),
+                color: MColor.black100,
+                splashRadius: 22.r,
+              ),
+            ),
+          ),
+          Positioned(
             left: 0,
             right: 0,
             bottom: 18.h,

@@ -25,22 +25,46 @@ class _PeopleSelectScreenState extends State<PeopleSelectScreen> {
         child: _buildCompleteButton(),
       ),
       body: SafeArea(
-        child: Stack(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Align(
-              alignment: Alignment.topCenter,
-              child: Padding(
-                padding: EdgeInsets.only(top: 40.h),
-                child: _buildDescription(),
-              ),
-            ),
-            Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24.w),
-                child: _buildCounterRow(),
+            SizedBox(height: 6.h),
+            _buildTopBar(),
+            Expanded(
+              child: Stack(
+                children: [
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 40.h),
+                      child: _buildDescription(),
+                    ),
+                  ),
+                  Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 24.w),
+                      child: _buildCounterRow(),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    return SizedBox(
+      height: 44.h,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: Icon(Icons.arrow_back_ios_new, size: 20.sp),
+          color: MColor.black100,
+          splashRadius: 22.r,
         ),
       ),
     );
