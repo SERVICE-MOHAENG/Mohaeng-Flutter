@@ -8,6 +8,8 @@ import 'package:mohaeng_app_service/core/widgets/m_tab.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/ui/login_screen.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/ui/sign_up_screen.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view/ui/main_screen.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/additional_request_screen.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/budget_range_screen.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/companion_select_screen.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/concept_select_screen.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/people_select_screen.dart';
@@ -54,6 +56,8 @@ class MyApp extends StatelessWidget {
           AppRoutes.roadmapCompanion: (_) => CompanionSelectScreen(),
           AppRoutes.roadmapConcept: (_) => ConceptSelectScreen(),
           AppRoutes.roadmapTravelStyle: (_) => TravelStyleSelectScreen(),
+          AppRoutes.roadmapBudgetRange: (_) => BudgetRangeScreen(),
+          AppRoutes.roadmapAdditionalRequest: (_) => AdditionalRequestScreen(),
         },
       ),
     );
