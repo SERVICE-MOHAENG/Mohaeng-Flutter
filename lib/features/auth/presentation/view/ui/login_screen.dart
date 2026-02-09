@@ -1,52 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
-import 'package:mohaeng_app_service/features/auth/data/auth_repository_impl.dart';
-import 'package:mohaeng_app_service/features/auth/data/google_login_repository_impl.dart';
-import 'package:mohaeng_app_service/features/auth/data/kakao_login_repository_impl.dart';
-import 'package:mohaeng_app_service/features/auth/data/naver_login_repository_impl.dart';
-import 'package:mohaeng_app_service/features/auth/domain/entities/google_login_result.dart';
-import 'package:mohaeng_app_service/features/auth/domain/entities/kakao_login_result.dart';
-import 'package:mohaeng_app_service/features/auth/domain/entities/naver_login_result.dart';
-import 'package:mohaeng_app_service/features/auth/domain/usecases/login_use_case.dart';
-import 'package:mohaeng_app_service/features/auth/domain/usecases/google_login_use_case.dart';
-import 'package:mohaeng_app_service/features/auth/domain/usecases/kakao_login_use_case.dart';
-import 'package:mohaeng_app_service/features/auth/domain/usecases/naver_login_use_case.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/widgets/Oauth_button.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/widgets/auth_text_field.dart';
+import 'package:mohaeng_app_service/features/auth/presentation/view_model/auth_providers.dart';
+import 'package:mohaeng_app_service/features/auth/presentation/view_model/login_view_model.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   late final TextEditingController _emailController;
   late final TextEditingController _passwordController;
-  late final LoginUseCase _loginUseCase;
-  late final GoogleLoginUseCase _googleLoginUseCase;
-  late final KakaoLoginUseCase _kakaoLoginUseCase;
-  late final NaverLoginUseCase _naverLoginUseCase;
-
-  bool _keepLogin = false;
-  bool _isLoading = false;
-  bool _isOauthLoading = false;
 
   @override
   void initState() {
     super.initState();
     _emailController = TextEditingController();
     _passwordController = TextEditingController();
-    _loginUseCase = LoginUseCase(AuthRepositoryImpl());
-    _googleLoginUseCase = GoogleLoginUseCase(GoogleLoginRepositoryImpl());
-    _kakaoLoginUseCase = KakaoLoginUseCase(KakaoLoginRepositoryImpl());
-    _naverLoginUseCase = NaverLoginUseCase(NaverLoginRepositoryImpl());
   }
 
   @override
@@ -58,6 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loginState = ref.watch(loginViewModelProvider);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return MLayout(
       backgroundColor: MColor.white100,
@@ -76,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     SizedBox(height: 20.h),
                     _buildEmailLogin(),
                     SizedBox(height: 20.h),
-                    _buildAuth(),
+                    _buildAuth(loginState),
                     SizedBox(height: 30.h),
                     _buildOAuth(
                       onTapSignUp: () {
@@ -169,9 +150,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildLoginItem(
     String text,
     String hintText,
-    TextEditingController controller,
-    {bool obscureText = false}
-  ) {
+    TextEditingController controller, {
+    bool obscureText = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -193,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildAuth() {
+  Widget _buildAuth(LoginViewState loginState) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
       child: Column(
@@ -212,11 +193,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: 18.w,
                       height: 18.w,
                       child: Checkbox(
-                        value: _keepLogin,
+                        value: loginState.keepLogin,
                         onChanged: (v) {
-                          setState(() {
-                            _keepLogin = v ?? false;
-                          });
+                          ref
+                              .read(loginViewModelProvider.notifier)
+                              .setKeepLogin(v ?? false);
                         },
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         visualDensity: VisualDensity.compact,
@@ -273,7 +254,7 @@ class _LoginScreenState extends State<LoginScreen> {
           SizedBox(
             height: 44.h,
             child: ElevatedButton(
-              onPressed: _isLoading ? null : _handleLogin,
+              onPressed: loginState.isLoading ? null : _handleLogin,
               style: ElevatedButton.styleFrom(
                 elevation: 0,
                 backgroundColor: MColor.primary500,
@@ -281,7 +262,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   borderRadius: BorderRadius.circular(6.r),
                 ),
               ),
-              child: _isLoading
+              child: loginState.isLoading
                   ? SizedBox(
                       width: 18.w,
                       height: 18.w,
@@ -314,30 +295,24 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    final result = await ref
+        .read(loginViewModelProvider.notifier)
+        .login(email: email, password: password);
 
-    try {
-      await _loginUseCase(email: email, password: password);
-      if (!mounted) return;
+    if (!mounted) return;
+    if (result.isSuccess) {
       Navigator.pushNamedAndRemoveUntil(context, AppRoutes.root, (_) => false);
-    } catch (error) {
-      if (!mounted) return;
-      _showMessage('로그인 실패: $error');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      return;
+    }
+    if (result.isFailure && result.message != null) {
+      _showMessage(result.message!);
     }
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Widget _buildOAuth({required VoidCallback onTapSignUp}) {
@@ -363,7 +338,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: MTextStyles.labelM.copyWith(
                       color: MColor.primary500,
                       decoration: TextDecoration.underline,
-                      decorationColor: MColor.primary500
+                      decorationColor: MColor.primary500,
                     ),
                   ),
                 ),
@@ -386,7 +361,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(
                     fontSize: 9.sp,
                     color: MColor.gray300,
-                    fontFamily: 'GmarketSansMedium'
+                    fontFamily: 'GmarketSansMedium',
                   ),
                 ),
               ),
@@ -435,106 +410,35 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleKakaoLogin() async {
-    if (_isOauthLoading) {
-      return;
-    }
+    final result = await ref
+        .read(loginViewModelProvider.notifier)
+        .loginWithKakao();
 
-    setState(() {
-      _isOauthLoading = true;
-    });
-
-    try {
-      final result = await _kakaoLoginUseCase();
-
-      if (!mounted) return;
-      if (result.status == KakaoLoginStatus.cancelled) {
-        return;
-      }
-      if (result.status == KakaoLoginStatus.failure) {
-        _showMessage(result.message ?? '카카오 로그인에 실패했어요.');
-        return;
-      }
-
-      debugPrint('Kakao OAuth token received. Expires at: ${result.expiresAt}');
-      _showMessage('카카오 로그인 성공');
-      // TODO: 서버 로그인 연동 시 accessToken 전달
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isOauthLoading = false;
-        });
-      }
+    if (!mounted || result.isCancelled) return;
+    if (result.message != null) {
+      _showMessage(result.message!);
     }
   }
 
   Future<void> _handleGoogleLogin() async {
-    if (_isOauthLoading) {
-      return;
-    }
+    final result = await ref
+        .read(loginViewModelProvider.notifier)
+        .loginWithGoogle();
 
-    setState(() {
-      _isOauthLoading = true;
-    });
-
-    try {
-      final result = await _googleLoginUseCase();
-
-      if (!mounted) return;
-      if (result.status == GoogleLoginStatus.cancelled) {
-        return;
-      }
-      if (result.status == GoogleLoginStatus.failure) {
-        _showMessage(result.message ?? '구글 로그인에 실패했어요.');
-        return;
-      }
-
-      debugPrint(
-        'Google OAuth token received. '
-        'AccessToken: ${result.accessToken != null}',
-      );
-      _showMessage('구글 로그인 성공');
-      // TODO: 서버 로그인 연동 시 accessToken 전달
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isOauthLoading = false;
-        });
-      }
+    if (!mounted || result.isCancelled) return;
+    if (result.message != null) {
+      _showMessage(result.message!);
     }
   }
 
   Future<void> _handleNaverLogin() async {
-    if (_isOauthLoading) {
-      return;
-    }
+    final result = await ref
+        .read(loginViewModelProvider.notifier)
+        .loginWithNaver();
 
-    setState(() {
-      _isOauthLoading = true;
-    });
-
-    try {
-      final result = await _naverLoginUseCase();
-
-      if (!mounted) return;
-      if (result.status == NaverLoginStatus.cancelled) {
-        return;
-      }
-      if (result.status == NaverLoginStatus.failure) {
-        _showMessage(result.message ?? '네이버 로그인에 실패했어요.');
-        return;
-      }
-
-      if (result.expiresAt != null) {
-        debugPrint('Naver OAuth token received. Expires at: ${result.expiresAt}');
-      }
-      _showMessage('네이버 로그인 성공');
-      // TODO: 서버 로그인 연동 시 accessToken 전달
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isOauthLoading = false;
-        });
-      }
+    if (!mounted || result.isCancelled) return;
+    if (result.message != null) {
+      _showMessage(result.message!);
     }
   }
 }

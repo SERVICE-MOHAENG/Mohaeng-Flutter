@@ -3,31 +3,29 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
-import 'package:mohaeng_app_service/features/auth/data/auth_repository_impl.dart';
-import 'package:mohaeng_app_service/features/auth/domain/usecases/send_email_otp_use_case.dart';
-import 'package:mohaeng_app_service/features/auth/domain/usecases/sign_up_use_case.dart';
-import 'package:mohaeng_app_service/features/auth/domain/usecases/verify_email_otp_use_case.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/ui/complete_sign_up_screen.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/widgets/auth_text_field.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/widgets/terms_bottom_sheet.dart';
+import 'package:mohaeng_app_service/features/auth/presentation/view_model/auth_providers.dart';
+import 'package:mohaeng_app_service/features/auth/presentation/view_model/sign_up_view_model.dart';
 import 'package:pinput/pinput.dart';
 
-class SignUpScreen extends StatefulWidget {
+class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
 
   @override
-  State<SignUpScreen> createState() => _SignUpScreenState();
+  ConsumerState<SignUpScreen> createState() => _SignUpScreenState();
 }
 
-class _SignUpScreenState extends State<SignUpScreen>
+class _SignUpScreenState extends ConsumerState<SignUpScreen>
     with SingleTickerProviderStateMixin {
   static const Duration _codeTotalDuration = Duration(minutes: 3);
-  static final RegExp _emailRegex =
-      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+  static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
   late final AnimationController _controller;
   late final Animation<double> _waveAnimation;
@@ -36,9 +34,6 @@ class _SignUpScreenState extends State<SignUpScreen>
   late final TextEditingController emailCodeController;
   late final TextEditingController passwordController;
   late final TextEditingController passwordCheckController;
-  late final SignUpUseCase _signUpUseCase;
-  late final SendEmailOtpUseCase _sendEmailOtpUseCase;
-  late final VerifyEmailOtpUseCase _verifyEmailOtpUseCase;
   late final List<_SignUpStep> _steps;
 
   Color _waveColor = MColor.primary500;
@@ -46,9 +41,6 @@ class _SignUpScreenState extends State<SignUpScreen>
   Timer? _codeTimer;
 
   int currentIndex = 0;
-  bool _isSubmitting = false;
-  bool _isOtpSending = false;
-  bool _isOtpVerifying = false;
 
   bool _hasLetter = false;
   bool _hasNumber = false;
@@ -59,10 +51,6 @@ class _SignUpScreenState extends State<SignUpScreen>
   @override
   void initState() {
     super.initState();
-    final repository = AuthRepositoryImpl();
-    _signUpUseCase = SignUpUseCase(repository);
-    _sendEmailOtpUseCase = SendEmailOtpUseCase(repository);
-    _verifyEmailOtpUseCase = VerifyEmailOtpUseCase(repository);
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
@@ -148,7 +136,7 @@ class _SignUpScreenState extends State<SignUpScreen>
   }
 
   bool get _isBusy {
-    return _isSubmitting || _isOtpSending || _isOtpVerifying;
+    return ref.read(signUpViewModelProvider).isBusy;
   }
 
   void _startCodeTimer() {
@@ -256,97 +244,69 @@ class _SignUpScreenState extends State<SignUpScreen>
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _submitSignUp(BuildContext context) async {
-    setState(() {
-      _isSubmitting = true;
-    });
+    final result = await ref
+        .read(signUpViewModelProvider.notifier)
+        .submit(
+          name: nameController.text.trim(),
+          email: emailController.text.trim(),
+          password: passwordController.text,
+          passwordConfirm: passwordCheckController.text,
+        );
 
-    try {
-      await _signUpUseCase(
-        name: nameController.text.trim(),
-        email: emailController.text.trim(),
-        password: passwordController.text,
-        passwordConfirm: passwordCheckController.text,
-      );
-
-      if (!mounted) {
-        return;
-      }
+    if (!mounted) {
+      return;
+    }
+    if (result.isSuccess) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => CompleteSignUpScreen(
-            userName: nameController.text.trim(),
-          ),
+          builder: (_) =>
+              CompleteSignUpScreen(userName: nameController.text.trim()),
         ),
       );
-    } catch (error) {
-      final message = error.toString().replaceFirst('Exception: ', '');
-      _showSnack(message);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+      return;
+    }
+    if (result.message != null) {
+      _showSnack(result.message!);
     }
   }
 
   Future<void> _sendEmailOtp() async {
-    if (_isOtpSending) {
+    final result = await ref
+        .read(signUpViewModelProvider.notifier)
+        .sendEmailOtp(email: emailController.text.trim());
+    if (result.isSuccess) {
       return;
     }
-    setState(() {
-      _isOtpSending = true;
-    });
-
-    try {
-      await _sendEmailOtpUseCase(email: emailController.text.trim());
-    } catch (error) {
-      final message = error.toString().replaceFirst('Exception: ', '');
-      _showSnack(message);
-      rethrow;
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isOtpSending = false;
-        });
-      }
+    if (result.message != null) {
+      _showSnack(result.message!);
     }
+    throw Exception(result.message ?? '인증번호 전송에 실패했어요.');
   }
 
   Future<void> _verifyEmailOtp() async {
-    if (_isOtpVerifying) {
+    final result = await ref
+        .read(signUpViewModelProvider.notifier)
+        .verifyEmailOtp(
+          email: emailController.text.trim(),
+          otp: emailCodeController.text.trim(),
+        );
+    if (result.isSuccess) {
       return;
     }
-    setState(() {
-      _isOtpVerifying = true;
-    });
-
-    try {
-      await _verifyEmailOtpUseCase(
-        email: emailController.text.trim(),
-        otp: emailCodeController.text.trim(),
-      );
-    } catch (error) {
-      final message = error.toString().replaceFirst('Exception: ', '');
-      _showSnack(message);
-      rethrow;
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isOtpVerifying = false;
-        });
-      }
+    if (result.message != null) {
+      _showSnack(result.message!);
     }
+    throw Exception(result.message ?? '인증번호 확인에 실패했어요.');
   }
 
   Future<void> _handleResendOtp() async {
-    if (_isOtpSending) {
+    if (ref.read(signUpViewModelProvider).isOtpSending) {
       return;
     }
     if (!_emailRegex.hasMatch(emailController.text.trim())) {
@@ -367,9 +327,8 @@ class _SignUpScreenState extends State<SignUpScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => TermsBottomSheet(
-        onConfirm: () => Navigator.of(context).pop(true),
-      ),
+      builder: (context) =>
+          TermsBottomSheet(onConfirm: () => Navigator.of(context).pop(true)),
     );
   }
 
@@ -434,6 +393,7 @@ class _SignUpScreenState extends State<SignUpScreen>
 
   @override
   Widget build(BuildContext context) {
+    final signUpState = ref.watch(signUpViewModelProvider);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return Stack(
       children: [
@@ -442,19 +402,11 @@ class _SignUpScreenState extends State<SignUpScreen>
           body: Stack(
             fit: StackFit.expand,
             children: [
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: _buildWavePainter(),
-              ),
+              Positioned(top: 0, left: 0, right: 0, child: _buildWavePainter()),
               Positioned(
                 top: 6.h,
                 left: 4.w,
-                child: SafeArea(
-                  bottom: false,
-                  child: _buildBackButton(),
-                ),
+                child: SafeArea(bottom: false, child: _buildBackButton()),
               ),
               Positioned(
                 top: 70.h,
@@ -476,8 +428,9 @@ class _SignUpScreenState extends State<SignUpScreen>
                           bottom: allowScroll ? 140.h + bottomInset : 0,
                         ),
                         child: ConstrainedBox(
-                          constraints:
-                              BoxConstraints(minHeight: constraints.maxHeight),
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
+                          ),
                           child: _buildStepContent(),
                         ),
                       );
@@ -493,10 +446,10 @@ class _SignUpScreenState extends State<SignUpScreen>
             padding: EdgeInsets.only(bottom: bottomInset),
             child: _buildBottomSheet(() {
               Navigator.pop(context);
-            }),
+            }, signUpState),
           ),
         ),
-        if (_isBusy) _buildLoadingOverlay(),
+        if (signUpState.isBusy) _buildLoadingOverlay(),
       ],
     );
   }
@@ -513,9 +466,7 @@ class _SignUpScreenState extends State<SignUpScreen>
               height: 32.r,
               child: CircularProgressIndicator(
                 strokeWidth: 3.r,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  MColor.primary500,
-                ),
+                valueColor: AlwaysStoppedAnimation<Color>(MColor.primary500),
               ),
             ),
           ),
@@ -552,13 +503,16 @@ class _SignUpScreenState extends State<SignUpScreen>
     );
   }
 
-  Widget _buildBottomSheet(VoidCallback onTapSignUp) {
+  Widget _buildBottomSheet(
+    VoidCallback onTapSignUp,
+    SignUpViewState signUpState,
+  ) {
     final isLastStep = currentIndex >= _steps.length - 1;
     final buttonLabel = isLastStep ? '가입하기' : '다음';
     final isPinStep = _currentStep.isPinInput;
     final helperText = isPinStep ? '인증 코드가 오지 않았을 경우 ' : '이미 계정이 있으신가요? ';
     final actionText = isPinStep ? '재전송' : '로그인';
-    final isEnabled = !_isBusy && _isCurrentStepValid();
+    final isEnabled = !signUpState.isBusy && _isCurrentStepValid();
     return Padding(
       padding: EdgeInsets.only(bottom: 32.h),
       child: Column(
@@ -663,9 +617,7 @@ class _SignUpScreenState extends State<SignUpScreen>
             text: timeText,
             style: MTextStyles.labelM.copyWith(color: MColor.primary500),
           ),
-          const TextSpan(
-            text: '분 내로 이메일로 전송된\n인증 번호 6자리를 정확히 입력해주세요!',
-          ),
+          const TextSpan(text: '분 내로 이메일로 전송된\n인증 번호 6자리를 정확히 입력해주세요!'),
         ],
       ),
     );
@@ -673,7 +625,8 @@ class _SignUpScreenState extends State<SignUpScreen>
 
   Widget _buildItem(_SignUpStep step) {
     final hasSecondary = step.secondaryController != null;
-    final showSecondary = hasSecondary &&
+    final showSecondary =
+        hasSecondary &&
         (!step.revealSecondaryWhenPrimaryFilled ||
             step.controller.text.trim().isNotEmpty);
     return Column(
