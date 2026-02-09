@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
@@ -25,7 +26,7 @@ Future<void> main() async {
 
   KakaoSdk.init(nativeAppKey: dotenv.env['KAKAO_NATIVE_KEY']);
 
-  runApp(MyApp());
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {

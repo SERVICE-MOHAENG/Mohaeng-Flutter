@@ -1,49 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
-import 'package:mohaeng_app_service/core/network/api_error.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
 import 'package:mohaeng_app_service/features/main/data/model/blog_models.dart';
 import 'package:mohaeng_app_service/features/main/data/model/course_models.dart';
-import 'package:mohaeng_app_service/features/main/data/model/user_models.dart';
-import 'package:mohaeng_app_service/features/main/data/repository/main_repository_impl.dart';
-import 'package:mohaeng_app_service/features/main/domain/usecase/get_main_blogs.dart';
-import 'package:mohaeng_app_service/features/main/domain/usecase/get_main_courses.dart';
-import 'package:mohaeng_app_service/features/main/domain/usecase/get_main_user_me.dart';
+import 'package:mohaeng_app_service/features/main/presentation/view_model/main_blogs_view_model.dart';
+import 'package:mohaeng_app_service/features/main/presentation/view_model/main_courses_view_model.dart';
+import 'package:mohaeng_app_service/features/main/presentation/view_model/main_providers.dart';
+import 'package:mohaeng_app_service/features/main/presentation/view_model/main_user_view_model.dart';
 
-class MainScreen extends StatefulWidget {
+class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends ConsumerState<MainScreen> {
   late final FlutterEarthGlobeController _globeController;
   late final PageController _coursesPageController;
-  late final GetMainCoursesUsecase _getMainCoursesUsecase;
-  late final GetMainBlogsUsecase _getMainBlogsUsecase;
-  late final GetMainUserMeUsecase _getMainUserMeUsecase;
 
   int currentIndex = 0;
-  bool _isLoadingMainCourses = false;
-  String? _mainCoursesErrorMessage;
-  List<CourseResponse> _mainCourses = const [];
-  String _selectedCountryCode = 'JP';
-
-  bool _isLoadingMainBlogs = false;
-  String? _mainBlogsErrorMessage;
-  List<BlogResponse> _mainBlogs = const [];
-  String _blogSortBy = 'latest';
-
-  bool _isLoadingMainUser = false;
-  String? _mainUserErrorMessage;
-  MainUserResponse? _mainUser;
 
   @override
   void initState() {
@@ -65,13 +48,11 @@ class _MainScreenState extends State<MainScreen> {
       dayNightBlendFactor: 0.15,
     );
     _coursesPageController = PageController();
-    final repository = MainRepositoryImpl();
-    _getMainCoursesUsecase = GetMainCoursesUsecase(repository);
-    _getMainBlogsUsecase = GetMainBlogsUsecase(repository);
-    _getMainUserMeUsecase = GetMainUserMeUsecase(repository);
-    _loadMainCourses(countryCode: _selectedCountryCode);
-    _loadMainBlogs();
-    _loadMainUser();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(mainCoursesViewModelProvider.notifier).load();
+      ref.read(mainBlogsViewModelProvider.notifier).load();
+      ref.read(mainUserViewModelProvider.notifier).load();
+    });
   }
 
   @override
@@ -81,116 +62,11 @@ class _MainScreenState extends State<MainScreen> {
     super.dispose();
   }
 
-  Future<void> _loadMainCourses({String? countryCode}) async {
-    if (_isLoadingMainCourses) return;
-    final nextCountryCode = (countryCode ?? _selectedCountryCode).trim();
-    setState(() {
-      _isLoadingMainCourses = true;
-      _mainCoursesErrorMessage = null;
-      _selectedCountryCode = nextCountryCode;
-    });
-
-    try {
-      final response = await _getMainCoursesUsecase(
-        countryCode: nextCountryCode,
-        page: 1,
-        limit: 10,
-      );
-      if (!mounted) return;
-
-      setState(() {
-        _mainCourses = response.courses;
-        currentIndex = 0;
-        _isLoadingMainCourses = false;
-      });
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (_coursesPageController.hasClients) {
-          _coursesPageController.jumpToPage(0);
-        }
-      });
-    } catch (error) {
-      if (!mounted) return;
-
-      setState(() {
-        _isLoadingMainCourses = false;
-        _mainCoursesErrorMessage = switch (error) {
-          ApiError(:final message) => message,
-          _ => '코스를 불러오지 못했어요.',
-        };
-      });
-    }
-  }
-
-  Future<void> _loadMainBlogs({String? sortBy}) async {
-    if (_isLoadingMainBlogs) return;
-
-    final nextSortBy = sortBy == null
-        ? _blogSortBy
-        : (sortBy == 'popular' ? 'popular' : 'latest');
-
-    setState(() {
-      _isLoadingMainBlogs = true;
-      _mainBlogsErrorMessage = null;
-      _blogSortBy = nextSortBy;
-    });
-
-    try {
-      final response = await _getMainBlogsUsecase(
-        sortBy: nextSortBy,
-        page: 1,
-        limit: 6,
-      );
-      if (!mounted) return;
-
-      setState(() {
-        _mainBlogs = response.blogs;
-        _isLoadingMainBlogs = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-
-      setState(() {
-        _isLoadingMainBlogs = false;
-        _mainBlogsErrorMessage = switch (error) {
-          ApiError(:final message) => message,
-          _ => '블로그를 불러오지 못했어요.',
-        };
-      });
-    }
-  }
-
-  Future<void> _loadMainUser() async {
-    if (_isLoadingMainUser) return;
-    setState(() {
-      _isLoadingMainUser = true;
-      _mainUserErrorMessage = null;
-    });
-
-    try {
-      final user = await _getMainUserMeUsecase();
-      if (!mounted) return;
-
-      setState(() {
-        _mainUser = user;
-        _isLoadingMainUser = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-
-      setState(() {
-        _isLoadingMainUser = false;
-        _mainUserErrorMessage = switch (error) {
-          ApiError(:final message) => message,
-          _ => '사용자 정보를 불러오지 못했어요.',
-        };
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final coursesState = ref.watch(mainCoursesViewModelProvider);
+    final blogsState = ref.watch(mainBlogsViewModelProvider);
+    final userState = ref.watch(mainUserViewModelProvider);
     final horizontalPadding = 20.w;
     return MLayout(
       backgroundColor: MColor.white100,
@@ -201,7 +77,7 @@ class _MainScreenState extends State<MainScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildHero(horizontalPadding),
-              _buildGreetingCard(),
+              _buildGreetingCard(userState),
               SizedBox(height: 16.h),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -210,11 +86,11 @@ class _MainScreenState extends State<MainScreen> {
               SizedBox(height: 12.h),
               _buildDivider(),
               SizedBox(height: 9.h),
-              _buildCourseSection(),
+              _buildCourseSection(coursesState),
               SizedBox(height: 20.h),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                child: _buildBlogSection(),
+                child: _buildBlogSection(blogsState),
               ),
             ],
           ),
@@ -335,9 +211,9 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildGreetingCard() {
-    final name = (_mainUser?.name ?? '여행자').trim();
-    final greeting = _isLoadingMainUser ? '안녕하세요...' : '안녕하세요 $name님,';
+  Widget _buildGreetingCard(MainUserState userState) {
+    final name = (userState.user?.name ?? '여행자').trim();
+    final greeting = userState.isLoading ? '안녕하세요...' : '안녕하세요 $name님,';
 
     return Container(
       padding: EdgeInsets.only(bottom: 28.h, left: 20.w, top: 20.h),
@@ -349,10 +225,10 @@ class _MainScreenState extends State<MainScreen> {
             greeting,
             style: MTextStyles.bodyM.copyWith(color: MColor.gray800),
           ),
-          if (_mainUserErrorMessage != null) ...[
+          if (userState.errorMessage != null) ...[
             SizedBox(height: 6.h),
             Text(
-              _mainUserErrorMessage!,
+              userState.errorMessage!,
               style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
             ),
           ],
@@ -482,8 +358,8 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildCourseSection() {
-    final courseContent = _buildMainCoursesContent();
+  Widget _buildCourseSection(MainCoursesState coursesState) {
+    final courseContent = _buildMainCoursesContent(coursesState);
     final countries = const <({String label, String code})>[
       (label: '일본', code: 'JP'),
       (label: '미국', code: 'US'),
@@ -520,11 +396,11 @@ class _MainScreenState extends State<MainScreen> {
                 for (int i = 0; i < countries.length; i++) ...[
                   _buildFilterChip(
                     countries[i].label,
-                    isSelected: _selectedCountryCode == countries[i].code,
-                    onTap: _isLoadingMainCourses
+                    isSelected:
+                        coursesState.selectedCountryCode == countries[i].code,
+                    onTap: coursesState.isLoading
                         ? null
-                        : () =>
-                              _loadMainCourses(countryCode: countries[i].code),
+                        : () => _onTapCountryFilter(countries[i].code),
                   ),
                   if (i != countries.length - 1) SizedBox(width: 8.w),
                 ],
@@ -583,8 +459,8 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildMainCoursesContent() {
-    if (_isLoadingMainCourses) {
+  Widget _buildMainCoursesContent(MainCoursesState coursesState) {
+    if (coursesState.isLoading) {
       return SizedBox(
         height: 120.h,
         child: Center(
@@ -600,7 +476,7 @@ class _MainScreenState extends State<MainScreen> {
       );
     }
 
-    final errorMessage = _mainCoursesErrorMessage;
+    final errorMessage = coursesState.errorMessage;
     if (errorMessage != null) {
       return SizedBox(
         height: 120.h,
@@ -615,7 +491,7 @@ class _MainScreenState extends State<MainScreen> {
               SizedBox(height: 10.h),
               GestureDetector(
                 onTap: () =>
-                    _loadMainCourses(countryCode: _selectedCountryCode),
+                    _onTapCountryFilter(coursesState.selectedCountryCode),
                 child: Container(
                   padding: EdgeInsets.symmetric(
                     horizontal: 16.w,
@@ -637,7 +513,7 @@ class _MainScreenState extends State<MainScreen> {
       );
     }
 
-    if (_mainCourses.isEmpty) {
+    if (coursesState.courses.isEmpty) {
       return SizedBox(
         height: 120.h,
         child: Center(
@@ -656,17 +532,17 @@ class _MainScreenState extends State<MainScreen> {
           height: 120.h,
           child: PageView.builder(
             controller: _coursesPageController,
-            itemCount: _mainCourses.length,
+            itemCount: coursesState.courses.length,
             onPageChanged: (i) => setState(() => currentIndex = i),
             itemBuilder: (context, index) {
-              return _buildCourseCard(course: _mainCourses[index]);
+              return _buildCourseCard(course: coursesState.courses[index]);
             },
           ),
         ),
         SizedBox(height: 12.h),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(_mainCourses.length, (i) {
+          children: List.generate(coursesState.courses.length, (i) {
             return Padding(
               padding: EdgeInsets.symmetric(horizontal: 4.w),
               child: _buildBar(isActive: i == currentIndex),
@@ -782,8 +658,8 @@ class _MainScreenState extends State<MainScreen> {
     return Image.asset(MImages.sibuya, width: 75.w, height: 75.h);
   }
 
-  Widget _buildBlogSection() {
-    final blogContent = _buildMainBlogsContent();
+  Widget _buildBlogSection(MainBlogsState blogsState) {
+    final blogContent = _buildMainBlogsContent(blogsState);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -802,14 +678,14 @@ class _MainScreenState extends State<MainScreen> {
           children: [
             _buildBlogFilterChip(
               '최신순',
-              isSelected: _blogSortBy == 'latest',
-              onTap: () => _loadMainBlogs(sortBy: 'latest'),
+              isSelected: blogsState.sortBy == 'latest',
+              onTap: () => _onTapBlogSort('latest'),
             ),
             SizedBox(width: 8.w),
             _buildBlogFilterChip(
               '인기순',
-              isSelected: _blogSortBy == 'popular',
-              onTap: () => _loadMainBlogs(sortBy: 'popular'),
+              isSelected: blogsState.sortBy == 'popular',
+              onTap: () => _onTapBlogSort('popular'),
             ),
           ],
         ),
@@ -819,8 +695,8 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildMainBlogsContent() {
-    if (_isLoadingMainBlogs) {
+  Widget _buildMainBlogsContent(MainBlogsState blogsState) {
+    if (blogsState.isLoading) {
       return SizedBox(
         height: 120.h,
         child: Center(
@@ -836,7 +712,7 @@ class _MainScreenState extends State<MainScreen> {
       );
     }
 
-    final errorMessage = _mainBlogsErrorMessage;
+    final errorMessage = blogsState.errorMessage;
     if (errorMessage != null) {
       return SizedBox(
         height: 120.h,
@@ -850,7 +726,8 @@ class _MainScreenState extends State<MainScreen> {
               ),
               SizedBox(height: 10.h),
               GestureDetector(
-                onTap: _loadMainBlogs,
+                onTap: () =>
+                    ref.read(mainBlogsViewModelProvider.notifier).load(),
                 child: Container(
                   padding: EdgeInsets.symmetric(
                     horizontal: 16.w,
@@ -872,7 +749,7 @@ class _MainScreenState extends State<MainScreen> {
       );
     }
 
-    if (_mainBlogs.isEmpty) {
+    if (blogsState.blogs.isEmpty) {
       return SizedBox(
         height: 120.h,
         child: Center(
@@ -886,9 +763,9 @@ class _MainScreenState extends State<MainScreen> {
 
     return Column(
       children: [
-        for (int i = 0; i < _mainBlogs.length; i++) ...[
-          _buildBlogListItem(blog: _mainBlogs[i]),
-          if (i != _mainBlogs.length - 1) SizedBox(height: 12.h),
+        for (int i = 0; i < blogsState.blogs.length; i++) ...[
+          _buildBlogListItem(blog: blogsState.blogs[i]),
+          if (i != blogsState.blogs.length - 1) SizedBox(height: 12.h),
         ],
       ],
     );
@@ -1068,5 +945,19 @@ class _MainScreenState extends State<MainScreen> {
         offset: Offset(0, 6.h),
       ),
     ];
+  }
+
+  void _onTapCountryFilter(String countryCode) {
+    setState(() => currentIndex = 0);
+    if (_coursesPageController.hasClients) {
+      _coursesPageController.jumpToPage(0);
+    }
+    ref
+        .read(mainCoursesViewModelProvider.notifier)
+        .load(countryCode: countryCode);
+  }
+
+  void _onTapBlogSort(String sortBy) {
+    ref.read(mainBlogsViewModelProvider.notifier).load(sortBy: sortBy);
   }
 }
