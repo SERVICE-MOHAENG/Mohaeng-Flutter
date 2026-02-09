@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
 
-class PeopleSelectScreen extends StatefulWidget {
+class PeopleSelectScreen extends ConsumerStatefulWidget {
   const PeopleSelectScreen({super.key});
 
   @override
-  State<PeopleSelectScreen> createState() => _PeopleSelectScreenState();
+  ConsumerState<PeopleSelectScreen> createState() => _PeopleSelectScreenState();
 }
 
-class _PeopleSelectScreenState extends State<PeopleSelectScreen> {
-  int _count = 1;
-
+class _PeopleSelectScreenState extends ConsumerState<PeopleSelectScreen> {
   @override
   Widget build(BuildContext context) {
+    final peopleState = ref.watch(peopleSelectViewModelProvider);
     return MLayout(
       backgroundColor: MColor.white100,
       bottomSheet: Padding(
@@ -43,7 +44,7 @@ class _PeopleSelectScreenState extends State<PeopleSelectScreen> {
                   Center(
                     child: Padding(
                       padding: EdgeInsets.symmetric(horizontal: 24.w),
-                      child: _buildCounterRow(),
+                      child: _buildCounterRow(peopleState.count),
                     ),
                   ),
                 ],
@@ -91,20 +92,26 @@ class _PeopleSelectScreenState extends State<PeopleSelectScreen> {
     );
   }
 
-  Widget _buildCounterRow() {
+  Widget _buildCounterRow(int count) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         _SquareIconButton(
           imagePath: MImages.minusIcon,
-          enabled: _count > 1,
-          onPressed: _count > 1 ? () => setState(() => _count -= 1) : null,
+          enabled: count > 1,
+          onPressed: count > 1
+              ? () =>
+                    ref.read(peopleSelectViewModelProvider.notifier).decrement()
+              : null,
         ),
-        _CountCard(count: _count),
+        _CountCard(count: count),
         _SquareIconButton(
           imagePath: MImages.plusIcon,
-          enabled: _count < 99,
-          onPressed: _count < 99 ? () => setState(() => _count += 1) : null,
+          enabled: count < 99,
+          onPressed: count < 99
+              ? () =>
+                    ref.read(peopleSelectViewModelProvider.notifier).increment()
+              : null,
         ),
       ],
     );

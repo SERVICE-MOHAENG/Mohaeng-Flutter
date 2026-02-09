@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
 
-class AdditionalRequestScreen extends StatefulWidget {
+class AdditionalRequestScreen extends ConsumerStatefulWidget {
   const AdditionalRequestScreen({super.key});
 
   @override
-  State<AdditionalRequestScreen> createState() =>
+  ConsumerState<AdditionalRequestScreen> createState() =>
       _AdditionalRequestScreenState();
 }
 
-class _AdditionalRequestScreenState extends State<AdditionalRequestScreen> {
+class _AdditionalRequestScreenState
+    extends ConsumerState<AdditionalRequestScreen> {
   late final TextEditingController _requestController;
 
   @override
@@ -117,6 +120,9 @@ class _AdditionalRequestScreenState extends State<AdditionalRequestScreen> {
       height: 278.h,
       child: TextFormField(
         controller: _requestController,
+        onChanged: (value) => ref
+            .read(additionalRequestViewModelProvider.notifier)
+            .setRequest(value),
         expands: true,
         maxLines: null,
         minLines: null,

@@ -1,24 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
-import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_types.dart';
 
-class ConceptSelectScreen extends StatefulWidget {
+class ConceptSelectScreen extends ConsumerStatefulWidget {
   const ConceptSelectScreen({super.key});
 
   @override
-  State<ConceptSelectScreen> createState() => _ConceptSelectScreenState();
+  ConsumerState<ConceptSelectScreen> createState() =>
+      _ConceptSelectScreenState();
 }
 
-class _ConceptSelectScreenState extends State<ConceptSelectScreen> {
-  final Set<_TravelConcept> _selected = {};
-
+class _ConceptSelectScreenState extends ConsumerState<ConceptSelectScreen> {
   @override
   Widget build(BuildContext context) {
-    final enabled = _selected.isNotEmpty;
+    final conceptState = ref.watch(conceptSelectViewModelProvider);
+    final enabled = conceptState.selected.isNotEmpty;
 
     return MLayout(
       backgroundColor: MColor.white100,
@@ -42,7 +44,7 @@ class _ConceptSelectScreenState extends State<ConceptSelectScreen> {
                   right: 16.w,
                   bottom: 180.h,
                 ),
-                child: _buildGrid(),
+                child: _buildGrid(conceptState.selected),
               ),
             ),
             SizedBox(height: 16.h),
@@ -88,8 +90,8 @@ class _ConceptSelectScreenState extends State<ConceptSelectScreen> {
     );
   }
 
-  Widget _buildGrid() {
-    final items = _TravelConcept.values;
+  Widget _buildGrid(Set<TravelConcept> selectedSet) {
+    final items = TravelConcept.values;
 
     return GridView.builder(
       shrinkWrap: true,
@@ -103,22 +105,15 @@ class _ConceptSelectScreenState extends State<ConceptSelectScreen> {
       ),
       itemBuilder: (context, index) {
         final concept = items[index];
-        final selected = _selected.contains(concept);
+        final selected = selectedSet.contains(concept);
 
         return _ConceptCard(
           label: concept.label,
           imagePath: concept.imagePath,
           fallbackEmoji: concept.fallbackEmoji,
           selected: selected,
-          onTap: () {
-            setState(() {
-              if (_selected.contains(concept)) {
-                _selected.remove(concept);
-              } else {
-                _selected.add(concept);
-              }
-            });
-          },
+          onTap: () =>
+              ref.read(conceptSelectViewModelProvider.notifier).toggle(concept),
         );
       },
     );
@@ -151,66 +146,6 @@ class _ConceptSelectScreenState extends State<ConceptSelectScreen> {
   void _onTapNext() {
     Navigator.pushNamed(context, AppRoutes.roadmapTravelStyle);
   }
-}
-
-enum _TravelConcept {
-  sightseeing,
-  food,
-  family,
-  healing,
-  nature,
-  shopping,
-  city,
-  photo,
-  unique,
-  honeymoon,
-  cultureArt,
-  activity;
-
-  String get label => switch (this) {
-    _TravelConcept.sightseeing => '관광',
-    _TravelConcept.food => '먹방',
-    _TravelConcept.family => '가족 여행',
-    _TravelConcept.healing => '힐링',
-    _TravelConcept.nature => '자연',
-    _TravelConcept.shopping => '쇼핑',
-    _TravelConcept.city => '도시 여행',
-    _TravelConcept.photo => '사진 인생샷',
-    _TravelConcept.unique => '이색 여행',
-    _TravelConcept.honeymoon => '신혼 여행',
-    _TravelConcept.cultureArt => '문화, 예술',
-    _TravelConcept.activity => '액티비티',
-  };
-
-  String get fallbackEmoji => switch (this) {
-    _TravelConcept.sightseeing => '✈️',
-    _TravelConcept.food => '🍽️',
-    _TravelConcept.family => '👨‍👩‍👧‍👦',
-    _TravelConcept.healing => '🛁',
-    _TravelConcept.nature => '🏕️',
-    _TravelConcept.shopping => '🛍️',
-    _TravelConcept.city => '🏙️',
-    _TravelConcept.photo => '📷',
-    _TravelConcept.unique => '🧩',
-    _TravelConcept.honeymoon => '💞',
-    _TravelConcept.cultureArt => '🎨',
-    _TravelConcept.activity => '🧗‍♂️',
-  };
-
-  String get imagePath => switch (this) {
-    _TravelConcept.sightseeing => MImages.conceptSightseeing,
-    _TravelConcept.food => MImages.conceptFood,
-    _TravelConcept.family => MImages.conceptFamily,
-    _TravelConcept.healing => MImages.conceptHealing,
-    _TravelConcept.nature => MImages.conceptNature,
-    _TravelConcept.shopping => MImages.conceptShopping,
-    _TravelConcept.city => MImages.conceptCity,
-    _TravelConcept.photo => MImages.conceptPhoto,
-    _TravelConcept.unique => MImages.conceptUnique,
-    _TravelConcept.honeymoon => MImages.conceptHoneymoon,
-    _TravelConcept.cultureArt => MImages.conceptCultureArt,
-    _TravelConcept.activity => MImages.conceptActivity,
-  };
 }
 
 class _ConceptCard extends StatelessWidget {

@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
 
-class BudgetRangeScreen extends StatefulWidget {
+class BudgetRangeScreen extends ConsumerStatefulWidget {
   const BudgetRangeScreen({super.key});
 
   @override
-  State<BudgetRangeScreen> createState() => _BudgetRangeScreenState();
+  ConsumerState<BudgetRangeScreen> createState() => _BudgetRangeScreenState();
 }
 
-class _BudgetRangeScreenState extends State<BudgetRangeScreen> {
+class _BudgetRangeScreenState extends ConsumerState<BudgetRangeScreen> {
   late final TextEditingController _minBudgetController;
   late final TextEditingController _maxBudgetController;
 
@@ -62,6 +64,9 @@ class _BudgetRangeScreenState extends State<BudgetRangeScreen> {
                     _buildAmountField(
                       controller: _minBudgetController,
                       textInputAction: TextInputAction.next,
+                      onChanged: (value) => ref
+                          .read(budgetRangeViewModelProvider.notifier)
+                          .setMin(value),
                     ),
                     SizedBox(height: 22.h),
                     _buildSectionLabel('최대 경비'),
@@ -70,6 +75,9 @@ class _BudgetRangeScreenState extends State<BudgetRangeScreen> {
                       controller: _maxBudgetController,
                       textInputAction: TextInputAction.done,
                       onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                      onChanged: (value) => ref
+                          .read(budgetRangeViewModelProvider.notifier)
+                          .setMax(value),
                     ),
                   ],
                 ),
@@ -128,11 +136,13 @@ class _BudgetRangeScreenState extends State<BudgetRangeScreen> {
     required TextEditingController controller,
     required TextInputAction textInputAction,
     ValueChanged<String>? onSubmitted,
+    ValueChanged<String>? onChanged,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: TextInputType.number,
       textInputAction: textInputAction,
+      onChanged: onChanged,
       onFieldSubmitted: onSubmitted,
       style: MTextStyles.bodyM.copyWith(color: MColor.gray800),
       decoration: InputDecoration(

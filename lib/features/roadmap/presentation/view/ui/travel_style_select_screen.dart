@@ -1,24 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/travel_style_select_view_model.dart';
 
-class TravelStyleSelectScreen extends StatefulWidget {
+class TravelStyleSelectScreen extends ConsumerStatefulWidget {
   const TravelStyleSelectScreen({super.key});
 
   @override
-  State<TravelStyleSelectScreen> createState() =>
+  ConsumerState<TravelStyleSelectScreen> createState() =>
       _TravelStyleSelectScreenState();
 }
 
-class _TravelStyleSelectScreenState extends State<TravelStyleSelectScreen> {
+class _TravelStyleSelectScreenState
+    extends ConsumerState<TravelStyleSelectScreen> {
   final PageController _pageController = PageController();
-
-  int _pageIndex = 0;
-  final Map<String, String> _answers = {};
 
   late final List<_StyleQuestion> _questions = [
     _StyleQuestion.twoChoice(
@@ -121,8 +122,9 @@ class _TravelStyleSelectScreenState extends State<TravelStyleSelectScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final question = _questions[_pageIndex];
-    final enabled = _answers.containsKey(question.id);
+    final styleState = ref.watch(travelStyleSelectViewModelProvider);
+    final question = _questions[styleState.pageIndex];
+    final enabled = styleState.answers.containsKey(question.id);
 
     return MLayout(
       backgroundColor: MColor.white100,
@@ -141,7 +143,9 @@ class _TravelStyleSelectScreenState extends State<TravelStyleSelectScreen> {
                 controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: _questions.length,
-                onPageChanged: (index) => setState(() => _pageIndex = index),
+                onPageChanged: (index) => ref
+                    .read(travelStyleSelectViewModelProvider.notifier)
+                    .setPageIndex(index),
                 itemBuilder: (context, index) {
                   final q = _questions[index];
                   return SingleChildScrollView(
@@ -155,7 +159,7 @@ class _TravelStyleSelectScreenState extends State<TravelStyleSelectScreen> {
                       children: [
                         _buildDescription(q),
                         SizedBox(height: 56.h),
-                        _buildOptions(q),
+                        _buildOptions(q, styleState),
                       ],
                     ),
                   );
@@ -215,7 +219,10 @@ class _TravelStyleSelectScreenState extends State<TravelStyleSelectScreen> {
     );
   }
 
-  Widget _buildOptions(_StyleQuestion question) {
+  Widget _buildOptions(
+    _StyleQuestion question,
+    TravelStyleSelectState styleState,
+  ) {
     return Row(
       children: [
         Expanded(
@@ -223,7 +230,8 @@ class _TravelStyleSelectScreenState extends State<TravelStyleSelectScreen> {
             aspectRatio: 1.05,
             child: _OptionCard(
               option: question.options[0],
-              selected: _answers[question.id] == question.options[0].id,
+              selected:
+                  styleState.answers[question.id] == question.options[0].id,
               onTap: () => _select(
                 questionId: question.id,
                 optionId: question.options[0].id,
@@ -237,7 +245,8 @@ class _TravelStyleSelectScreenState extends State<TravelStyleSelectScreen> {
             aspectRatio: 1.05,
             child: _OptionCard(
               option: question.options[1],
-              selected: _answers[question.id] == question.options[1].id,
+              selected:
+                  styleState.answers[question.id] == question.options[1].id,
               onTap: () => _select(
                 questionId: question.id,
                 optionId: question.options[1].id,
@@ -274,11 +283,14 @@ class _TravelStyleSelectScreenState extends State<TravelStyleSelectScreen> {
   }
 
   void _select({required String questionId, required String optionId}) {
-    setState(() => _answers[questionId] = optionId);
+    ref
+        .read(travelStyleSelectViewModelProvider.notifier)
+        .selectAnswer(questionId: questionId, optionId: optionId);
   }
 
   void _onTapBack() {
-    if (_pageIndex == 0) {
+    final styleState = ref.read(travelStyleSelectViewModelProvider);
+    if (styleState.pageIndex == 0) {
       Navigator.pop(context);
       return;
     }
@@ -290,7 +302,8 @@ class _TravelStyleSelectScreenState extends State<TravelStyleSelectScreen> {
   }
 
   void _onTapNext() {
-    if (_pageIndex < _questions.length - 1) {
+    final styleState = ref.read(travelStyleSelectViewModelProvider);
+    if (styleState.pageIndex < _questions.length - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
