@@ -1,145 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
-import 'package:mohaeng_app_service/core/network/api_error.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
-import 'package:mohaeng_app_service/features/main/data/model/user_models.dart';
-import 'package:mohaeng_app_service/features/main/data/repository/main_repository_impl.dart';
-import 'package:mohaeng_app_service/features/main/domain/usecase/get_main_user_me.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/blog_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/course_models.dart';
-import 'package:mohaeng_app_service/features/mypage/data/model/visited_country_models.dart';
-import 'package:mohaeng_app_service/features/mypage/data/repository/mypage_repository_impl.dart';
-import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_blogs.dart';
-import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_course_bookmarks.dart';
-import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_courses.dart';
-import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_visited_countries.dart';
+import 'package:mohaeng_app_service/features/mypage/presentation/view_model/mypage_providers.dart';
+import 'package:mohaeng_app_service/features/mypage/presentation/view_model/mypage_view_model.dart';
 
-class MyPageScreen extends StatefulWidget {
+class MyPageScreen extends ConsumerStatefulWidget {
   const MyPageScreen({super.key});
 
   @override
-  State<MyPageScreen> createState() => _MyPageScreenState();
+  ConsumerState<MyPageScreen> createState() => _MyPageScreenState();
 }
 
-class _MyPageScreenState extends State<MyPageScreen> {
-  late final GetMainUserMeUsecase _getMainUserMeUsecase;
-  late final GetMyCoursesUsecase _getMyCoursesUsecase;
-  late final GetMyCourseBookmarksUsecase _getMyCourseBookmarksUsecase;
-  late final GetMyBlogsUsecase _getMyBlogsUsecase;
-  late final GetVisitedCountriesUsecase _getVisitedCountriesUsecase;
-
+class _MyPageScreenState extends ConsumerState<MyPageScreen> {
   int _scheduleTabIndex = 0;
-
-  bool _isLoadingUser = false;
-  String? _userErrorMessage;
-  MainUserResponse? _user;
-
-  bool _isLoading = false;
-  String? _loadErrorMessage;
-
-  CoursesResponse? _myCourses;
-  CourseItemsResponse? _myCourseBookmarks;
-
-  BlogsResponse? _myBlogs;
-
-  VisitedCountryItemsResponse? _visitedCountries;
 
   @override
   void initState() {
     super.initState();
-    final repository = MyPageRepositoryImpl();
-    _getMainUserMeUsecase = GetMainUserMeUsecase(MainRepositoryImpl());
-    _getMyCoursesUsecase = GetMyCoursesUsecase(repository);
-    _getMyCourseBookmarksUsecase = GetMyCourseBookmarksUsecase(repository);
-    _getMyBlogsUsecase = GetMyBlogsUsecase(repository);
-    _getVisitedCountriesUsecase = GetVisitedCountriesUsecase(repository);
-
-    _loadUser();
-    _refreshAll();
-  }
-
-  Future<void> _refreshAll() async {
-    if (_isLoading) return;
-    setState(() {
-      _isLoading = true;
-      _loadErrorMessage = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(myPageViewModelProvider.notifier).loadInitial();
     });
-
-    final errors = <String>[];
-    CoursesResponse? myCourses;
-    CourseItemsResponse? myCourseBookmarks;
-    BlogsResponse? myBlogs;
-    VisitedCountryItemsResponse? visitedCountries;
-
-    try {
-      myCourses = await _getMyCoursesUsecase(page: 1, limit: 20);
-    } catch (error) {
-      errors.add(_errorMessage(error, fallback: '내 여행 일정(코스)을 불러오지 못했어요.'));
-    }
-
-    try {
-      myCourseBookmarks = await _getMyCourseBookmarksUsecase(
-        page: 1,
-        limit: 20,
-      );
-    } catch (error) {
-      errors.add(_errorMessage(error, fallback: '북마크한 코스를 불러오지 못했어요.'));
-    }
-
-    try {
-      myBlogs = await _getMyBlogsUsecase(page: 1, limit: 6);
-    } catch (error) {
-      errors.add(_errorMessage(error, fallback: '작성한 여행 기록(블로그)을 불러오지 못했어요.'));
-    }
-
-    try {
-      visitedCountries = await _getVisitedCountriesUsecase(page: 1, limit: 10);
-    } catch (error) {
-      errors.add(_errorMessage(error, fallback: '방문한 국가를 불러오지 못했어요.'));
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _myCourses = myCourses;
-      _myCourseBookmarks = myCourseBookmarks;
-      _myBlogs = myBlogs;
-      _visitedCountries = visitedCountries;
-      _isLoading = false;
-      _loadErrorMessage = errors.isEmpty ? null : errors.first;
-    });
-  }
-
-  Future<void> _loadUser() async {
-    if (_isLoadingUser) return;
-    setState(() {
-      _isLoadingUser = true;
-      _userErrorMessage = null;
-    });
-
-    try {
-      final user = await _getMainUserMeUsecase();
-      if (!mounted) return;
-      setState(() {
-        _user = user;
-        _isLoadingUser = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _isLoadingUser = false;
-        _userErrorMessage = switch (error) {
-          ApiError(:final message) => message,
-          _ => '사용자 정보를 불러오지 못했어요.',
-        };
-      });
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(myPageViewModelProvider);
     return MLayout(
       backgroundColor: MColor.gray50,
       appBar: AppBar(
@@ -154,7 +45,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          await Future.wait([_loadUser(), _refreshAll()]);
+          await ref.read(myPageViewModelProvider.notifier).loadInitial();
         },
         child: SingleChildScrollView(
           padding: EdgeInsets.zero,
@@ -165,15 +56,15 @@ class _MyPageScreenState extends State<MyPageScreen> {
               SizedBox(height: 8.h),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20.w),
-                child: _buildProfileHeader(),
+                child: _buildProfileHeader(state),
               ),
               SizedBox(height: 12.h),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20.w),
-                child: _buildStatsCard(),
+                child: _buildStatsCard(state),
               ),
               SizedBox(height: 23.h),
-              _buildScheduleSection(),
+              _buildScheduleSection(state),
               SizedBox(height: 18.h),
               _buildSettingsSection(),
             ],
@@ -183,10 +74,10 @@ class _MyPageScreenState extends State<MyPageScreen> {
     );
   }
 
-  Widget _buildProfileHeader() {
-    final name = _user?.name?.trim();
-    final email = _user?.email?.trim();
-    final imageUrl = _user?.profileImage?.trim();
+  Widget _buildProfileHeader(MyPageState state) {
+    final name = state.user?.name?.trim();
+    final email = state.user?.email?.trim();
+    final imageUrl = state.user?.profileImage?.trim();
     final showName = (name == null || name.isEmpty) ? null : name;
     final showEmail = (email == null || email.isEmpty) ? null : email;
     final showImageUrl = (imageUrl == null || imageUrl.isEmpty)
@@ -201,19 +92,19 @@ class _MyPageScreenState extends State<MyPageScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              _isLoadingUser ? '불러오는 중…' : (showName ?? '사용자'),
+              state.isLoadingUser ? '불러오는 중…' : (showName ?? '사용자'),
               style: MTextStyles.lBodyM.copyWith(color: MColor.black100),
             ),
             SizedBox(height: 4.h),
             Text(
-              _isLoadingUser ? '' : (showEmail ?? ''),
+              state.isLoadingUser ? '' : (showEmail ?? ''),
               style: MTextStyles.labelM.copyWith(color: MColor.gray400),
             ),
-            if (!_isLoadingUser && _userErrorMessage != null)
+            if (!state.isLoadingUser && state.userErrorMessage != null)
               Padding(
                 padding: EdgeInsets.only(top: 4.h),
                 child: Text(
-                  _userErrorMessage!,
+                  state.userErrorMessage!,
                   style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
                 ),
               ),
@@ -244,10 +135,10 @@ class _MyPageScreenState extends State<MyPageScreen> {
     );
   }
 
-  Widget _buildStatsCard() {
-    final visitedCount = _visitedCountries?.total.toString() ?? '-';
-    final blogCount = _myBlogs?.total.toString() ?? '-';
-    final bookmarkCount = _myCourseBookmarks?.total.toString() ?? '-';
+  Widget _buildStatsCard(MyPageState state) {
+    final visitedCount = state.visitedCountries?.total.toString() ?? '-';
+    final blogCount = state.myBlogs?.total.toString() ?? '-';
+    final bookmarkCount = state.myCourseBookmarks?.total.toString() ?? '-';
 
     return Container(
       padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 12.w),
@@ -266,7 +157,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
     );
   }
 
-  Widget _buildScheduleSection() {
+  Widget _buildScheduleSection(MyPageState state) {
     final tabs = const ['내 여행 일정', '여행 기록', '북마크'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,25 +190,25 @@ class _MyPageScreenState extends State<MyPageScreen> {
           color: MColor.white100,
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
-            child: _buildScheduleTabContent(),
+            child: _buildScheduleTabContent(state),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildScheduleTabContent() {
-    final message = _loadErrorMessage;
+  Widget _buildScheduleTabContent(MyPageState state) {
+    final message = state.loadErrorMessage;
 
     bool isMissingSelectedTabData() {
       return switch (_scheduleTabIndex) {
-        0 => _myCourses == null,
-        1 => _myBlogs == null,
-        _ => _myCourseBookmarks == null,
+        0 => state.myCourses == null,
+        1 => state.myBlogs == null,
+        _ => state.myCourseBookmarks == null,
       };
     }
 
-    if (_isLoading && isMissingSelectedTabData()) {
+    if (state.isLoading && isMissingSelectedTabData()) {
       return SizedBox(
         height: 180.h,
         child: Center(
@@ -333,7 +224,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
       );
     }
 
-    if (!_isLoading && message != null && isMissingSelectedTabData()) {
+    if (!state.isLoading && message != null && isMissingSelectedTabData()) {
       return SizedBox(
         height: 180.h,
         child: Center(
@@ -346,7 +237,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
               ),
               SizedBox(height: 10.h),
               GestureDetector(
-                onTap: _refreshAll,
+                onTap: () =>
+                    ref.read(myPageViewModelProvider.notifier).refreshAll(),
                 child: Container(
                   padding: EdgeInsets.symmetric(
                     horizontal: 16.w,
@@ -370,15 +262,15 @@ class _MyPageScreenState extends State<MyPageScreen> {
 
     return switch (_scheduleTabIndex) {
       0 => _buildCourseCards(
-        courses: _myCourses?.courses ?? const <CourseResponse>[],
+        courses: state.myCourses?.courses ?? const <CourseResponse>[],
         emptyText: '내 여행 일정(코스)이 없어요.',
       ),
       1 => _buildBlogCards(
-        blogs: _myBlogs?.blogs ?? const <BlogResponse>[],
+        blogs: state.myBlogs?.blogs ?? const <BlogResponse>[],
         emptyText: '작성한 여행 기록(블로그)이 없어요.',
       ),
       2 => _buildCourseCards(
-        courses: _myCourseBookmarks?.items ?? const <CourseResponse>[],
+        courses: state.myCourseBookmarks?.items ?? const <CourseResponse>[],
         emptyText: '북마크한 코스가 없어요.',
       ),
       _ => SizedBox(
@@ -649,13 +541,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
         ],
       ],
     );
-  }
-
-  String _errorMessage(Object error, {required String fallback}) {
-    return switch (error) {
-      ApiError(:final message) => message,
-      _ => fallback,
-    };
   }
 
   Widget _buildIndicatorDot({bool isActive = false}) {
