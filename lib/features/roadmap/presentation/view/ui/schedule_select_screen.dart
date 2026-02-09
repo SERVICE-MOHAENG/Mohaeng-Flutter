@@ -1,35 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/schedule_select_view_model.dart';
 
-class ScheduleSelectScreen extends StatefulWidget {
+class ScheduleSelectScreen extends ConsumerStatefulWidget {
   const ScheduleSelectScreen({super.key});
 
   @override
-  State<ScheduleSelectScreen> createState() => _ScheduleSelectScreenState();
+  ConsumerState<ScheduleSelectScreen> createState() =>
+      _ScheduleSelectScreenState();
 }
 
-class _ScheduleSelectScreenState extends State<ScheduleSelectScreen> {
-  late DateTime _displayMonth;
-
-  DateTime? _startDate;
-  DateTime? _endDate;
-
-  final List<String> _selectedCountries = ['브라질', '일본', '독일'];
-
-  @override
-  void initState() {
-    super.initState();
-    final now = DateTime.now();
-    _displayMonth = DateTime(now.year, now.month);
-  }
-
+class _ScheduleSelectScreenState extends ConsumerState<ScheduleSelectScreen> {
   @override
   Widget build(BuildContext context) {
-    final isValid = _isValidSelection;
+    final scheduleState = ref.watch(scheduleSelectViewModelProvider);
+    final scheduleNotifier = ref.read(scheduleSelectViewModelProvider.notifier);
+    final isValid = scheduleNotifier.isValidSelection;
 
     return MLayout(
       backgroundColor: MColor.white100,
@@ -50,7 +42,7 @@ class _ScheduleSelectScreenState extends State<ScheduleSelectScreen> {
             SizedBox(height: 24.h),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: _buildMonthHeader(),
+              child: _buildMonthHeader(scheduleState.displayMonth),
             ),
             SizedBox(height: 14.h),
             Padding(
@@ -60,7 +52,7 @@ class _ScheduleSelectScreenState extends State<ScheduleSelectScreen> {
             SizedBox(height: 10.h),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: _buildCalendarGrid(),
+              child: _buildCalendarGrid(scheduleState),
             ),
             const Spacer(),
             SizedBox(height: 16.h),
@@ -107,16 +99,20 @@ class _ScheduleSelectScreenState extends State<ScheduleSelectScreen> {
   }
 
   Widget _buildCountryChips() {
-    if (_selectedCountries.isEmpty) return const SizedBox.shrink();
+    final scheduleState = ref.watch(scheduleSelectViewModelProvider);
+    if (scheduleState.selectedCountries.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: EdgeInsets.symmetric(horizontal: 16.w),
       child: Row(
         children: [
-          for (final entry in _selectedCountries.asMap().entries) ...[
+          for (final entry
+              in scheduleState.selectedCountries.asMap().entries) ...[
             _CountryChip(label: entry.value),
-            if (entry.key != _selectedCountries.length - 1)
+            if (entry.key != scheduleState.selectedCountries.length - 1)
               SizedBox(width: 12.w),
           ],
         ],
@@ -124,22 +120,26 @@ class _ScheduleSelectScreenState extends State<ScheduleSelectScreen> {
     );
   }
 
-  Widget _buildMonthHeader() {
+  Widget _buildMonthHeader(DateTime displayMonth) {
     return Row(
       children: [
         IconButton(
-          onPressed: _goToPreviousMonth,
+          onPressed: ref
+              .read(scheduleSelectViewModelProvider.notifier)
+              .goToPreviousMonth,
           icon: Icon(Icons.chevron_left, size: 28.sp, color: MColor.gray400),
         ),
         Expanded(
           child: Text(
-            '${_displayMonth.month}월',
+            '${displayMonth.month}월',
             textAlign: TextAlign.center,
             style: MTextStyles.bodyB.copyWith(color: MColor.gray800),
           ),
         ),
         IconButton(
-          onPressed: _goToNextMonth,
+          onPressed: ref
+              .read(scheduleSelectViewModelProvider.notifier)
+              .goToNextMonth,
           icon: Icon(Icons.chevron_right, size: 28.sp, color: MColor.gray400),
         ),
       ],
@@ -163,8 +163,9 @@ class _ScheduleSelectScreenState extends State<ScheduleSelectScreen> {
     );
   }
 
-  Widget _buildCalendarGrid() {
-    final days = _buildMonthCells(_displayMonth);
+  Widget _buildCalendarGrid(ScheduleSelectState scheduleState) {
+    final days = _buildMonthCells(scheduleState.displayMonth);
+    final scheduleNotifier = ref.read(scheduleSelectViewModelProvider.notifier);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -182,10 +183,18 @@ class _ScheduleSelectScreenState extends State<ScheduleSelectScreen> {
                 child: _DayCell(
                   date: entry.date,
                   inMonth: entry.inMonth,
-                  isStart: _isSameDay(_startDate, entry.date),
-                  isEnd: _isSameDay(_endDate, entry.date),
-                  isInRange: _isInRange(entry.date),
-                  onTap: entry.inMonth ? () => _onSelectDate(entry.date) : null,
+                  isStart: scheduleNotifier.isSameDay(
+                    scheduleState.startDate,
+                    entry.date,
+                  ),
+                  isEnd: scheduleNotifier.isSameDay(
+                    scheduleState.endDate,
+                    entry.date,
+                  ),
+                  isInRange: scheduleNotifier.isInRange(entry.date),
+                  onTap: entry.inMonth
+                      ? () => scheduleNotifier.selectDate(entry.date)
+                      : null,
                 ),
               ),
           ],
@@ -220,69 +229,6 @@ class _ScheduleSelectScreenState extends State<ScheduleSelectScreen> {
 
   void _onTapNext() {
     Navigator.pushNamed(context, AppRoutes.roadmapPeople);
-  }
-
-  void _goToPreviousMonth() {
-    setState(() {
-      _displayMonth = DateTime(_displayMonth.year, _displayMonth.month - 1);
-      _startDate = null;
-      _endDate = null;
-    });
-  }
-
-  void _goToNextMonth() {
-    setState(() {
-      _displayMonth = DateTime(_displayMonth.year, _displayMonth.month + 1);
-      _startDate = null;
-      _endDate = null;
-    });
-  }
-
-  void _onSelectDate(DateTime date) {
-    final normalized = DateTime(date.year, date.month, date.day);
-
-    setState(() {
-      if (_startDate == null || (_startDate != null && _endDate != null)) {
-        _startDate = normalized;
-        _endDate = null;
-        return;
-      }
-
-      final start = _startDate!;
-      if (normalized.isBefore(start)) {
-        _startDate = normalized;
-        _endDate = null;
-        return;
-      }
-
-      _endDate = normalized;
-    });
-  }
-
-  bool get _isValidSelection {
-    final start = _startDate;
-    final end = _endDate;
-    if (start == null || end == null) return false;
-    final days = end.difference(start).inDays;
-    return days >= 0 && days <= 7;
-  }
-
-  bool _isInRange(DateTime date) {
-    final start = _startDate;
-    if (start == null) return false;
-    final end = _endDate;
-    if (end == null) return _isSameDay(start, date);
-
-    final normalized = DateTime(date.year, date.month, date.day);
-    final isAfterStart =
-        normalized.isAfter(start) || _isSameDay(normalized, start);
-    final isBeforeEnd = normalized.isBefore(end) || _isSameDay(normalized, end);
-    return isAfterStart && isBeforeEnd;
-  }
-
-  static bool _isSameDay(DateTime? a, DateTime b) {
-    if (a == null) return false;
-    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 }
 

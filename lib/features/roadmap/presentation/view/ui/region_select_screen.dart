@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
 
-class RegionSelectScreen extends StatefulWidget {
+class RegionSelectScreen extends ConsumerStatefulWidget {
   const RegionSelectScreen({super.key});
 
   @override
-  State<RegionSelectScreen> createState() => _RegionSelectScreenState();
+  ConsumerState<RegionSelectScreen> createState() => _RegionSelectScreenState();
 }
 
-class _RegionSelectScreenState extends State<RegionSelectScreen> {
+class _RegionSelectScreenState extends ConsumerState<RegionSelectScreen> {
   late final TextEditingController _searchController;
-
-  final List<String> _selectedCities = ['알래스카, 동-국립공원', '워싱턴디시', '뉴욕'];
 
   @override
   void initState() {
@@ -32,6 +32,7 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final regionState = ref.watch(regionSelectViewModelProvider);
     return MLayout(
       backgroundColor: MColor.white100,
       bottomSheet: Padding(
@@ -56,7 +57,7 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
             SizedBox(height: 18.h),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: _buildSelectedChips(),
+              child: _buildSelectedChips(regionState.selectedCities),
             ),
             const Spacer(),
             SizedBox(height: 16.h),
@@ -177,21 +178,23 @@ class _RegionSelectScreenState extends State<RegionSelectScreen> {
     );
   }
 
-  Widget _buildSelectedChips() {
-    if (_selectedCities.isEmpty) return const SizedBox.shrink();
+  Widget _buildSelectedChips(List<String> cities) {
+    if (cities.isEmpty) return const SizedBox.shrink();
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          for (final entry in _selectedCities.asMap().entries) ...[
+          for (final entry in cities.asMap().entries) ...[
             _CityChip(
               label: entry.value,
               onDeleted: () {
-                setState(() => _selectedCities.removeAt(entry.key));
+                ref
+                    .read(regionSelectViewModelProvider.notifier)
+                    .removeCityAt(entry.key);
               },
             ),
-            if (entry.key != _selectedCities.length - 1) SizedBox(width: 10.w),
+            if (entry.key != cities.length - 1) SizedBox(width: 10.w),
           ],
         ],
       ),

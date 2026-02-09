@@ -1,23 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_types.dart';
 
-class CompanionSelectScreen extends StatefulWidget {
+class CompanionSelectScreen extends ConsumerStatefulWidget {
   const CompanionSelectScreen({super.key});
 
   @override
-  State<CompanionSelectScreen> createState() => _CompanionSelectScreenState();
+  ConsumerState<CompanionSelectScreen> createState() =>
+      _CompanionSelectScreenState();
 }
 
-class _CompanionSelectScreenState extends State<CompanionSelectScreen> {
-  _CompanionType? _selected;
-
+class _CompanionSelectScreenState extends ConsumerState<CompanionSelectScreen> {
   @override
   Widget build(BuildContext context) {
-    final enabled = _selected != null;
+    final companionState = ref.watch(companionSelectViewModelProvider);
+    final enabled = companionState.selected != null;
 
     return MLayout(
       backgroundColor: MColor.white100,
@@ -41,7 +44,7 @@ class _CompanionSelectScreenState extends State<CompanionSelectScreen> {
                   right: 16.w,
                   bottom: 180.h,
                 ),
-                child: _buildGrid(),
+                child: _buildGrid(companionState.selected),
               ),
             ),
             SizedBox(height: 16.h),
@@ -87,8 +90,8 @@ class _CompanionSelectScreenState extends State<CompanionSelectScreen> {
     );
   }
 
-  Widget _buildGrid() {
-    final items = _CompanionType.values;
+  Widget _buildGrid(CompanionType? selectedType) {
+    final items = CompanionType.values;
 
     return GridView.builder(
       shrinkWrap: true,
@@ -102,14 +105,15 @@ class _CompanionSelectScreenState extends State<CompanionSelectScreen> {
       ),
       itemBuilder: (context, index) {
         final type = items[index];
-        final selected = type == _selected;
+        final selected = type == selectedType;
 
         return _CompanionCard(
           label: type.label,
           imagePaths: type.imagePaths,
           fallbackEmojis: type.fallbackEmojis,
           selected: selected,
-          onTap: () => setState(() => _selected = type),
+          onTap: () =>
+              ref.read(companionSelectViewModelProvider.notifier).select(type),
         );
       },
     );
@@ -142,52 +146,6 @@ class _CompanionSelectScreenState extends State<CompanionSelectScreen> {
   void _onTapNext() {
     Navigator.pushNamed(context, AppRoutes.roadmapConcept);
   }
-}
-
-enum _CompanionType {
-  solo,
-  parents,
-  friend,
-  lover,
-  child,
-  family,
-  coworker;
-
-  String get label => switch (this) {
-    _CompanionType.solo => '혼자',
-    _CompanionType.parents => '부모님',
-    _CompanionType.friend => '친구',
-    _CompanionType.lover => '연인',
-    _CompanionType.child => '아이',
-    _CompanionType.family => '가족',
-    _CompanionType.coworker => '직장 동료',
-  };
-
-  List<String> get fallbackEmojis => switch (this) {
-    _CompanionType.solo => const ['🚶‍♂️'],
-    _CompanionType.parents => const ['🚶‍♂️', '🚶‍♀️'],
-    _CompanionType.friend => const ['🚶‍♂️', '🚶‍♂️'],
-    _CompanionType.lover => const ['👫'],
-    _CompanionType.child => const ['👶'],
-    _CompanionType.family => const ['👨‍👩‍👧‍👦'],
-    _CompanionType.coworker => const ['👨‍💼'],
-  };
-
-  List<String> get imagePaths => switch (this) {
-    _CompanionType.solo => const ['assets/images/companion/alone.png'],
-    _CompanionType.parents => const [
-        'assets/images/companion/alone.png',
-        'assets/images/companion/parent.png',
-      ],
-    _CompanionType.friend => const [
-        'assets/images/companion/alone.png',
-        'assets/images/companion/friend.png',
-      ],
-    _CompanionType.lover => const ['assets/images/companion/couple.png'],
-    _CompanionType.child => const ['assets/images/companion/baby.png'],
-    _CompanionType.family => const ['assets/images/companion/family.png'],
-    _CompanionType.coworker => const ['assets/images/companion/worker.png'],
-  };
 }
 
 class _CompanionCard extends StatelessWidget {
@@ -253,10 +211,7 @@ class _CompanionCard extends StatelessWidget {
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) {
         final emoji = fallbackEmojis.isNotEmpty ? fallbackEmojis.first : '🙂';
-        return Text(
-          emoji,
-          style: TextStyle(fontSize: 64.sp, height: 1),
-        );
+        return Text(emoji, style: TextStyle(fontSize: 64.sp, height: 1));
       },
     );
   }
@@ -307,15 +262,14 @@ class _CompanionCard extends StatelessWidget {
       height: size,
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) {
-        final emoji = index < fallbackEmojis.length ? fallbackEmojis[index] : '🙂';
+        final emoji = index < fallbackEmojis.length
+            ? fallbackEmojis[index]
+            : '🙂';
         return SizedBox(
           width: size,
           height: size,
           child: Center(
-            child: Text(
-              emoji,
-              style: TextStyle(fontSize: 56.sp, height: 1),
-            ),
+            child: Text(emoji, style: TextStyle(fontSize: 56.sp, height: 1)),
           ),
         );
       },

@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/travel_style_select_view_model.dart';
 
-class TravelStyleSelectScreen extends StatefulWidget {
+class TravelStyleSelectScreen extends ConsumerStatefulWidget {
   const TravelStyleSelectScreen({super.key});
 
   @override
-  State<TravelStyleSelectScreen> createState() => _TravelStyleSelectScreenState();
+  ConsumerState<TravelStyleSelectScreen> createState() =>
+      _TravelStyleSelectScreenState();
 }
 
-class _TravelStyleSelectScreenState extends State<TravelStyleSelectScreen> {
+class _TravelStyleSelectScreenState
+    extends ConsumerState<TravelStyleSelectScreen> {
   final PageController _pageController = PageController();
-
-  int _pageIndex = 0;
-  final Map<String, String> _answers = {};
 
   late final List<_StyleQuestion> _questions = [
     _StyleQuestion.twoChoice(
@@ -109,37 +112,6 @@ class _TravelStyleSelectScreenState extends State<TravelStyleSelectScreen> {
         imagePath: MImages.travelStyleEmotional,
       ),
     ),
-    _StyleQuestion.grid(
-      id: 'budget',
-      title: '예산 범위',
-      prompt: '어느 정도의 예산으로 여행을 준비하고 계신가요?',
-      options: [
-        _StyleOption(
-          id: 'value',
-          label: '가성비',
-          fallbackEmoji: '⚖️',
-          imagePath: MImages.travelBudgetValue,
-        ),
-        _StyleOption(
-          id: 'basic',
-          label: '기본',
-          fallbackEmoji: '✈️',
-          imagePath: MImages.travelBudgetBasic,
-        ),
-        _StyleOption(
-          id: 'premium',
-          label: '프리미엄',
-          fallbackEmoji: '💰',
-          imagePath: MImages.travelBudgetPremium,
-        ),
-        _StyleOption(
-          id: 'luxury',
-          label: '럭셔리',
-          fallbackEmoji: '💵',
-          imagePath: MImages.travelBudgetLuxury,
-        ),
-      ],
-    ),
   ];
 
   @override
@@ -150,8 +122,9 @@ class _TravelStyleSelectScreenState extends State<TravelStyleSelectScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final question = _questions[_pageIndex];
-    final enabled = _answers.containsKey(question.id);
+    final styleState = ref.watch(travelStyleSelectViewModelProvider);
+    final question = _questions[styleState.pageIndex];
+    final enabled = styleState.answers.containsKey(question.id);
 
     return MLayout(
       backgroundColor: MColor.white100,
@@ -170,7 +143,9 @@ class _TravelStyleSelectScreenState extends State<TravelStyleSelectScreen> {
                 controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: _questions.length,
-                onPageChanged: (index) => setState(() => _pageIndex = index),
+                onPageChanged: (index) => ref
+                    .read(travelStyleSelectViewModelProvider.notifier)
+                    .setPageIndex(index),
                 itemBuilder: (context, index) {
                   final q = _questions[index];
                   return SingleChildScrollView(
@@ -184,7 +159,7 @@ class _TravelStyleSelectScreenState extends State<TravelStyleSelectScreen> {
                       children: [
                         _buildDescription(q),
                         SizedBox(height: 56.h),
-                        _buildOptions(q),
+                        _buildOptions(q, styleState),
                       ],
                     ),
                   );
@@ -244,53 +219,43 @@ class _TravelStyleSelectScreenState extends State<TravelStyleSelectScreen> {
     );
   }
 
-  Widget _buildOptions(_StyleQuestion question) {
-    return switch (question.layout) {
-      _QuestionLayout.twoChoice => Row(
-          children: [
-            Expanded(
-              child: AspectRatio(
-                aspectRatio: 1.05,
-                child: _OptionCard(
-                  option: question.options[0],
-                  selected: _answers[question.id] == question.options[0].id,
-                  onTap: () => _select(questionId: question.id, optionId: question.options[0].id),
-                ),
+  Widget _buildOptions(
+    _StyleQuestion question,
+    TravelStyleSelectState styleState,
+  ) {
+    return Row(
+      children: [
+        Expanded(
+          child: AspectRatio(
+            aspectRatio: 1.05,
+            child: _OptionCard(
+              option: question.options[0],
+              selected:
+                  styleState.answers[question.id] == question.options[0].id,
+              onTap: () => _select(
+                questionId: question.id,
+                optionId: question.options[0].id,
               ),
             ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: AspectRatio(
-                aspectRatio: 1.05,
-                child: _OptionCard(
-                  option: question.options[1],
-                  selected: _answers[question.id] == question.options[1].id,
-                  onTap: () => _select(questionId: question.id, optionId: question.options[1].id),
-                ),
-              ),
-            ),
-          ],
-        ),
-      _QuestionLayout.grid => GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: question.options.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 12.w,
-            mainAxisSpacing: 12.h,
-            childAspectRatio: 1.05,
           ),
-          itemBuilder: (context, index) {
-            final option = question.options[index];
-            return _OptionCard(
-              option: option,
-              selected: _answers[question.id] == option.id,
-              onTap: () => _select(questionId: question.id, optionId: option.id),
-            );
-          },
         ),
-    };
+        SizedBox(width: 12.w),
+        Expanded(
+          child: AspectRatio(
+            aspectRatio: 1.05,
+            child: _OptionCard(
+              option: question.options[1],
+              selected:
+                  styleState.answers[question.id] == question.options[1].id,
+              onTap: () => _select(
+                questionId: question.id,
+                optionId: question.options[1].id,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildNextButton({required bool enabled}) {
@@ -318,11 +283,14 @@ class _TravelStyleSelectScreenState extends State<TravelStyleSelectScreen> {
   }
 
   void _select({required String questionId, required String optionId}) {
-    setState(() => _answers[questionId] = optionId);
+    ref
+        .read(travelStyleSelectViewModelProvider.notifier)
+        .selectAnswer(questionId: questionId, optionId: optionId);
   }
 
   void _onTapBack() {
-    if (_pageIndex == 0) {
+    final styleState = ref.read(travelStyleSelectViewModelProvider);
+    if (styleState.pageIndex == 0) {
       Navigator.pop(context);
       return;
     }
@@ -334,7 +302,8 @@ class _TravelStyleSelectScreenState extends State<TravelStyleSelectScreen> {
   }
 
   void _onTapNext() {
-    if (_pageIndex < _questions.length - 1) {
+    final styleState = ref.read(travelStyleSelectViewModelProvider);
+    if (styleState.pageIndex < _questions.length - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
@@ -342,19 +311,15 @@ class _TravelStyleSelectScreenState extends State<TravelStyleSelectScreen> {
       return;
     }
 
-    // TODO: 다음 단계 화면이 결정되면 라우팅을 붙여주세요.
-    Navigator.pop(context, _answers);
+    Navigator.pushNamed(context, AppRoutes.roadmapBudgetRange);
   }
 }
-
-enum _QuestionLayout { twoChoice, grid }
 
 class _StyleQuestion {
   _StyleQuestion._({
     required this.id,
     required this.title,
     required this.prompt,
-    required this.layout,
     required this.options,
     this.vsLabel,
   });
@@ -363,7 +328,6 @@ class _StyleQuestion {
   final String title;
   final String prompt;
   final String? vsLabel;
-  final _QuestionLayout layout;
   final List<_StyleOption> options;
 
   _StyleQuestion.twoChoice({
@@ -374,26 +338,12 @@ class _StyleQuestion {
     required _StyleOption left,
     required _StyleOption right,
   }) : this._(
-          id: id,
-          title: title,
-          prompt: prompt,
-          vsLabel: vsLabel,
-          layout: _QuestionLayout.twoChoice,
-          options: [left, right],
-        );
-
-  _StyleQuestion.grid({
-    required String id,
-    required String title,
-    required String prompt,
-    required List<_StyleOption> options,
-  }) : this._(
-          id: id,
-          title: title,
-          prompt: prompt,
-          layout: _QuestionLayout.grid,
-          options: options,
-        );
+         id: id,
+         title: title,
+         prompt: prompt,
+         vsLabel: vsLabel,
+         options: [left, right],
+       );
 }
 
 class _StyleOption {
@@ -441,9 +391,7 @@ class _OptionCard extends StatelessWidget {
             children: [
               SizedBox(height: 16.h),
               Expanded(
-                child: Center(
-                  child: _OptionImage(option: option),
-                ),
+                child: Center(child: _OptionImage(option: option)),
               ),
               SizedBox(height: 12.h),
               Padding(
