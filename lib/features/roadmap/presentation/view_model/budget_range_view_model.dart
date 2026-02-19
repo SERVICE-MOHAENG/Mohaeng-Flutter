@@ -1,22 +1,20 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_types.dart';
 
 @immutable
 class BudgetRangeState {
-  const BudgetRangeState({this.min = '', this.max = ''});
+  const BudgetRangeState({this.range});
 
-  final String min;
-  final String max;
+  final BudgetRange? range;
 
-  BudgetRangeState copyWith({String? min, String? max}) {
-    return BudgetRangeState(min: min ?? this.min, max: max ?? this.max);
+  BudgetRangeState copyWith({BudgetRange? range}) {
+    return BudgetRangeState(range: range ?? this.range);
   }
 }
 
 class BudgetRangeViewModel extends StateNotifier<BudgetRangeState> {
   BudgetRangeViewModel() : super(const BudgetRangeState());
 
-  void setMin(String value) => state = state.copyWith(min: value);
-
-  void setMax(String value) => state = state.copyWith(max: value);
+  void setRange(BudgetRange value) => state = state.copyWith(range: value);
 }

@@ -34,11 +34,12 @@ class _AdditionalRequestScreenState
 
   @override
   Widget build(BuildContext context) {
+    final surveyState = ref.watch(roadmapSurveyViewModelProvider);
     return MLayout(
       backgroundColor: MColor.white100,
       bottomSheet: Padding(
         padding: EdgeInsets.symmetric(vertical: 45.h, horizontal: 16.w),
-        child: _buildCompleteButton(),
+        child: _buildCompleteButton(isLoading: surveyState.isLoading),
       ),
       body: SafeArea(
         child: Column(
@@ -152,32 +153,65 @@ class _AdditionalRequestScreenState
     );
   }
 
-  Widget _buildCompleteButton() {
+  Widget _buildCompleteButton({required bool isLoading}) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: _onTapComplete,
+        onPressed: isLoading ? null : _onTapComplete,
         style: ElevatedButton.styleFrom(
           elevation: 0,
           backgroundColor: MColor.primary500,
+          disabledBackgroundColor: MColor.gray100,
           padding: EdgeInsets.symmetric(vertical: 12.h),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(6.r),
           ),
         ),
         child: Text(
-          '완료',
-          style: MTextStyles.labelM.copyWith(color: MColor.white100),
+          isLoading ? '저장 중...' : '완료',
+          style: MTextStyles.labelM.copyWith(
+            color: isLoading ? MColor.gray300 : MColor.white100,
+          ),
         ),
       ),
     );
   }
 
-  void _onTapComplete() {
-    Navigator.popUntil(
-      context,
-      (route) =>
-          route.settings.name == AppRoutes.roadmapConcept || route.isFirst,
+  Future<void> _onTapComplete() async {
+    final schedule = ref.read(scheduleSelectViewModelProvider);
+    final region = ref.read(regionSelectViewModelProvider);
+    final people = ref.read(peopleSelectViewModelProvider);
+    final companion = ref.read(companionSelectViewModelProvider);
+    final concept = ref.read(conceptSelectViewModelProvider);
+    final style = ref.read(travelStyleSelectViewModelProvider);
+    final budget = ref.read(budgetRangeViewModelProvider);
+    final additional = ref.read(additionalRequestViewModelProvider);
+
+    final success = await ref
+        .read(roadmapSurveyViewModelProvider.notifier)
+        .submitFromSelections(
+          schedule: schedule,
+          region: region,
+          people: people,
+          companion: companion,
+          concept: concept,
+          style: style,
+          budget: budget,
+          additional: additional,
+        );
+
+    if (!mounted) return;
+
+    if (success) {
+      Navigator.pushNamed(context, AppRoutes.roadmapResult);
+      return;
+    }
+
+    final message =
+        ref.read(roadmapSurveyViewModelProvider).errorMessage ??
+        '로드맵 설문을 저장하지 못했어요.';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 }
