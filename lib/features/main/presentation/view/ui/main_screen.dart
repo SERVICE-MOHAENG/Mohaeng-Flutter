@@ -486,6 +486,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             children: [
               Text(
                 errorMessage,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: MTextStyles.labelM.copyWith(color: MColor.gray500),
               ),
               SizedBox(height: 10.h),
@@ -722,6 +724,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             children: [
               Text(
                 errorMessage,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: MTextStyles.labelM.copyWith(color: MColor.gray500),
               ),
               SizedBox(height: 10.h),

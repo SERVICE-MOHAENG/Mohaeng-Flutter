@@ -14,4 +14,5 @@ class AppRoutes {
   static const roadmapTravelStyle = '/roadmap/travel-style';
   static const roadmapBudgetRange = '/roadmap/budget-range';
   static const roadmapAdditionalRequest = '/roadmap/additional-request';
+  static const roadmapResult = '/roadmap/result';
 }

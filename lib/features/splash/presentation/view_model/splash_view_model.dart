@@ -21,13 +21,15 @@ class SplashViewModel extends StateNotifier<SplashState> {
   final AuthTokenStorage _tokenStorage;
 
   Future<bool> checkAutoLogin() async {
-    if (state.isChecking) return false;
+    if (!mounted || state.isChecking) return false;
     state = state.copyWith(isChecking: true);
     try {
       final accessToken = await _tokenStorage.readAccessToken();
       return _isAccessTokenValid(accessToken);
     } finally {
-      state = state.copyWith(isChecking: false);
+      if (mounted) {
+        state = state.copyWith(isChecking: false);
+      }
     }
   }
 

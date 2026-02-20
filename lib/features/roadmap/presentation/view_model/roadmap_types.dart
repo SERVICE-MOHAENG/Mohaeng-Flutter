@@ -44,6 +44,16 @@ enum CompanionType {
     CompanionType.family => const ['assets/images/companion/family.png'],
     CompanionType.coworker => const ['assets/images/companion/worker.png'],
   };
+
+  String get apiValue => switch (this) {
+    CompanionType.solo => 'SOLO',
+    CompanionType.parents => 'PARENTS',
+    CompanionType.friend => 'FRIEND',
+    CompanionType.lover => 'LOVER',
+    CompanionType.child => 'CHILD',
+    CompanionType.family => 'FAMILY',
+    CompanionType.coworker => 'COWORKER',
+  };
 }
 
 enum TravelConcept {
@@ -104,4 +114,103 @@ enum TravelConcept {
     TravelConcept.cultureArt => MImages.conceptCultureArt,
     TravelConcept.activity => MImages.conceptActivity,
   };
+
+  String get apiValue => switch (this) {
+    TravelConcept.sightseeing => 'SIGHTSEEING',
+    TravelConcept.food => 'FOOD',
+    TravelConcept.family => 'FAMILY',
+    TravelConcept.healing => 'HEALING',
+    TravelConcept.nature => 'NATURE',
+    TravelConcept.shopping => 'SHOPPING',
+    TravelConcept.city => 'CITY',
+    TravelConcept.photo => 'PHOTO',
+    TravelConcept.unique => 'UNIQUE_TRIP',
+    TravelConcept.honeymoon => 'HONEYMOON',
+    TravelConcept.cultureArt => 'CULTURE_ART',
+    TravelConcept.activity => 'ACTIVITY',
+  };
+}
+
+enum TravelStyleQuestion {
+  pace,
+  planning,
+  destination,
+  activity,
+  priority,
+}
+
+enum PacePreference {
+  DENSE,
+  RELAXED;
+
+  String get label => switch (this) {
+    PacePreference.DENSE => '빡빡하게',
+    PacePreference.RELAXED => '널널하게',
+  };
+
+  String get apiValue => name;
+}
+
+enum PlanningPreference {
+  PLANNED,
+  SPONTANEOUS;
+
+  String get label => switch (this) {
+    PlanningPreference.PLANNED => '계획형',
+    PlanningPreference.SPONTANEOUS => '즉흥형',
+  };
+
+  String get apiValue => name;
+}
+
+enum DestinationPreference {
+  TOURIST_SPOTS,
+  LOCAL_EXPERIENCE;
+
+  String get label => switch (this) {
+    DestinationPreference.TOURIST_SPOTS => '관광지 위주',
+    DestinationPreference.LOCAL_EXPERIENCE => '로컬 위주',
+  };
+
+  String get apiValue => name;
+}
+
+enum ActivityPreference {
+  ACTIVE,
+  REST_FOCUSED;
+
+  String get label => switch (this) {
+    ActivityPreference.ACTIVE => '활동 중심',
+    ActivityPreference.REST_FOCUSED => '휴식 중심',
+  };
+
+  String get apiValue => name;
+}
+
+enum PriorityPreference {
+  EFFICIENCY,
+  EMOTIONAL;
+
+  String get label => switch (this) {
+    PriorityPreference.EFFICIENCY => '효율 우선',
+    PriorityPreference.EMOTIONAL => '감성 우선',
+  };
+
+  String get apiValue => name;
+}
+
+enum BudgetRange {
+  LOW,
+  MID,
+  HIGH,
+  LUXURY;
+
+  String get label => switch (this) {
+    BudgetRange.LOW => '가성비 / 저예산',
+    BudgetRange.MID => '기본 / 적당한',
+    BudgetRange.HIGH => '프리미엄',
+    BudgetRange.LUXURY => '럭셔리',
+  };
+
+  String get apiValue => name;
 }

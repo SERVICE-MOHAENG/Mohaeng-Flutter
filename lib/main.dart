@@ -15,6 +15,7 @@ import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/compan
 import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/concept_select_screen.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/people_select_screen.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/region_select_screen.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/roadmap_result_screen.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/schedule_select_screen.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/travel_style_select_screen.dart';
 import 'package:mohaeng_app_service/features/splash/presentation/ui/splash_screen.dart';
@@ -59,6 +60,7 @@ class MyApp extends StatelessWidget {
           AppRoutes.roadmapTravelStyle: (_) => TravelStyleSelectScreen(),
           AppRoutes.roadmapBudgetRange: (_) => BudgetRangeScreen(),
           AppRoutes.roadmapAdditionalRequest: (_) => AdditionalRequestScreen(),
+          AppRoutes.roadmapResult: (_) => RoadmapResultScreen(),
         },
       ),
     );

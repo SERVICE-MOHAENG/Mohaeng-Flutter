@@ -7,6 +7,7 @@ import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_types.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/travel_style_select_view_model.dart';
 
 class TravelStyleSelectScreen extends ConsumerStatefulWidget {
@@ -23,90 +24,90 @@ class _TravelStyleSelectScreenState
 
   late final List<_StyleQuestion> _questions = [
     _StyleQuestion.twoChoice(
-      id: 'pace',
+      id: TravelStyleQuestion.pace,
       title: '여행 스타일',
       prompt: '원하시는 여행 스타일을 선택해주세요!',
       vsLabel: '빡빡하게  VS  널널하게',
       left: _StyleOption(
-        id: 'tight',
+        value: PacePreference.DENSE,
         label: '빡빡하게',
         fallbackEmoji: '⏱️',
         imagePath: MImages.travelStyleTight,
       ),
       right: _StyleOption(
-        id: 'relaxed',
+        value: PacePreference.RELAXED,
         label: '널널하게',
         fallbackEmoji: '☕️',
         imagePath: MImages.travelStyleRelaxed,
       ),
     ),
     _StyleQuestion.twoChoice(
-      id: 'planning',
+      id: TravelStyleQuestion.planning,
       title: '여행 스타일',
       prompt: '원하시는 여행 스타일을 선택해주세요!',
       vsLabel: '계획형  VS  즉흥형',
       left: _StyleOption(
-        id: 'planner',
+        value: PlanningPreference.PLANNED,
         label: '계획형',
         fallbackEmoji: '📒',
         imagePath: MImages.travelStylePlanner,
       ),
       right: _StyleOption(
-        id: 'spontaneous',
+        value: PlanningPreference.SPONTANEOUS,
         label: '즉흥형',
         fallbackEmoji: '🎲',
         imagePath: MImages.travelStyleSpontaneous,
       ),
     ),
     _StyleQuestion.twoChoice(
-      id: 'focus',
+      id: TravelStyleQuestion.destination,
       title: '여행 스타일',
       prompt: '원하시는 여행 스타일을 선택해주세요!',
       vsLabel: '관광지 위주  VS  로컬 위주',
       left: _StyleOption(
-        id: 'tourist',
+        value: DestinationPreference.TOURIST_SPOTS,
         label: '관광지 위주',
         fallbackEmoji: '🚠',
         imagePath: MImages.travelStyleTourist,
       ),
       right: _StyleOption(
-        id: 'local',
+        value: DestinationPreference.LOCAL_EXPERIENCE,
         label: '로컬 위주',
         fallbackEmoji: '🚌',
         imagePath: MImages.travelStyleLocal,
       ),
     ),
     _StyleQuestion.twoChoice(
-      id: 'energy',
+      id: TravelStyleQuestion.activity,
       title: '여행 스타일',
       prompt: '원하시는 여행 스타일을 선택해주세요!',
       vsLabel: '활동 중심  VS  휴식 중심',
       left: _StyleOption(
-        id: 'active',
+        value: ActivityPreference.ACTIVE,
         label: '활동 중심',
         fallbackEmoji: '🔥',
         imagePath: MImages.travelStyleActive,
       ),
       right: _StyleOption(
-        id: 'rest',
+        value: ActivityPreference.REST_FOCUSED,
         label: '휴식 중심',
         fallbackEmoji: '💗',
         imagePath: MImages.travelStyleRest,
       ),
     ),
     _StyleQuestion.twoChoice(
-      id: 'value',
+      id: TravelStyleQuestion.priority,
       title: '여행 스타일',
       prompt: '원하시는 여행 스타일을 선택해주세요!',
       vsLabel: '효율  VS  감성',
       left: _StyleOption(
-        id: 'efficient',
+        value: PriorityPreference.EFFICIENCY,
         label: '효율',
         fallbackEmoji: '📊',
         imagePath: MImages.travelStyleEfficient,
       ),
       right: _StyleOption(
-        id: 'emotional',
+        value: PriorityPreference.EMOTIONAL,
         label: '감성',
         fallbackEmoji: '🧭',
         imagePath: MImages.travelStyleEmotional,
@@ -124,7 +125,7 @@ class _TravelStyleSelectScreenState
   Widget build(BuildContext context) {
     final styleState = ref.watch(travelStyleSelectViewModelProvider);
     final question = _questions[styleState.pageIndex];
-    final enabled = styleState.answers.containsKey(question.id);
+    final enabled = styleState.isAnswered(question.id);
 
     return MLayout(
       backgroundColor: MColor.white100,
@@ -231,10 +232,11 @@ class _TravelStyleSelectScreenState
             child: _OptionCard(
               option: question.options[0],
               selected:
-                  styleState.answers[question.id] == question.options[0].id,
+                  styleState.selectedValue(question.id) ==
+                  question.options[0].value,
               onTap: () => _select(
                 questionId: question.id,
-                optionId: question.options[0].id,
+                value: question.options[0].value,
               ),
             ),
           ),
@@ -246,10 +248,11 @@ class _TravelStyleSelectScreenState
             child: _OptionCard(
               option: question.options[1],
               selected:
-                  styleState.answers[question.id] == question.options[1].id,
+                  styleState.selectedValue(question.id) ==
+                  question.options[1].value,
               onTap: () => _select(
                 questionId: question.id,
-                optionId: question.options[1].id,
+                value: question.options[1].value,
               ),
             ),
           ),
@@ -282,10 +285,13 @@ class _TravelStyleSelectScreenState
     );
   }
 
-  void _select({required String questionId, required String optionId}) {
+  void _select({
+    required TravelStyleQuestion questionId,
+    required Object value,
+  }) {
     ref
         .read(travelStyleSelectViewModelProvider.notifier)
-        .selectAnswer(questionId: questionId, optionId: optionId);
+        .selectAnswer(question: questionId, value: value);
   }
 
   void _onTapBack() {
@@ -324,14 +330,14 @@ class _StyleQuestion {
     this.vsLabel,
   });
 
-  final String id;
+  final TravelStyleQuestion id;
   final String title;
   final String prompt;
   final String? vsLabel;
   final List<_StyleOption> options;
 
   _StyleQuestion.twoChoice({
-    required String id,
+    required TravelStyleQuestion id,
     required String title,
     required String prompt,
     required String vsLabel,
@@ -348,13 +354,13 @@ class _StyleQuestion {
 
 class _StyleOption {
   const _StyleOption({
-    required this.id,
+    required this.value,
     required this.label,
     required this.fallbackEmoji,
     this.imagePath,
   });
 
-  final String id;
+  final Object value;
   final String label;
   final String fallbackEmoji;
   final String? imagePath;

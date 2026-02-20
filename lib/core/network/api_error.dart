@@ -116,7 +116,10 @@ final class ApiError implements Exception {
     if (data is Map<String, dynamic>) {
       final message = data['message'] ?? data['error'] ?? data['detail'];
       if (message is String && message.trim().isNotEmpty) {
-        return message.trim();
+        final trimmed = message.trim();
+        if (!_looksLikeHtml(trimmed)) {
+          return trimmed;
+        }
       }
 
       final nested = data['data'];
@@ -124,13 +127,19 @@ final class ApiError implements Exception {
         final nestedMessage =
             nested['message'] ?? nested['error'] ?? nested['detail'];
         if (nestedMessage is String && nestedMessage.trim().isNotEmpty) {
-          return nestedMessage.trim();
+          final trimmed = nestedMessage.trim();
+          if (!_looksLikeHtml(trimmed)) {
+            return trimmed;
+          }
         }
       }
     }
 
     if (data is String && data.trim().isNotEmpty) {
-      return data.trim();
+      final trimmed = data.trim();
+      if (!_looksLikeHtml(trimmed)) {
+        return trimmed;
+      }
     }
 
     return null;
@@ -156,4 +165,12 @@ final class ApiError implements Exception {
     final statusPart = statusCode == null ? '' : ' (status: $statusCode)';
     return 'ApiError(${kind.name})$statusPart: $message';
   }
+}
+
+bool _looksLikeHtml(String value) {
+  final lower = value.toLowerCase();
+  return lower.contains('<!doctype') ||
+      lower.contains('<html') ||
+      lower.contains('<head') ||
+      lower.contains('<body');
 }
