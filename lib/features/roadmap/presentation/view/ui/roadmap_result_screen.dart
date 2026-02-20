@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_itinerary_result_models.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
 
-class RoadmapResultScreen extends StatelessWidget {
+class RoadmapResultScreen extends ConsumerWidget {
   const RoadmapResultScreen({super.key});
 
   static const LatLng _defaultCenter = LatLng(37.5665, 126.9780);
 
   @override
-  Widget build(BuildContext context) {
-    final items = _dummySchedule;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final resultState = ref.watch(roadmapItineraryResultViewModelProvider);
+    final items = _buildScheduleItems(resultState.result?.data?.itinerary);
 
     return MLayout(
       backgroundColor: MColor.white100,
@@ -54,9 +58,23 @@ class RoadmapResultScreen extends StatelessWidget {
               ),
               child: ListView.separated(
                 padding: EdgeInsets.fromLTRB(20.w, 28.h, 20.w, 24.h),
-                itemCount: items.length,
+                itemCount: items.isEmpty ? 1 : items.length,
                 separatorBuilder: (_, __) => SizedBox(height: 18.h),
                 itemBuilder: (context, index) {
+                  if (items.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 40.h),
+                        child: Text(
+                          '일정을 불러오는 중이거나\n표시할 일정이 없어요.',
+                          textAlign: TextAlign.center,
+                          style: MTextStyles.labelM.copyWith(
+                            color: MColor.gray400,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
                   final item = items[index];
 
                   return _ScheduleRow(
@@ -171,35 +189,61 @@ class _ScheduleItem {
   final String description;
 }
 
-const _dummySchedule = <_ScheduleItem>[
-  _ScheduleItem(
-    order: 1,
-    title: '호텔 조식',
-    time: '08:00',
-    description: '호텔 루프탑 레스토랑 뷔페',
-  ),
-  _ScheduleItem(
-    order: 2,
-    title: '해변 산책',
-    time: '10:00',
-    description: '오션뷰 산책로 따라 이동',
-  ),
-  _ScheduleItem(
-    order: 3,
-    title: '시티 투어',
-    time: '12:30',
-    description: '랜드마크 3곳 방문',
-  ),
-  _ScheduleItem(
-    order: 4,
-    title: '카페 휴식',
-    time: '15:00',
-    description: '현지 베이커리 카페',
-  ),
-  _ScheduleItem(
-    order: 5,
-    title: '야경 감상',
-    time: '19:30',
-    description: '전망대 야경 포인트',
-  ),
-];
+List<_ScheduleItem> _buildScheduleItems(
+  List<RoadmapDailyItinerary>? itinerary,
+) {
+  if (itinerary == null || itinerary.isEmpty) {
+    return const [];
+  }
+
+  final entries = <_ScheduleEntry>[];
+  for (final daily in itinerary) {
+    final dayNumber = daily.dayNumber ?? 0;
+    final places = daily.places ?? const <RoadmapItineraryPlace>[];
+    for (final place in places) {
+      entries.add(
+        _ScheduleEntry(
+          dayNumber: dayNumber,
+          sequence: place.visitSequence ?? 0,
+          place: place,
+        ),
+      );
+    }
+  }
+
+  entries.sort((a, b) {
+    final byDay = a.dayNumber.compareTo(b.dayNumber);
+    if (byDay != 0) return byDay;
+    return a.sequence.compareTo(b.sequence);
+  });
+
+  var order = 1;
+  return entries.map((entry) {
+    final place = entry.place;
+    return _ScheduleItem(
+      order: order++,
+      title: place.placeName ?? '방문 장소',
+      time: _formatVisitTime(place.visitTime),
+      description: place.description ?? place.address ?? '',
+    );
+  }).toList();
+}
+
+String _formatVisitTime(Object? value) {
+  if (value == null) return '';
+  if (value is String) return value;
+  if (value is num) return value.toString();
+  return value.toString();
+}
+
+class _ScheduleEntry {
+  const _ScheduleEntry({
+    required this.dayNumber,
+    required this.sequence,
+    required this.place,
+  });
+
+  final int dayNumber;
+  final int sequence;
+  final RoadmapItineraryPlace place;
+}

@@ -148,6 +148,7 @@ class _RegionSelectScreenState extends ConsumerState<RegionSelectScreen> {
     return TextFormField(
       controller: _searchController,
       style: MTextStyles.bodyM.copyWith(color: MColor.gray800),
+      onFieldSubmitted: (_) => _handleAddCity(),
       decoration: InputDecoration(
         isDense: true,
         filled: true,
@@ -157,12 +158,16 @@ class _RegionSelectScreenState extends ConsumerState<RegionSelectScreen> {
         contentPadding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
         suffixIcon: Padding(
           padding: EdgeInsets.only(right: 8.w, top: 8.h, bottom: 8.h),
-          child: Container(
-            decoration: BoxDecoration(
-              color: MColor.primary500,
-              borderRadius: BorderRadius.circular(65.r),
+          child: InkWell(
+            onTap: _handleAddCity,
+            borderRadius: BorderRadius.circular(65.r),
+            child: Container(
+              decoration: BoxDecoration(
+                color: MColor.primary500,
+                borderRadius: BorderRadius.circular(65.r),
+              ),
+              child: Icon(Icons.search, size: 16.sp, color: MColor.white100),
             ),
-            child: Icon(Icons.search, size: 16.sp, color: MColor.white100),
           ),
         ),
         enabledBorder: OutlineInputBorder(
@@ -176,6 +181,14 @@ class _RegionSelectScreenState extends ConsumerState<RegionSelectScreen> {
       ),
       textInputAction: TextInputAction.search,
     );
+  }
+
+  void _handleAddCity() {
+    final city = _searchController.text;
+    if (city.trim().isEmpty) return;
+    ref.read(regionSelectViewModelProvider.notifier).addCity(city);
+    _searchController.clear();
+    FocusScope.of(context).unfocus();
   }
 
   Widget _buildSelectedChips(List<String> cities) {

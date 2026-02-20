@@ -39,7 +39,14 @@ class _AdditionalRequestScreenState
       backgroundColor: MColor.white100,
       bottomSheet: Padding(
         padding: EdgeInsets.symmetric(vertical: 45.h, horizontal: 16.w),
-        child: _buildCompleteButton(isLoading: surveyState.isLoading),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildMapPreviewButton(),
+            SizedBox(height: 12.h),
+            _buildCompleteButton(isLoading: surveyState.isLoading),
+          ],
+        ),
       ),
       body: SafeArea(
         child: Column(
@@ -172,6 +179,27 @@ class _AdditionalRequestScreenState
           style: MTextStyles.labelM.copyWith(
             color: isLoading ? MColor.gray300 : MColor.white100,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMapPreviewButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: () => Navigator.pushNamed(context, AppRoutes.roadmapResult),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: MColor.primary500,
+          side: BorderSide(color: MColor.primary500, width: 1.2.w),
+          padding: EdgeInsets.symmetric(vertical: 12.h),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(6.r),
+          ),
+        ),
+        child: Text(
+          '맵 보기',
+          style: MTextStyles.labelM.copyWith(color: MColor.primary500),
         ),
       ),
     );

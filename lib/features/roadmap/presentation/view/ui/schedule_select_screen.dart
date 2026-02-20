@@ -21,7 +21,32 @@ class _ScheduleSelectScreenState extends ConsumerState<ScheduleSelectScreen> {
   Widget build(BuildContext context) {
     final scheduleState = ref.watch(scheduleSelectViewModelProvider);
     final scheduleNotifier = ref.read(scheduleSelectViewModelProvider.notifier);
-    final isValid = scheduleNotifier.isValidSelection;
+    final regionState = ref.watch(regionSelectViewModelProvider);
+    if (regionState.selectedCities.isNotEmpty &&
+        !regionState.selectedCities.contains(scheduleState.selectedCity)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        scheduleNotifier.setSelectedCity(regionState.selectedCities.first);
+      });
+    }
+    if (regionState.selectedCities.isEmpty &&
+        scheduleState.selectedCity.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        scheduleNotifier.setSelectedCity('');
+      });
+    }
+    if (scheduleState.selectedCity.isNotEmpty &&
+        !scheduleState.cityDateRanges.containsKey(scheduleState.selectedCity) &&
+        (scheduleState.startDate != null || scheduleState.endDate != null)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        scheduleNotifier.setSelectedCity(
+          scheduleState.selectedCity,
+          resetSelection: true,
+        );
+      });
+    }
+    final isValid = scheduleNotifier.isAllCitiesSelected(
+      regionState.selectedCities,
+    );
 
     return MLayout(
       backgroundColor: MColor.white100,
@@ -38,7 +63,7 @@ class _ScheduleSelectScreenState extends ConsumerState<ScheduleSelectScreen> {
             SizedBox(height: 40.h),
             _buildDescription(),
             SizedBox(height: 24.h),
-            _buildCountryChips(),
+            _buildCityChips(regionState.selectedCities, scheduleState),
             SizedBox(height: 24.h),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -52,7 +77,10 @@ class _ScheduleSelectScreenState extends ConsumerState<ScheduleSelectScreen> {
             SizedBox(height: 10.h),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: _buildCalendarGrid(scheduleState),
+              child: _buildCalendarGrid(
+                scheduleState,
+                regionState.selectedCities,
+              ),
             ),
             const Spacer(),
             SizedBox(height: 16.h),
@@ -98,9 +126,11 @@ class _ScheduleSelectScreenState extends ConsumerState<ScheduleSelectScreen> {
     );
   }
 
-  Widget _buildCountryChips() {
-    final scheduleState = ref.watch(scheduleSelectViewModelProvider);
-    if (scheduleState.selectedCountries.isEmpty) {
+  Widget _buildCityChips(
+    List<String> cities,
+    ScheduleSelectState scheduleState,
+  ) {
+    if (cities.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -109,10 +139,15 @@ class _ScheduleSelectScreenState extends ConsumerState<ScheduleSelectScreen> {
       padding: EdgeInsets.symmetric(horizontal: 16.w),
       child: Row(
         children: [
-          for (final entry
-              in scheduleState.selectedCountries.asMap().entries) ...[
-            _CountryChip(label: entry.value),
-            if (entry.key != scheduleState.selectedCountries.length - 1)
+          for (final entry in cities.asMap().entries) ...[
+            _CountryChip(
+              label: entry.value,
+              selected: entry.value == scheduleState.selectedCity,
+              onTap: () => ref
+                  .read(scheduleSelectViewModelProvider.notifier)
+                  .setSelectedCity(entry.value),
+            ),
+            if (entry.key != cities.length - 1)
               SizedBox(width: 12.w),
           ],
         ],
@@ -163,7 +198,10 @@ class _ScheduleSelectScreenState extends ConsumerState<ScheduleSelectScreen> {
     );
   }
 
-  Widget _buildCalendarGrid(ScheduleSelectState scheduleState) {
+  Widget _buildCalendarGrid(
+    ScheduleSelectState scheduleState,
+    List<String> cities,
+  ) {
     final days = _buildMonthCells(scheduleState.displayMonth);
     final scheduleNotifier = ref.read(scheduleSelectViewModelProvider.notifier);
 
@@ -193,7 +231,10 @@ class _ScheduleSelectScreenState extends ConsumerState<ScheduleSelectScreen> {
                   ),
                   isInRange: scheduleNotifier.isInRange(entry.date),
                   onTap: entry.inMonth
-                      ? () => scheduleNotifier.selectDate(entry.date)
+                      ? () => scheduleNotifier.selectDate(
+                            entry.date,
+                            cities: cities,
+                          )
                       : null,
                 ),
               ),
@@ -230,24 +271,33 @@ class _ScheduleSelectScreenState extends ConsumerState<ScheduleSelectScreen> {
   void _onTapNext() {
     Navigator.pushNamed(context, AppRoutes.roadmapPeople);
   }
+
 }
 
 class _CountryChip extends StatelessWidget {
-  const _CountryChip({required this.label});
+  const _CountryChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final background = selected ? MColor.primary50 : MColor.white100;
+    final borderWidth = selected ? 2.w : 1.w;
     return SizedBox(
       width: 159.w,
       height: 64.h,
       child: OutlinedButton(
-        onPressed: () {},
+        onPressed: onTap,
         style: OutlinedButton.styleFrom(
-          side: BorderSide(color: MColor.primary500, width: 1.w),
+          side: BorderSide(color: MColor.primary500, width: borderWidth),
           foregroundColor: MColor.primary500,
-          backgroundColor: MColor.white100,
+          backgroundColor: background,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(4.r),
           ),
