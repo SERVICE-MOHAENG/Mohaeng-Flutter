@@ -74,10 +74,7 @@ class _TermsBottomSheetState extends State<TermsBottomSheet> {
               SizedBox(height: 14.h),
               Text(
                 '잠깐!\n이용약관을 확인해주세요!',
-                style: MTextStyles.sTitleB.copyWith(
-                  height: 1.2,
-                  color: MColor.gray800,
-                ),
+                style: MTextStyles.lBodyM.copyWith(color: MColor.gray900),
               ),
               SizedBox(height: 18.h),
               _AgreeRow(
@@ -177,10 +174,11 @@ class _AgreeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isAllRow = trailingType == _TrailingType.circleCheck;
-    final textStyle = (isAllRow ? MTextStyles.bodyB : MTextStyles.bodyM)
-        .copyWith(color: isAllRow ? MColor.gray800 : MColor.gray500);
+    final textStyle = (isAllRow ? MTextStyles.bodyM : MTextStyles.bodyM)
+        .copyWith(color: isAllRow ? MColor.black100 : MColor.gray400);
 
     return InkWell(
+
       borderRadius: BorderRadius.circular(12.r),
       onTap: onTap,
       child: Padding(

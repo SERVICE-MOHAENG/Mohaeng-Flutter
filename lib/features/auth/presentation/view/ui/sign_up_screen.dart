@@ -8,7 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
-import 'package:mohaeng_app_service/features/auth/presentation/view/ui/complete_sign_up_screen.dart';
+import 'package:mohaeng_app_service/features/auth/presentation/view/ui/sign_up_survey_screen.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/widgets/auth_text_field.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/widgets/terms_bottom_sheet.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view_model/auth_providers.dart';
@@ -266,7 +266,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) =>
-              CompleteSignUpScreen(userName: nameController.text.trim()),
+              SignUpSurveyScreen(userName: nameController.text.trim()),
         ),
       );
       return;
