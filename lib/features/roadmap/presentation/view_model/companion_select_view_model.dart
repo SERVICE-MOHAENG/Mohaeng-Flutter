@@ -4,19 +4,25 @@ import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roa
 
 @immutable
 class CompanionSelectState {
-  const CompanionSelectState({this.selected});
+  const CompanionSelectState({this.selected = const {}});
 
-  final CompanionType? selected;
+  final Set<CompanionType> selected;
 
-  CompanionSelectState copyWith({CompanionType? selected}) {
-    return CompanionSelectState(selected: selected);
+  CompanionSelectState copyWith({Set<CompanionType>? selected}) {
+    return CompanionSelectState(selected: selected ?? this.selected);
   }
 }
 
 class CompanionSelectViewModel extends StateNotifier<CompanionSelectState> {
   CompanionSelectViewModel() : super(const CompanionSelectState());
 
-  void select(CompanionType type) {
-    state = state.copyWith(selected: type);
+  void toggle(CompanionType type) {
+    final next = {...state.selected};
+    if (next.contains(type)) {
+      next.remove(type);
+    } else {
+      next.add(type);
+    }
+    state = state.copyWith(selected: next);
   }
 }

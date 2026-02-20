@@ -17,10 +17,15 @@ class RegionSelectState {
 class RegionSelectViewModel extends StateNotifier<RegionSelectState> {
   RegionSelectViewModel()
     : super(
-        const RegionSelectState(
-          selectedCities: ['알래스카, 동-국립공원', '워싱턴디시', '뉴욕'],
-        ),
+        const RegionSelectState(),
       );
+
+  void addCity(String rawCity) {
+    final city = rawCity.trim();
+    if (city.isEmpty) return;
+    if (state.selectedCities.contains(city)) return;
+    state = state.copyWith(selectedCities: [...state.selectedCities, city]);
+  }
 
   void removeCityAt(int index) {
     if (index < 0 || index >= state.selectedCities.length) return;
