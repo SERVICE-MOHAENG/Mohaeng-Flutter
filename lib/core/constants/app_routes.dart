@@ -13,6 +13,7 @@ class AppRoutes {
   static const roadmapConcept = '/roadmap/concept';
   static const roadmapTravelStyle = '/roadmap/travel-style';
   static const roadmapBudgetRange = '/roadmap/budget-range';
+  static const roadmapBudgetAmount = '/roadmap/budget-amount';
   static const roadmapAdditionalRequest = '/roadmap/additional-request';
   static const roadmapResult = '/roadmap/result';
 }
