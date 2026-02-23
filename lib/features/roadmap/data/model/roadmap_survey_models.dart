@@ -122,8 +122,18 @@ class RoadmapSurveyResponse {
   final String jobId;
   final String status;
 
-  factory RoadmapSurveyResponse.fromJson(Map<String, dynamic> json) =>
-      _$RoadmapSurveyResponseFromJson(json);
+  factory RoadmapSurveyResponse.fromJson(Map<String, dynamic> json) {
+    final survey = json['survey'];
+    if (survey is Map<String, dynamic>) {
+      return _$RoadmapSurveyResponseFromJson(survey);
+    }
+    if (survey is Map) {
+      return _$RoadmapSurveyResponseFromJson(
+        survey.map((key, value) => MapEntry(key.toString(), value)),
+      );
+    }
+    return _$RoadmapSurveyResponseFromJson(json);
+  }
 
   Map<String, dynamic> toJson() => _$RoadmapSurveyResponseToJson(this);
 }
@@ -149,11 +159,8 @@ DateTime _parseDate(String value) {
 }
 
 String _pacePreferenceToJson(PacePreference value) => value.apiValue;
-PacePreference _pacePreferenceFromJson(String value) =>
-    PacePreference.values.firstWhere(
-      (e) => e.apiValue == value,
-      orElse: () => PacePreference.DENSE,
-    );
+PacePreference _pacePreferenceFromJson(String value) => PacePreference.values
+    .firstWhere((e) => e.apiValue == value, orElse: () => PacePreference.DENSE);
 
 String _planningPreferenceToJson(PlanningPreference value) => value.apiValue;
 PlanningPreference _planningPreferenceFromJson(String value) =>
@@ -185,34 +192,31 @@ PriorityPreference _priorityPreferenceFromJson(String value) =>
     );
 
 String _budgetRangeToJson(BudgetRange value) => value.apiValue;
-BudgetRange _budgetRangeFromJson(String value) =>
-    BudgetRange.values.firstWhere(
-      (e) => e.apiValue == value,
-      orElse: () => BudgetRange.MID,
-    );
+BudgetRange _budgetRangeFromJson(String value) => BudgetRange.values.firstWhere(
+  (e) => e.apiValue == value,
+  orElse: () => BudgetRange.MID,
+);
 
 List<String> _companionTypeListToJson(List<CompanionType> values) =>
     values.map((value) => value.apiValue).toList();
-List<CompanionType> _companionTypeListFromJson(List<dynamic> values) =>
-    values
-        .map((value) => value.toString())
-        .map(
-          (value) => CompanionType.values.firstWhere(
-            (e) => e.apiValue == value,
-            orElse: () => CompanionType.solo,
-          ),
-        )
-        .toList();
+List<CompanionType> _companionTypeListFromJson(List<dynamic> values) => values
+    .map((value) => value.toString())
+    .map(
+      (value) => CompanionType.values.firstWhere(
+        (e) => e.apiValue == value,
+        orElse: () => CompanionType.solo,
+      ),
+    )
+    .toList();
 
 List<String> _travelConceptListToJson(List<TravelConcept> values) =>
     values.map((value) => value.apiValue).toList();
-List<TravelConcept> _travelConceptListFromJson(List<dynamic> values) =>
-    values
-        .map((value) => value.toString())
-        .map(
-          (value) => TravelConcept.values.firstWhere(
-            (e) => e.apiValue == value,
-            orElse: () => TravelConcept.sightseeing,
-          ),
-        )
-        .toList();
+List<TravelConcept> _travelConceptListFromJson(List<dynamic> values) => values
+    .map((value) => value.toString())
+    .map(
+      (value) => TravelConcept.values.firstWhere(
+        (e) => e.apiValue == value,
+        orElse: () => TravelConcept.sightseeing,
+      ),
+    )
+    .toList();
