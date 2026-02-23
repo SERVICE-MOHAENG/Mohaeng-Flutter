@@ -45,7 +45,11 @@ class RoadmapItineraryResultViewModel
       return false;
     }
 
-    state = state.copyWith(isLoading: true, clearError: true);
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+      keepResult: false,
+    );
 
     try {
       final result = await _getResultUsecase(jobId: jobId.trim());

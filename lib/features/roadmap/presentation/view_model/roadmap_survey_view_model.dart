@@ -46,8 +46,6 @@ class RoadmapSurveyViewModel extends StateNotifier<RoadmapSurveyState> {
   final CreateRoadmapSurveyUsecase _createRoadmapSurveyUsecase;
 
   Future<bool> submit(RoadmapSurveyRequest request) async {
-    // TEMP: Block roadmap creation API call.
-    return false;
     if (state.isLoading) return false;
 
     state = state.copyWith(isLoading: true, clearError: true);
@@ -163,25 +161,20 @@ _SurveyBuildResult _buildRequest({
   }
 
   final allRanges = cityRanges.values.toList();
-  final earliestStart =
-      allRanges.map((range) => range.start).reduce(_minDate);
+  final earliestStart = allRanges.map((range) => range.start).reduce(_minDate);
   final latestEnd = allRanges.map((range) => range.end).reduce(_maxDate);
 
   final request = RoadmapSurveyRequest(
     startDate: earliestStart,
     endDate: latestEnd,
-    regions: regions
-        .map(
-          (regionName) {
-            final range = cityRanges[regionName]!;
-            return RoadmapSurveyRegionRequest(
-              region: regionName,
-              startDate: range.start,
-              endDate: range.end,
-            );
-          },
-        )
-        .toList(),
+    regions: regions.map((regionName) {
+      final range = cityRanges[regionName]!;
+      return RoadmapSurveyRegionRequest(
+        region: regionName,
+        startDate: range.start,
+        endDate: range.end,
+      );
+    }).toList(),
     peopleCount: people.count,
     companionTypes: companion.selected.toList(),
     travelThemes: concept.selected.toList(),
@@ -194,7 +187,7 @@ _SurveyBuildResult _buildRequest({
     notes: additional.request.trim(),
   );
 
-  return _SurveyBuildResult(request: request);
+  return _SurveyBuildResult.success(request);
 }
 
 int _daysBetween(DateTime start, DateTime end) {
@@ -208,11 +201,8 @@ DateTime _maxDate(DateTime a, DateTime b) => a.isAfter(b) ? a : b;
 
 @immutable
 class _SurveyBuildResult {
-  const _SurveyBuildResult({this.request, this.errorMessage});
-
-  const _SurveyBuildResult.error(String message)
-    : request = null,
-      errorMessage = message;
+  const _SurveyBuildResult.success(this.request) : errorMessage = null;
+  const _SurveyBuildResult.error(this.errorMessage) : request = null;
 
   final RoadmapSurveyRequest? request;
   final String? errorMessage;

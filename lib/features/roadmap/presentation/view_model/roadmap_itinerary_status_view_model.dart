@@ -42,28 +42,47 @@ class RoadmapItineraryStatusViewModel
     if (state.isLoading) return false;
     if (jobId.trim().isEmpty) {
       state = state.copyWith(errorMessage: '작업 ID가 필요합니다.');
+      _logStatus('skip load: empty jobId');
       return false;
     }
 
-    state = state.copyWith(isLoading: true, clearError: true);
+    _logStatus('request status: jobId=${jobId.trim()}');
+
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+      keepStatus: false,
+    );
 
     try {
       final status = await _getStatusUsecase(jobId: jobId.trim());
+      _logStatus(
+        'success status: ${status.status}, attemptCount=${status.attemptCount}',
+      );
       state = state.copyWith(
         isLoading: false,
         status: status,
         clearError: true,
       );
       return true;
+    } on ApiError catch (error) {
+      _logStatus(
+        'api error: statusCode=${error.statusCode}, message=${error.message}',
+      );
+      state = state.copyWith(isLoading: false, errorMessage: error.message);
+      return false;
     } catch (error) {
+      _logStatus('unknown error: $error');
       state = state.copyWith(
         isLoading: false,
-        errorMessage: switch (error) {
-          ApiError(:final message) => message,
-          _ => '일정 생성 상태를 불러오지 못했어요.',
-        },
+        errorMessage: '일정 생성 상태를 불러오지 못했어요.',
       );
       return false;
     }
+  }
+
+  void _logStatus(String message) {
+    if (!kDebugMode) return;
+    debugPrint('[ROADMAP][STATUS] $message');
   }
 }
