@@ -123,19 +123,53 @@ class RoadmapSurveyResponse {
   final String status;
 
   factory RoadmapSurveyResponse.fromJson(Map<String, dynamic> json) {
-    final survey = json['survey'];
-    if (survey is Map<String, dynamic>) {
-      return _$RoadmapSurveyResponseFromJson(survey);
+    final source = _normalizeSurveyJson(json);
+    final surveyId = _readStringValue(
+      source,
+      keys: const ['surveyId', 'survey_id'],
+    );
+
+    if (surveyId == null || surveyId.isEmpty) {
+      throw const FormatException('surveyId is missing in survey response.');
     }
-    if (survey is Map) {
-      return _$RoadmapSurveyResponseFromJson(
-        survey.map((key, value) => MapEntry(key.toString(), value)),
-      );
-    }
-    return _$RoadmapSurveyResponseFromJson(json);
+
+    final jobId =
+        _readStringValue(source, keys: const ['jobId', 'job_id']) ?? '';
+    final status =
+        _readStringValue(source, keys: const ['status']) ?? 'PENDING';
+
+    return RoadmapSurveyResponse(
+      surveyId: surveyId,
+      jobId: jobId,
+      status: status,
+    );
   }
 
   Map<String, dynamic> toJson() => _$RoadmapSurveyResponseToJson(this);
+}
+
+Map<String, dynamic> _normalizeSurveyJson(Map<String, dynamic> json) {
+  final survey = json['survey'];
+  if (survey is Map<String, dynamic>) {
+    return survey;
+  }
+  if (survey is Map) {
+    return survey.map((key, value) => MapEntry(key.toString(), value));
+  }
+  return json;
+}
+
+String? _readStringValue(
+  Map<String, dynamic> json, {
+  required List<String> keys,
+}) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value is String && value.trim().isNotEmpty) {
+      return value.trim();
+    }
+  }
+  return null;
 }
 
 String _formatDate(DateTime date) {

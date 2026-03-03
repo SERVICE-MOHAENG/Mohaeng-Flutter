@@ -21,6 +21,7 @@ RoadmapModificationStatusResponse _$RoadmapModificationStatusResponseFromJson(
   createdAt: _parseDateTimeNullable(json['createdAt']),
   startedAt: _parseDateTimeNullable(json['startedAt']),
   completedAt: _parseDateTimeNullable(json['completedAt']),
+  travelCourseId: json['travelCourseId'],
 );
 
 Map<String, dynamic> _$RoadmapModificationStatusResponseToJson(
@@ -36,4 +37,5 @@ Map<String, dynamic> _$RoadmapModificationStatusResponseToJson(
   'createdAt': _dateTimeToJsonNullable(instance.createdAt),
   'startedAt': _dateTimeToJsonNullable(instance.startedAt),
   'completedAt': _dateTimeToJsonNullable(instance.completedAt),
+  'travelCourseId': instance.travelCourseId,
 };
