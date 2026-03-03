@@ -1,6 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+const _dateValueUnset = Object();
 
 @immutable
 class ScheduleSelectState {
@@ -22,16 +23,20 @@ class ScheduleSelectState {
 
   ScheduleSelectState copyWith({
     DateTime? displayMonth,
-    DateTime? startDate,
-    DateTime? endDate,
+    Object? startDate = _dateValueUnset,
+    Object? endDate = _dateValueUnset,
     List<String>? selectedCountries,
     String? selectedCity,
     Map<String, DateTimeRange>? cityDateRanges,
   }) {
     return ScheduleSelectState(
       displayMonth: displayMonth ?? this.displayMonth,
-      startDate: startDate ?? this.startDate,
-      endDate: endDate ?? this.endDate,
+      startDate: identical(startDate, _dateValueUnset)
+          ? this.startDate
+          : startDate as DateTime?,
+      endDate: identical(endDate, _dateValueUnset)
+          ? this.endDate
+          : endDate as DateTime?,
       selectedCountries: selectedCountries ?? this.selectedCountries,
       selectedCity: selectedCity ?? this.selectedCity,
       cityDateRanges: cityDateRanges ?? this.cityDateRanges,
@@ -49,11 +54,7 @@ class ScheduleSelectViewModel extends StateNotifier<ScheduleSelectState> {
 
   void setSelectedCity(String city, {bool resetSelection = false}) {
     if (city.isEmpty) {
-      state = state.copyWith(
-        selectedCity: '',
-        startDate: null,
-        endDate: null,
-      );
+      state = state.copyWith(selectedCity: '', startDate: null, endDate: null);
       return;
     }
     if (state.selectedCity == city) return;
@@ -80,8 +81,6 @@ class ScheduleSelectViewModel extends StateNotifier<ScheduleSelectState> {
         state.displayMonth.year,
         state.displayMonth.month - 1,
       ),
-      startDate: null,
-      endDate: null,
     );
   }
 
@@ -91,8 +90,6 @@ class ScheduleSelectViewModel extends StateNotifier<ScheduleSelectState> {
         state.displayMonth.year,
         state.displayMonth.month + 1,
       ),
-      startDate: null,
-      endDate: null,
     );
   }
 
@@ -124,15 +121,12 @@ class ScheduleSelectViewModel extends StateNotifier<ScheduleSelectState> {
       return false;
     }
 
-    final nextStart = start ?? normalized;
-    final nextRange = DateTimeRange(start: nextStart, end: normalized);
+    final nextRange = DateTimeRange(start: start, end: normalized);
     final nextRanges = Map<String, DateTimeRange>.from(state.cityDateRanges)
       ..[state.selectedCity] = nextRange;
 
     final nextIndex = cities.indexOf(state.selectedCity);
-    if (cities.isNotEmpty &&
-        nextIndex != -1 &&
-        nextIndex < cities.length - 1) {
+    if (cities.isNotEmpty && nextIndex != -1 && nextIndex < cities.length - 1) {
       final nextCity = cities[nextIndex + 1];
       final clearedRanges = Map<String, DateTimeRange>.from(nextRanges)
         ..remove(nextCity);
@@ -148,7 +142,6 @@ class ScheduleSelectViewModel extends StateNotifier<ScheduleSelectState> {
 
     return true;
   }
-
 
   bool get isValidSelection {
     if (state.selectedCity.isEmpty) return false;

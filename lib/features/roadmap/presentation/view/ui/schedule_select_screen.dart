@@ -22,26 +22,14 @@ class _ScheduleSelectScreenState extends ConsumerState<ScheduleSelectScreen> {
     final scheduleState = ref.watch(scheduleSelectViewModelProvider);
     final scheduleNotifier = ref.read(scheduleSelectViewModelProvider.notifier);
     final regionState = ref.watch(regionSelectViewModelProvider);
-    if (regionState.selectedCities.isNotEmpty &&
-        !regionState.selectedCities.contains(scheduleState.selectedCity)) {
+    final needsCitySync =
+        (regionState.selectedCities.isEmpty &&
+            scheduleState.selectedCity.isNotEmpty) ||
+        (regionState.selectedCities.isNotEmpty &&
+            !regionState.selectedCities.contains(scheduleState.selectedCity));
+    if (needsCitySync) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        scheduleNotifier.setSelectedCity(regionState.selectedCities.first);
-      });
-    }
-    if (regionState.selectedCities.isEmpty &&
-        scheduleState.selectedCity.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        scheduleNotifier.setSelectedCity('');
-      });
-    }
-    if (scheduleState.selectedCity.isNotEmpty &&
-        !scheduleState.cityDateRanges.containsKey(scheduleState.selectedCity) &&
-        (scheduleState.startDate != null || scheduleState.endDate != null)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        scheduleNotifier.setSelectedCity(
-          scheduleState.selectedCity,
-          resetSelection: true,
-        );
+        scheduleNotifier.ensureSelectedCity(regionState.selectedCities);
       });
     }
     final isValid = scheduleNotifier.isAllCitiesSelected(
@@ -147,8 +135,7 @@ class _ScheduleSelectScreenState extends ConsumerState<ScheduleSelectScreen> {
                   .read(scheduleSelectViewModelProvider.notifier)
                   .setSelectedCity(entry.value),
             ),
-            if (entry.key != cities.length - 1)
-              SizedBox(width: 12.w),
+            if (entry.key != cities.length - 1) SizedBox(width: 12.w),
           ],
         ],
       ),
@@ -232,9 +219,9 @@ class _ScheduleSelectScreenState extends ConsumerState<ScheduleSelectScreen> {
                   isInRange: scheduleNotifier.isInRange(entry.date),
                   onTap: entry.inMonth
                       ? () => scheduleNotifier.selectDate(
-                            entry.date,
-                            cities: cities,
-                          )
+                          entry.date,
+                          cities: cities,
+                        )
                       : null,
                 ),
               ),
@@ -271,7 +258,6 @@ class _ScheduleSelectScreenState extends ConsumerState<ScheduleSelectScreen> {
   void _onTapNext() {
     Navigator.pushNamed(context, AppRoutes.roadmapPeople);
   }
-
 }
 
 class _CountryChip extends StatelessWidget {
