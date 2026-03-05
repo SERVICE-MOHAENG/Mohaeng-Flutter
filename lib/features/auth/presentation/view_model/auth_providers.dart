@@ -8,11 +8,13 @@ import 'package:mohaeng_app_service/features/auth/domain/repositories/google_log
 import 'package:mohaeng_app_service/features/auth/domain/repositories/kakao_login_repository.dart';
 import 'package:mohaeng_app_service/features/auth/domain/repositories/naver_login_repository.dart';
 import 'package:mohaeng_app_service/features/auth/domain/usecases/google_login_use_case.dart';
+import 'package:mohaeng_app_service/features/auth/domain/usecases/get_preference_job_status_use_case.dart';
 import 'package:mohaeng_app_service/features/auth/domain/usecases/kakao_login_use_case.dart';
 import 'package:mohaeng_app_service/features/auth/domain/usecases/login_use_case.dart';
 import 'package:mohaeng_app_service/features/auth/domain/usecases/naver_login_use_case.dart';
 import 'package:mohaeng_app_service/features/auth/domain/usecases/send_email_otp_use_case.dart';
 import 'package:mohaeng_app_service/features/auth/domain/usecases/sign_up_use_case.dart';
+import 'package:mohaeng_app_service/features/auth/domain/usecases/submit_preferences_use_case.dart';
 import 'package:mohaeng_app_service/features/auth/domain/usecases/verify_email_otp_use_case.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view_model/login_view_model.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view_model/sign_up_view_model.dart';
@@ -61,6 +63,15 @@ final verifyEmailOtpUseCaseProvider = Provider<VerifyEmailOtpUseCase>(
   (ref) => VerifyEmailOtpUseCase(ref.watch(authRepositoryProvider)),
 );
 
+final submitPreferencesUseCaseProvider = Provider<SubmitPreferencesUseCase>(
+  (ref) => SubmitPreferencesUseCase(ref.watch(authRepositoryProvider)),
+);
+
+final getPreferenceJobStatusUseCaseProvider =
+    Provider<GetPreferenceJobStatusUseCase>(
+      (ref) => GetPreferenceJobStatusUseCase(ref.watch(authRepositoryProvider)),
+    );
+
 final loginViewModelProvider =
     StateNotifierProvider<LoginViewModel, LoginViewState>(
       (ref) => LoginViewModel(
@@ -77,5 +88,9 @@ final signUpViewModelProvider =
         signUpUseCase: ref.watch(signUpUseCaseProvider),
         sendEmailOtpUseCase: ref.watch(sendEmailOtpUseCaseProvider),
         verifyEmailOtpUseCase: ref.watch(verifyEmailOtpUseCaseProvider),
+        submitPreferencesUseCase: ref.watch(submitPreferencesUseCaseProvider),
+        getPreferenceJobStatusUseCase: ref.watch(
+          getPreferenceJobStatusUseCaseProvider,
+        ),
       ),
     );
