@@ -1,6 +1,6 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -288,8 +288,9 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
   }
 
   void _logResult(String message) {
-    if (!kDebugMode) return;
-    debugPrint('[ROADMAP][RESULT] $message');
+    final line = '[ROADMAP][RESULT] $message';
+    debugPrint(line);
+    developer.log(line, name: 'ROADMAP');
   }
 
   String? _resolveItineraryIdForChat(RoadmapItineraryResultResponse? result) {
@@ -552,6 +553,9 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
   Widget build(BuildContext context) {
     final resultState = ref.watch(roadmapItineraryResultViewModelProvider);
     final chatState = ref.watch(roadmapChatViewModelProvider);
+    final modificationState = ref.watch(
+      roadmapModificationStatusViewModelProvider,
+    );
     final isLoading = _isRefreshing || resultState.isLoading;
     final status = resultState.result?.status ?? _lastResultStatus;
     final normalizedStatus = status?.trim().toLowerCase();
@@ -624,6 +628,17 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
               )
             else
               SizedBox(height: 10.h),
+            if (_isModificationPolling)
+              Padding(
+                padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 10.h),
+                child: _ModificationPollingBanner(
+                  status:
+                      (modificationState.status?.status.trim().isNotEmpty ??
+                          false)
+                      ? modificationState.status!.status.trim().toUpperCase()
+                      : 'PENDING',
+                ),
+              ),
             SizedBox(height: 10.h),
             Expanded(
               child: _TimelinePanel(
@@ -711,6 +726,40 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
         latitude <= 90 &&
         longitude >= -180 &&
         longitude <= 180;
+  }
+}
+
+class _ModificationPollingBanner extends StatelessWidget {
+  const _ModificationPollingBanner({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+      decoration: BoxDecoration(
+        color: MColor.primary500.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 14.w,
+            height: 14.w,
+            child: const CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Text(
+              '수정 요청 반영 중... (상태: $status)',
+              style: MTextStyles.sLabelM.copyWith(color: MColor.primary500),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
