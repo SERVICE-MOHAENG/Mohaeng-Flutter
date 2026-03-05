@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
@@ -14,6 +15,9 @@ import 'package:mohaeng_app_service/features/main/presentation/view_model/main_b
 import 'package:mohaeng_app_service/features/main/presentation/view_model/main_courses_view_model.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view_model/main_providers.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view_model/main_user_view_model.dart';
+import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_preference_result_models.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_preference_result_view_model.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -27,6 +31,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   late final PageController _coursesPageController;
 
   int currentIndex = 0;
+  String? _lastAiRecommendationRequestKey;
+  String? _lastAiRecommendationLogKey;
 
   @override
   void initState() {
@@ -67,6 +73,26 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final coursesState = ref.watch(mainCoursesViewModelProvider);
     final blogsState = ref.watch(mainBlogsViewModelProvider);
     final userState = ref.watch(mainUserViewModelProvider);
+    final recommendationState = ref.watch(
+      roadmapPreferenceResultViewModelProvider,
+    );
+    final surveyJobId = ref.watch(
+      roadmapSurveyViewModelProvider.select((state) => state.response?.jobId),
+    );
+    final itineraryJobId = ref.watch(
+      roadmapItineraryViewModelProvider.select(
+        (state) => state.response?.jobId,
+      ),
+    );
+    final preferenceJobId = (surveyJobId?.trim().isNotEmpty ?? false)
+        ? surveyJobId
+        : itineraryJobId;
+    _maybeLoadAiRecommendations(
+      preferenceJobId,
+      surveyJobId: surveyJobId,
+      itineraryJobId: itineraryJobId,
+    );
+
     final horizontalPadding = 20.w;
     return MLayout(
       backgroundColor: MColor.white100,
@@ -81,7 +107,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               SizedBox(height: 16.h),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                child: _buildAiSection(),
+                child: _buildAiSection(recommendationState),
               ),
               SizedBox(height: 12.h),
               _buildDivider(),
@@ -97,6 +123,68 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         ),
       ),
     );
+  }
+
+  void _maybeLoadAiRecommendations(
+    String? rawJobId, {
+    String? surveyJobId,
+    String? itineraryJobId,
+  }) {
+    final jobId = rawJobId?.trim() ?? '';
+    final normalizedSurveyJobId = surveyJobId?.trim() ?? '';
+    final normalizedItineraryJobId = itineraryJobId?.trim() ?? '';
+    if (jobId.isEmpty) {
+      const requestKey = 'me';
+      if (_lastAiRecommendationRequestKey == requestKey) {
+        _logMainOnce(
+          key: 'same:$requestKey',
+          message: 'skip preference result load: same source=me',
+        );
+        return;
+      }
+
+      _lastAiRecommendationLogKey = null;
+      _lastAiRecommendationRequestKey = requestKey;
+      final key = 'me:$normalizedSurveyJobId:$normalizedItineraryJobId';
+      _logMainOnce(
+        key: key,
+        message:
+            'trigger preference me result load: no jobId (surveyJobId=${normalizedSurveyJobId.isEmpty ? 'empty' : normalizedSurveyJobId}, itineraryJobId=${normalizedItineraryJobId.isEmpty ? 'empty' : normalizedItineraryJobId})',
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(roadmapPreferenceResultViewModelProvider.notifier).loadMine();
+      });
+      return;
+    }
+
+    final requestKey = 'job:$jobId';
+    if (requestKey == _lastAiRecommendationRequestKey) {
+      _logMainOnce(
+        key: 'same:$requestKey',
+        message: 'skip preference result load: same jobId=$jobId',
+      );
+      return;
+    }
+
+    _lastAiRecommendationLogKey = null;
+    _logMain('trigger preference result load: jobId=$jobId');
+    _lastAiRecommendationRequestKey = requestKey;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(roadmapPreferenceResultViewModelProvider.notifier).load(jobId);
+    });
+  }
+
+  void _logMain(String message) {
+    if (!kDebugMode) return;
+    debugPrint('[MAIN][AI] $message');
+  }
+
+  void _logMainOnce({required String key, required String message}) {
+    if (_lastAiRecommendationLogKey == key) return;
+    _lastAiRecommendationLogKey = key;
+    _logMain(message);
   }
 
   Widget _buildDivider() {
@@ -190,7 +278,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: MColor.black100.withOpacity(0.15),
+                      color: MColor.black100.withValues(alpha: 0.15),
                       blurRadius: 20.r,
                       offset: Offset(0, 10.h),
                     ),
@@ -214,6 +302,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Widget _buildGreetingCard(MainUserState userState) {
     final name = (userState.user?.name ?? '여행자').trim();
     final greeting = userState.isLoading ? '안녕하세요...' : '안녕하세요 $name님,';
+    final visitedCountries = userState.user?.visitedCountries ?? 0;
 
     return Container(
       padding: EdgeInsets.only(bottom: 28.h, left: 20.w, top: 20.h),
@@ -238,7 +327,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               children: [
                 const TextSpan(text: '지금까지 '),
                 TextSpan(
-                  text: '14개국',
+                  text: '$visitedCountries개국',
                   style: MTextStyles.bodyB.copyWith(color: MColor.primary500),
                 ),
                 const TextSpan(text: '을 여행했어요!'),
@@ -259,7 +348,50 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
-  Widget _buildAiSection() {
+  Widget _buildAiSection(RoadmapPreferenceResultState recommendationState) {
+    final showEmptyMessage =
+        !recommendationState.isLoading &&
+        recommendationState.errorMessage == null &&
+        recommendationState.items.isEmpty;
+
+    if (showEmptyMessage) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text.rich(
+            TextSpan(
+              style: MTextStyles.lBodyM.copyWith(color: MColor.gray800),
+              children: [
+                const TextSpan(text: '모행 AI가 사용자에게\n'),
+                TextSpan(
+                  text: '딱!',
+                  style: MTextStyles.lBodyB.copyWith(color: MColor.primary500),
+                ),
+                const TextSpan(text: ' 맞는 여행지를 찾았어요!'),
+              ],
+            ),
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            '모행의 AI가 사용자님의 정보를 기반으로\n추천하는 해외 여행지입니다!',
+            style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
+          ),
+          SizedBox(height: 20.h),
+          SizedBox(
+            height: 190.h,
+            child: Center(
+              child: Text(
+                '추천 여행지가 없습니다.',
+                style: MTextStyles.labelM.copyWith(color: MColor.gray500),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final destinations = _resolveAiDestinations(recommendationState.items);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -287,22 +419,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           height: 190.h,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: 4,
-            separatorBuilder: (_, __) => SizedBox(width: 12.w),
+            itemCount: destinations.length,
+            separatorBuilder: (_, _) => SizedBox(width: 12.w),
             itemBuilder: (context, index) {
-              if (index == 0) {
-                return _buildDestinationCard(
-                  title: '일본 도쿄',
-                  subtitle:
-                      '전통과 현대가 공존하는 일본의 수도. 시부야, 신주쿠, 아키하바라 등 다채로운 명소와 맛있는 스시, 라멘을 즐길 수 있는 도시',
-                  imagePath: MImages.japan,
-                );
-              }
+              final destination = destinations[index];
               return _buildDestinationCard(
-                title: '미국 뉴욕',
-                subtitle:
-                    '잠들지 않는 도시. 자유의 여신상, 타임스퀘어, 센트럴파크 등 상징적인 명소와 브로드웨이 뮤지컬, 다양한 문화가 공존하는 대도시',
-                imagePath: MImages.america,
+                title: destination.title,
+                subtitle: destination.subtitle,
+                imageUrl: destination.imageUrl,
+                fallbackImagePath: destination.fallbackImagePath,
               );
             },
           ),
@@ -311,10 +436,99 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
+  List<_AiDestinationCardData> _resolveAiDestinations(
+    List<RoadmapPreferenceResultItem> items,
+  ) {
+    final resolved = <_AiDestinationCardData>[];
+    final maxCount = items.length > 4 ? 4 : items.length;
+    for (int i = 0; i < maxCount; i++) {
+      final item = items[i];
+      final regionName = item.regionName.trim();
+      final description = _extractReadableText(item.description);
+      final imageUrl = _extractImageUrl(item.imageUrl);
+
+      resolved.add(
+        _AiDestinationCardData(
+          title: regionName.isEmpty ? '추천 여행지' : regionName,
+          subtitle: description ?? '모행 AI가 추천한 여행지입니다.',
+          imageUrl: imageUrl,
+          fallbackImagePath: MImages.sibuya,
+        ),
+      );
+    }
+
+    return resolved;
+  }
+
+  String? _extractReadableText(Object? value) {
+    if (value == null) return null;
+
+    if (value is String) {
+      final normalized = value.trim();
+      if (normalized.isEmpty || normalized == '{}' || normalized == '[]') {
+        return null;
+      }
+      return normalized;
+    }
+
+    if (value is List) {
+      for (final item in value) {
+        final nested = _extractReadableText(item);
+        if (nested != null) {
+          return nested;
+        }
+      }
+      return null;
+    }
+
+    if (value is Map) {
+      const preferredKeys = <String>[
+        'description',
+        'summary',
+        'content',
+        'text',
+        'value',
+        'message',
+        'url',
+      ];
+
+      for (final key in preferredKeys) {
+        final nested = _extractReadableText(value[key]);
+        if (nested != null) {
+          return nested;
+        }
+      }
+
+      for (final nestedValue in value.values) {
+        final nested = _extractReadableText(nestedValue);
+        if (nested != null) {
+          return nested;
+        }
+      }
+      return null;
+    }
+
+    final normalized = value.toString().trim();
+    if (normalized.isEmpty || normalized == '{}' || normalized == '[]') {
+      return null;
+    }
+    return normalized;
+  }
+
+  String? _extractImageUrl(Object? value) {
+    final candidate = _extractReadableText(value);
+    if (candidate == null || candidate.isEmpty) return null;
+
+    final uri = Uri.tryParse(candidate);
+    if (uri == null || !uri.hasScheme) return null;
+    return candidate;
+  }
+
   Widget _buildDestinationCard({
     required String title,
     required String subtitle,
-    required String imagePath,
+    required String fallbackImagePath,
+    String? imageUrl,
   }) {
     return Container(
       width: 155.w,
@@ -323,11 +537,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8.r),
-            child: Image.asset(
-              imagePath,
-              fit: BoxFit.fill,
-              width: 160.w,
-              height: 194.h,
+            child: _buildDestinationImage(
+              imageUrl: imageUrl,
+              fallbackImagePath: fallbackImagePath,
             ),
           ),
           Positioned(
@@ -344,6 +556,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 SizedBox(height: 6.h),
                 Text(
                   subtitle,
+                  maxLines: 8,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontFamily: 'GmarketSansMedium',
                     fontSize: 7.sp,
@@ -355,6 +569,37 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDestinationImage({
+    required String fallbackImagePath,
+    String? imageUrl,
+  }) {
+    final uri = imageUrl == null ? null : Uri.tryParse(imageUrl);
+    final isNetwork = uri != null && uri.hasScheme;
+
+    if (isNetwork) {
+      final url = imageUrl!;
+      return Image.network(
+        url,
+        fit: BoxFit.fill,
+        width: 160.w,
+        height: 194.h,
+        errorBuilder: (context, error, stackTrace) => Image.asset(
+          fallbackImagePath,
+          fit: BoxFit.fill,
+          width: 160.w,
+          height: 194.h,
+        ),
+      );
+    }
+
+    return Image.asset(
+      fallbackImagePath,
+      fit: BoxFit.fill,
+      width: 160.w,
+      height: 194.h,
     );
   }
 
@@ -941,16 +1186,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
-  List<BoxShadow> _cardShadow() {
-    return [
-      BoxShadow(
-        color: MColor.black100.withOpacity(0.08),
-        blurRadius: 12.r,
-        offset: Offset(0, 6.h),
-      ),
-    ];
-  }
-
   void _onTapCountryFilter(String countryCode) {
     setState(() => currentIndex = 0);
     if (_coursesPageController.hasClients) {
@@ -964,4 +1199,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   void _onTapBlogSort(String sortBy) {
     ref.read(mainBlogsViewModelProvider.notifier).load(sortBy: sortBy);
   }
+}
+
+@immutable
+class _AiDestinationCardData {
+  const _AiDestinationCardData({
+    required this.title,
+    required this.subtitle,
+    required this.fallbackImagePath,
+    this.imageUrl,
+  });
+
+  final String title;
+  final String subtitle;
+  final String fallbackImagePath;
+  final String? imageUrl;
 }

@@ -9,6 +9,7 @@ class MainUserResponse {
     this.name,
     this.email,
     this.profileImage,
+    this.visitedCountries = 0,
     this.isActivate,
     this.createdAt,
   });
@@ -17,6 +18,8 @@ class MainUserResponse {
   final String? name;
   final String? email;
   final String? profileImage;
+  @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
+  final int visitedCountries;
 
   @JsonKey(fromJson: _readBoolNullable, toJson: _writeBoolNullable)
   final bool? isActivate;
@@ -45,3 +48,15 @@ bool? _readBoolNullable(Object? value) {
 }
 
 bool? _writeBoolNullable(bool? value) => value;
+
+int _readIntNullable(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) {
+    final parsed = int.tryParse(value.trim());
+    if (parsed != null) return parsed;
+  }
+  return 0;
+}
+
+int _writeIntNullable(int value) => value;
