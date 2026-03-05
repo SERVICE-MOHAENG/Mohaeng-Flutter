@@ -13,6 +13,7 @@ import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roa
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_survey_view_model.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_chat_view_model.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_modification_status_view_model.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_preference_result_view_model.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/travel_style_select_view_model.dart';
 import 'package:mohaeng_app_service/features/roadmap/data/repository/country_region_repository_impl.dart';
 import 'package:mohaeng_app_service/features/roadmap/data/repository/roadmap_repository_impl.dart';
@@ -23,6 +24,8 @@ import 'package:mohaeng_app_service/features/roadmap/domain/usecase/create_roadm
 import 'package:mohaeng_app_service/features/roadmap/domain/usecase/get_roadmap_itinerary_status.dart';
 import 'package:mohaeng_app_service/features/roadmap/domain/usecase/get_roadmap_itinerary_result.dart';
 import 'package:mohaeng_app_service/features/roadmap/domain/usecase/get_country_regions.dart';
+import 'package:mohaeng_app_service/features/roadmap/domain/usecase/get_roadmap_preference_job_result.dart';
+import 'package:mohaeng_app_service/features/roadmap/domain/usecase/get_roadmap_preference_me_result.dart';
 import 'package:mohaeng_app_service/features/roadmap/domain/usecase/send_roadmap_chat.dart';
 import 'package:mohaeng_app_service/features/roadmap/domain/usecase/get_roadmap_modification_status.dart';
 
@@ -108,6 +111,20 @@ final getRoadmapItineraryResultUsecaseProvider =
       ),
     );
 
+final getRoadmapPreferenceJobResultUsecaseProvider =
+    Provider<GetRoadmapPreferenceJobResultUsecase>(
+      (ref) => GetRoadmapPreferenceJobResultUsecase(
+        ref.watch(roadmapRepositoryProvider),
+      ),
+    );
+
+final getRoadmapPreferenceMeResultUsecaseProvider =
+    Provider<GetRoadmapPreferenceMeResultUsecase>(
+      (ref) => GetRoadmapPreferenceMeResultUsecase(
+        ref.watch(roadmapRepositoryProvider),
+      ),
+    );
+
 final sendRoadmapChatUsecaseProvider = Provider<SendRoadmapChatUsecase>(
   (ref) => SendRoadmapChatUsecase(ref.watch(roadmapRepositoryProvider)),
 );
@@ -164,5 +181,16 @@ final roadmapModificationStatusViewModelProvider =
     >(
       (ref) => RoadmapModificationStatusViewModel(
         ref.watch(getRoadmapModificationStatusUsecaseProvider),
+      ),
+    );
+
+final roadmapPreferenceResultViewModelProvider =
+    StateNotifierProvider<
+      RoadmapPreferenceResultViewModel,
+      RoadmapPreferenceResultState
+    >(
+      (ref) => RoadmapPreferenceResultViewModel(
+        ref.watch(getRoadmapPreferenceJobResultUsecaseProvider),
+        ref.watch(getRoadmapPreferenceMeResultUsecaseProvider),
       ),
     );
