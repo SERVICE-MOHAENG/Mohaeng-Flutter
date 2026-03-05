@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mohaeng_app_service/core/constants/app_routes.dart';
+import 'package:mohaeng_app_service/core/network/api_error.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
@@ -66,12 +68,55 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
               SizedBox(height: 23.h),
               _buildScheduleSection(state),
               SizedBox(height: 18.h),
-              _buildSettingsSection(),
+              _buildSettingsSection(state),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _handleDeleteAccountTap() async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('회원탈퇴'),
+        content: const Text('정말 탈퇴하시겠어요?\n탈퇴 후 계정을 복구할 수 없어요.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('탈퇴'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true || !mounted) {
+      return;
+    }
+
+    try {
+      await ref.read(myPageViewModelProvider.notifier).deleteMyAccount();
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (_) => false);
+    } catch (error) {
+      if (!mounted) return;
+      final message = switch (error) {
+        ApiError(:final message) => message,
+        _ => '회원탈퇴에 실패했어요. 잠시 후 다시 시도해 주세요.',
+      };
+      _showMessage(message);
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Widget _buildProfileHeader(MyPageState state) {
@@ -583,7 +628,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     );
   }
 
-  Widget _buildSettingsSection() {
+  Widget _buildSettingsSection(MyPageState state) {
     return Container(
       color: MColor.gray50,
       child: Column(
@@ -606,7 +651,26 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
               children: [
                 _buildSettingItem('비밀번호 변경'),
                 _buildSettingItem('로그아웃'),
-                _buildSettingItem('회원탈퇴'),
+                _buildSettingItem(
+                  state.isDeletingAccount ? '회원탈퇴 처리중…' : '회원탈퇴',
+                  onTap: state.isDeletingAccount
+                      ? null
+                      : _handleDeleteAccountTap,
+                  trailing: state.isDeletingAccount
+                      ? SizedBox(
+                          width: 14.w,
+                          height: 14.w,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.w,
+                            color: MColor.primary500,
+                          ),
+                        )
+                      : null,
+                ),
+                _buildSettingItem(
+                  '피드맥 하기',
+                  onTap: () => _showMessage('피드맥 기능은 준비 중이에요.'),
+                ),
               ],
             ),
           ),
@@ -615,12 +679,27 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     );
   }
 
-  Widget _buildSettingItem(String label) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 10.h),
-      child: Text(
-        label,
-        style: MTextStyles.labelM.copyWith(color: MColor.gray700),
+  Widget _buildSettingItem(
+    String label, {
+    VoidCallback? onTap,
+    Widget? trailing,
+  }) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 10.h),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: MTextStyles.labelM.copyWith(color: MColor.gray700),
+              ),
+            ),
+            if (trailing != null) trailing,
+          ],
+        ),
       ),
     );
   }

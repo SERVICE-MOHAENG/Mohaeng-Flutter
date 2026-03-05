@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mohaeng_app_service/core/network/api_error.dart';
+import 'package:mohaeng_app_service/features/auth/data/auth_token_storage.dart';
 import 'package:mohaeng_app_service/features/main/data/model/user_models.dart';
 import 'package:mohaeng_app_service/features/main/domain/usecase/get_main_user_me.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/blog_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/course_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/visited_country_models.dart';
+import 'package:mohaeng_app_service/features/mypage/domain/usecase/delete_my_account.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_blogs.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_course_bookmarks.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_courses.dart';
@@ -18,6 +20,7 @@ class MyPageState {
     this.userErrorMessage,
     this.user,
     this.isLoading = false,
+    this.isDeletingAccount = false,
     this.loadErrorMessage,
     this.myCourses,
     this.myCourseBookmarks,
@@ -30,6 +33,7 @@ class MyPageState {
   final MainUserResponse? user;
 
   final bool isLoading;
+  final bool isDeletingAccount;
   final String? loadErrorMessage;
   final CoursesResponse? myCourses;
   final CourseItemsResponse? myCourseBookmarks;
@@ -43,6 +47,7 @@ class MyPageState {
     MainUserResponse? user,
     bool keepUser = true,
     bool? isLoading,
+    bool? isDeletingAccount,
     String? loadErrorMessage,
     bool clearLoadError = false,
     CoursesResponse? myCourses,
@@ -57,6 +62,7 @@ class MyPageState {
           : (userErrorMessage ?? this.userErrorMessage),
       user: keepUser ? (user ?? this.user) : user,
       isLoading: isLoading ?? this.isLoading,
+      isDeletingAccount: isDeletingAccount ?? this.isDeletingAccount,
       loadErrorMessage: clearLoadError
           ? null
           : (loadErrorMessage ?? this.loadErrorMessage),
@@ -75,11 +81,15 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
     required GetMyCourseBookmarksUsecase getMyCourseBookmarksUsecase,
     required GetMyBlogsUsecase getMyBlogsUsecase,
     required GetVisitedCountriesUsecase getVisitedCountriesUsecase,
+    required DeleteMyAccountUsecase deleteMyAccountUsecase,
+    required AuthTokenStorage tokenStorage,
   }) : _getMainUserMeUsecase = getMainUserMeUsecase,
        _getMyCoursesUsecase = getMyCoursesUsecase,
        _getMyCourseBookmarksUsecase = getMyCourseBookmarksUsecase,
        _getMyBlogsUsecase = getMyBlogsUsecase,
        _getVisitedCountriesUsecase = getVisitedCountriesUsecase,
+       _deleteMyAccountUsecase = deleteMyAccountUsecase,
+       _tokenStorage = tokenStorage,
        super(const MyPageState());
 
   final GetMainUserMeUsecase _getMainUserMeUsecase;
@@ -87,6 +97,8 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
   final GetMyCourseBookmarksUsecase _getMyCourseBookmarksUsecase;
   final GetMyBlogsUsecase _getMyBlogsUsecase;
   final GetVisitedCountriesUsecase _getVisitedCountriesUsecase;
+  final DeleteMyAccountUsecase _deleteMyAccountUsecase;
+  final AuthTokenStorage _tokenStorage;
 
   Future<void> loadInitial() async {
     await Future.wait([loadUser(), refreshAll()]);
@@ -160,6 +172,20 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
       isLoading: false,
       loadErrorMessage: errors.isEmpty ? null : errors.first,
     );
+  }
+
+  Future<void> deleteMyAccount() async {
+    if (state.isDeletingAccount) return;
+
+    state = state.copyWith(isDeletingAccount: true);
+    try {
+      await _deleteMyAccountUsecase();
+      await _tokenStorage.clearTokens();
+    } finally {
+      if (mounted) {
+        state = state.copyWith(isDeletingAccount: false);
+      }
+    }
   }
 
   String _errorMessage(Object error, {required String fallback}) {
