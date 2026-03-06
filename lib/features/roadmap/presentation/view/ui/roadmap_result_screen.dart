@@ -39,6 +39,8 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
   String? _lastResultStatus;
   int _dotCount = 1;
   int _selectedDayIndex = 0;
+  final Map<String, List<String>> _dayPlaceOrderCache =
+      <String, List<String>>{};
   late final TextEditingController _requestInputController;
 
   @override
@@ -191,6 +193,9 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
       _logResult('skip fetch: resolved jobId is empty');
       return;
     }
+    if (_jobId != null && _jobId != jobId) {
+      _dayPlaceOrderCache.clear();
+    }
     _jobId = jobId;
 
     final resultNotifier = ref.read(
@@ -333,6 +338,9 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
 
       final nextTravelCourseId = _extractTravelCourseId(statusState.status);
       if (nextTravelCourseId != null && nextTravelCourseId.isNotEmpty) {
+        if (_jobId != nextTravelCourseId) {
+          _dayPlaceOrderCache.clear();
+        }
         _jobId = nextTravelCourseId;
       }
 
@@ -549,6 +557,124 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     });
   }
 
+  String _dayOrderKey(_DayPlan dayPlan) {
+    final day = dayPlan.dayNumber;
+    final date = dayPlan.date?.toIso8601String() ?? 'none';
+    return '$day:$date';
+  }
+
+  String _placeOrderKey(RoadmapItineraryPlace place, int index) {
+    final placeId = place.placeId?.trim() ?? '';
+    final name = place.placeName?.trim() ?? '';
+    final address = place.address?.trim() ?? '';
+    final visitTime = _formatVisitTime(place.visitTime);
+    final latitude = place.latitude?.toString() ?? '';
+    final longitude = place.longitude?.toString() ?? '';
+    final sequence = place.visitSequence?.toString() ?? '';
+    final baseKey = placeId.isNotEmpty
+        ? 'id:$placeId'
+        : 'fallback:$sequence:$name:$address:$visitTime:$latitude:$longitude';
+    return '$baseKey:$index';
+  }
+
+  List<String> _buildPlaceOrderKeys(List<RoadmapItineraryPlace> places) {
+    return [
+      for (int i = 0; i < places.length; i++) _placeOrderKey(places[i], i),
+    ];
+  }
+
+  void _syncDayPlaceOrderCache(List<_DayPlan> dayPlans) {
+    final validDayKeys = dayPlans.map(_dayOrderKey).toSet();
+    _dayPlaceOrderCache.removeWhere((key, _) => !validDayKeys.contains(key));
+
+    for (final dayPlan in dayPlans) {
+      final dayKey = _dayOrderKey(dayPlan);
+      final latestOrderKeys = _buildPlaceOrderKeys(dayPlan.places);
+      final cachedOrderKeys = _dayPlaceOrderCache[dayKey];
+      if (cachedOrderKeys == null) {
+        _dayPlaceOrderCache[dayKey] = latestOrderKeys;
+        continue;
+      }
+
+      final nextOrderKeys = <String>[];
+      for (final key in cachedOrderKeys) {
+        if (latestOrderKeys.contains(key) && !nextOrderKeys.contains(key)) {
+          nextOrderKeys.add(key);
+        }
+      }
+      for (final key in latestOrderKeys) {
+        if (!nextOrderKeys.contains(key)) {
+          nextOrderKeys.add(key);
+        }
+      }
+      _dayPlaceOrderCache[dayKey] = nextOrderKeys;
+    }
+  }
+
+  List<RoadmapItineraryPlace> _resolveOrderedPlaces(_DayPlan dayPlan) {
+    if (dayPlan.places.isEmpty) {
+      return const <RoadmapItineraryPlace>[];
+    }
+
+    final dayKey = _dayOrderKey(dayPlan);
+    final currentOrderKeys = _buildPlaceOrderKeys(dayPlan.places);
+    final cachedOrderKeys = _dayPlaceOrderCache[dayKey] ?? currentOrderKeys;
+
+    final placeByKey = <String, RoadmapItineraryPlace>{
+      for (int i = 0; i < dayPlan.places.length; i++)
+        _placeOrderKey(dayPlan.places[i], i): dayPlan.places[i],
+    };
+
+    final orderedPlaces = <RoadmapItineraryPlace>[];
+    final resolvedKeys = <String>[];
+    for (final key in cachedOrderKeys) {
+      final place = placeByKey[key];
+      if (place == null) continue;
+      if (resolvedKeys.contains(key)) continue;
+      resolvedKeys.add(key);
+      orderedPlaces.add(place);
+    }
+
+    for (int i = 0; i < dayPlan.places.length; i++) {
+      final key = _placeOrderKey(dayPlan.places[i], i);
+      if (resolvedKeys.contains(key)) continue;
+      resolvedKeys.add(key);
+      orderedPlaces.add(dayPlan.places[i]);
+    }
+
+    _dayPlaceOrderCache[dayKey] = resolvedKeys;
+    return orderedPlaces;
+  }
+
+  void _reorderPlaces(_DayPlan dayPlan, int oldIndex, int newIndex) {
+    final dayKey = _dayOrderKey(dayPlan);
+    final currentOrderKeys =
+        List<String>.from(
+          _dayPlaceOrderCache[dayKey] ?? _buildPlaceOrderKeys(dayPlan.places),
+        );
+
+    if (oldIndex < 0 || oldIndex >= currentOrderKeys.length) {
+      return;
+    }
+
+    var targetIndex = newIndex;
+    if (targetIndex > oldIndex) {
+      targetIndex -= 1;
+    }
+    if (targetIndex < 0) {
+      targetIndex = 0;
+    }
+    if (targetIndex >= currentOrderKeys.length) {
+      targetIndex = currentOrderKeys.length - 1;
+    }
+
+    setState(() {
+      final moved = currentOrderKeys.removeAt(oldIndex);
+      currentOrderKeys.insert(targetIndex, moved);
+      _dayPlaceOrderCache[dayKey] = currentOrderKeys;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final resultState = ref.watch(roadmapItineraryResultViewModelProvider);
@@ -574,15 +700,19 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
         ? _buildDayPlans(roadmapData?.itinerary)
         : const <_DayPlan>[];
 
+    _syncDayPlaceOrderCache(dayPlans);
+
     _syncSelectedDayIndex(dayPlans.length);
     final selectedDay = dayPlans.isEmpty
         ? null
         : dayPlans[_selectedDayIndex.clamp(0, dayPlans.length - 1)];
     final timelineItems = selectedDay == null
         ? const <_TimelineItem>[]
-        : _buildTimelineItems(selectedDay);
+        : _buildTimelineItems(_resolveOrderedPlaces(selectedDay));
     final selectedPlaces =
-        selectedDay?.places ?? const <RoadmapItineraryPlace>[];
+        selectedDay == null
+        ? const <RoadmapItineraryPlace>[]
+        : _resolveOrderedPlaces(selectedDay);
     final markers = _buildMapMarkers(
       isSuccessStatus: isSuccessStatus,
       places: selectedPlaces,
@@ -647,6 +777,10 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
                 shouldShowPollingIndicator: shouldShowPollingIndicator,
                 emptyMessage: emptyMessage,
                 timelineItems: timelineItems,
+                onReorder: selectedDay == null
+                    ? null
+                    : (oldIndex, newIndex) =>
+                          _reorderPlaces(selectedDay, oldIndex, newIndex),
                 onTapHome: _goToHome,
                 bottomPadding:
                     _inputSheetBodySpacing.h +
@@ -1030,6 +1164,7 @@ class _TimelinePanel extends StatelessWidget {
     required this.shouldShowPollingIndicator,
     required this.emptyMessage,
     required this.timelineItems,
+    required this.onReorder,
     required this.onTapHome,
     required this.bottomPadding,
   });
@@ -1039,11 +1174,14 @@ class _TimelinePanel extends StatelessWidget {
   final bool shouldShowPollingIndicator;
   final String emptyMessage;
   final List<_TimelineItem> timelineItems;
+  final void Function(int oldIndex, int newIndex)? onReorder;
   final VoidCallback onTapHome;
   final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
+    final canReorder = onReorder != null && timelineItems.length > 1;
+
     return Padding(
       padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, bottomPadding),
       child: Container(
@@ -1105,6 +1243,27 @@ class _TimelinePanel extends StatelessWidget {
                   ),
                 ),
               )
+            : canReorder
+            ? ReorderableListView.builder(
+                padding: EdgeInsets.fromLTRB(18.w, 20.h, 18.w, 20.h),
+                buildDefaultDragHandles: false,
+                itemCount: timelineItems.length,
+                onReorder: onReorder!,
+                itemBuilder: (context, index) {
+                  final item = timelineItems[index];
+                  return Padding(
+                    key: ValueKey(item.id),
+                    padding: EdgeInsets.only(
+                      bottom: index == timelineItems.length - 1 ? 0 : 8.h,
+                    ),
+                    child: _TimelineRow(
+                      item: item,
+                      isLast: index == timelineItems.length - 1,
+                      dragIndex: index,
+                    ),
+                  );
+                },
+              )
             : ListView.separated(
                 padding: EdgeInsets.fromLTRB(18.w, 20.h, 18.w, 20.h),
                 itemCount: timelineItems.length,
@@ -1112,6 +1271,7 @@ class _TimelinePanel extends StatelessWidget {
                 itemBuilder: (context, index) {
                   final item = timelineItems[index];
                   return _TimelineRow(
+                    key: ValueKey(item.id),
                     item: item,
                     isLast: index == timelineItems.length - 1,
                   );
@@ -1123,10 +1283,16 @@ class _TimelinePanel extends StatelessWidget {
 }
 
 class _TimelineRow extends StatelessWidget {
-  const _TimelineRow({required this.item, required this.isLast});
+  const _TimelineRow({
+    super.key,
+    required this.item,
+    required this.isLast,
+    this.dragIndex,
+  });
 
   final _TimelineItem item;
   final bool isLast;
+  final int? dragIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -1198,6 +1364,18 @@ class _TimelineRow extends StatelessWidget {
             ),
           ),
         ),
+        if (dragIndex != null)
+          ReorderableDragStartListener(
+            index: dragIndex!,
+            child: Padding(
+              padding: EdgeInsets.only(top: 6.h, left: 10.w),
+              child: Icon(
+                Icons.drag_indicator_rounded,
+                size: 20.sp,
+                color: MColor.gray300,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -1217,12 +1395,14 @@ class _DayPlan {
 
 class _TimelineItem {
   const _TimelineItem({
+    required this.id,
     required this.order,
     required this.title,
     required this.time,
     required this.description,
   });
 
+  final String id;
   final int order;
   final String title;
   final String time;
@@ -1261,20 +1441,22 @@ List<_DayPlan> _buildDayPlans(List<RoadmapDailyItinerary>? itinerary) {
   return plans;
 }
 
-List<_TimelineItem> _buildTimelineItems(_DayPlan dayPlan) {
-  if (dayPlan.places.isEmpty) return const [];
+List<_TimelineItem> _buildTimelineItems(List<RoadmapItineraryPlace> places) {
+  if (places.isEmpty) return const [];
 
   final timeline = <_TimelineItem>[];
-  var fallbackOrder = 1;
-  for (final place in dayPlan.places) {
-    final sequence = place.visitSequence;
-    final order = (sequence != null && sequence > 0) ? sequence : fallbackOrder;
-    if (sequence == null || sequence <= 0) {
-      fallbackOrder++;
-    }
+  for (int i = 0; i < places.length; i++) {
+    final place = places[i];
+    final order = i + 1;
+    final placeId = place.placeId?.trim() ?? '';
+    final idBase = placeId.isNotEmpty
+        ? 'id:$placeId'
+        : 'timeline:${place.placeName ?? ''}:${place.address ?? ''}:${_formatVisitTime(place.visitTime)}';
+    final id = '$idBase:$i';
 
     timeline.add(
       _TimelineItem(
+        id: id,
         order: order,
         title: place.placeName?.trim().isNotEmpty == true
             ? place.placeName!.trim()
