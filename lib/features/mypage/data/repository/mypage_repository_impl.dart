@@ -61,4 +61,9 @@ class MyPageRepositoryImpl implements MyPageRepository {
   Future<void> deleteVisitedCountry({required String id}) {
     return _remoteDataSource.deleteVisitedCountry(id: id);
   }
+
+  @override
+  Future<void> deleteMyAccount() {
+    return _remoteDataSource.deleteMyAccount();
+  }
 }

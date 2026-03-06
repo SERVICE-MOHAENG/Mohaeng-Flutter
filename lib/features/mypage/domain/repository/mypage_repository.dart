@@ -27,4 +27,6 @@ abstract class MyPageRepository {
   });
 
   Future<void> deleteVisitedCountry({required String id});
+
+  Future<void> deleteMyAccount();
 }

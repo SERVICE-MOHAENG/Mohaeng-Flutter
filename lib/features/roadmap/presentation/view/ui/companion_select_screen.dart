@@ -20,7 +20,7 @@ class _CompanionSelectScreenState extends ConsumerState<CompanionSelectScreen> {
   @override
   Widget build(BuildContext context) {
     final companionState = ref.watch(companionSelectViewModelProvider);
-    final enabled = companionState.selected != null;
+    final enabled = companionState.selected.isNotEmpty;
 
     return MLayout(
       backgroundColor: MColor.white100,
@@ -90,7 +90,7 @@ class _CompanionSelectScreenState extends ConsumerState<CompanionSelectScreen> {
     );
   }
 
-  Widget _buildGrid(CompanionType? selectedType) {
+  Widget _buildGrid(Set<CompanionType> selectedTypes) {
     final items = CompanionType.values;
 
     return GridView.builder(
@@ -105,7 +105,7 @@ class _CompanionSelectScreenState extends ConsumerState<CompanionSelectScreen> {
       ),
       itemBuilder: (context, index) {
         final type = items[index];
-        final selected = type == selectedType;
+        final selected = selectedTypes.contains(type);
 
         return _CompanionCard(
           label: type.label,
@@ -113,7 +113,7 @@ class _CompanionSelectScreenState extends ConsumerState<CompanionSelectScreen> {
           fallbackEmojis: type.fallbackEmojis,
           selected: selected,
           onTap: () =>
-              ref.read(companionSelectViewModelProvider.notifier).select(type),
+              ref.read(companionSelectViewModelProvider.notifier).toggle(type),
         );
       },
     );

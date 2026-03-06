@@ -27,8 +27,18 @@ class RoadmapItineraryStatusResponse {
   @JsonKey(fromJson: _parseDateTimeNullable, toJson: _dateTimeToJsonNullable)
   final DateTime? completedAt;
 
-  factory RoadmapItineraryStatusResponse.fromJson(Map<String, dynamic> json) =>
-      _$RoadmapItineraryStatusResponseFromJson(json);
+  factory RoadmapItineraryStatusResponse.fromJson(Map<String, dynamic> json) {
+    final nestedStatus = json['status'];
+    if (nestedStatus is Map<String, dynamic>) {
+      return _$RoadmapItineraryStatusResponseFromJson(nestedStatus);
+    }
+    if (nestedStatus is Map) {
+      return _$RoadmapItineraryStatusResponseFromJson(
+        nestedStatus.map((key, value) => MapEntry(key.toString(), value)),
+      );
+    }
+    return _$RoadmapItineraryStatusResponseFromJson(json);
+  }
 
   Map<String, dynamic> toJson() => _$RoadmapItineraryStatusResponseToJson(this);
 }

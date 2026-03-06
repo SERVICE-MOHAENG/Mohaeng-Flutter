@@ -1,5 +1,7 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+const _dateValueUnset = Object();
 
 @immutable
 class ScheduleSelectState {
@@ -7,25 +9,37 @@ class ScheduleSelectState {
     required this.displayMonth,
     this.startDate,
     this.endDate,
-    this.selectedCountries = const ['브라질', '일본', '독일'],
+    this.selectedCountries = const [],
+    this.selectedCity = '',
+    this.cityDateRanges = const {},
   });
 
   final DateTime displayMonth;
   final DateTime? startDate;
   final DateTime? endDate;
   final List<String> selectedCountries;
+  final String selectedCity;
+  final Map<String, DateTimeRange> cityDateRanges;
 
   ScheduleSelectState copyWith({
     DateTime? displayMonth,
-    DateTime? startDate,
-    DateTime? endDate,
+    Object? startDate = _dateValueUnset,
+    Object? endDate = _dateValueUnset,
     List<String>? selectedCountries,
+    String? selectedCity,
+    Map<String, DateTimeRange>? cityDateRanges,
   }) {
     return ScheduleSelectState(
       displayMonth: displayMonth ?? this.displayMonth,
-      startDate: startDate ?? this.startDate,
-      endDate: endDate ?? this.endDate,
+      startDate: identical(startDate, _dateValueUnset)
+          ? this.startDate
+          : startDate as DateTime?,
+      endDate: identical(endDate, _dateValueUnset)
+          ? this.endDate
+          : endDate as DateTime?,
       selectedCountries: selectedCountries ?? this.selectedCountries,
+      selectedCity: selectedCity ?? this.selectedCity,
+      cityDateRanges: cityDateRanges ?? this.cityDateRanges,
     );
   }
 }
@@ -38,14 +52,35 @@ class ScheduleSelectViewModel extends StateNotifier<ScheduleSelectState> {
         ),
       );
 
+  void setSelectedCity(String city, {bool resetSelection = false}) {
+    if (city.isEmpty) {
+      state = state.copyWith(selectedCity: '', startDate: null, endDate: null);
+      return;
+    }
+    if (state.selectedCity == city) return;
+    final existing = resetSelection ? null : state.cityDateRanges[city];
+    state = state.copyWith(
+      selectedCity: city,
+      startDate: existing?.start,
+      endDate: existing?.end,
+    );
+  }
+
+  void ensureSelectedCity(List<String> cities) {
+    if (cities.isEmpty) {
+      state = state.copyWith(selectedCity: '', startDate: null, endDate: null);
+      return;
+    }
+    if (cities.contains(state.selectedCity)) return;
+    setSelectedCity(cities.first);
+  }
+
   void goToPreviousMonth() {
     state = state.copyWith(
       displayMonth: DateTime(
         state.displayMonth.year,
         state.displayMonth.month - 1,
       ),
-      startDate: null,
-      endDate: null,
     );
   }
 
@@ -55,35 +90,77 @@ class ScheduleSelectViewModel extends StateNotifier<ScheduleSelectState> {
         state.displayMonth.year,
         state.displayMonth.month + 1,
       ),
-      startDate: null,
-      endDate: null,
     );
   }
 
-  void selectDate(DateTime date) {
+  bool selectDate(DateTime date, {List<String> cities = const []}) {
+    if (state.selectedCity.isEmpty) return false;
     final normalized = DateTime(date.year, date.month, date.day);
     final start = state.startDate;
     final end = state.endDate;
 
     if (start == null || end != null) {
-      state = state.copyWith(startDate: normalized, endDate: null);
-      return;
+      final nextRanges = Map<String, DateTimeRange>.from(state.cityDateRanges)
+        ..remove(state.selectedCity);
+      state = state.copyWith(
+        startDate: normalized,
+        endDate: null,
+        cityDateRanges: nextRanges,
+      );
+      return false;
     }
 
     if (normalized.isBefore(start)) {
-      state = state.copyWith(startDate: normalized, endDate: null);
-      return;
+      final nextRanges = Map<String, DateTimeRange>.from(state.cityDateRanges)
+        ..remove(state.selectedCity);
+      state = state.copyWith(
+        startDate: normalized,
+        endDate: null,
+        cityDateRanges: nextRanges,
+      );
+      return false;
     }
 
-    state = state.copyWith(endDate: normalized);
+    final nextRange = DateTimeRange(start: start, end: normalized);
+    final nextRanges = Map<String, DateTimeRange>.from(state.cityDateRanges)
+      ..[state.selectedCity] = nextRange;
+
+    final nextIndex = cities.indexOf(state.selectedCity);
+    if (cities.isNotEmpty && nextIndex != -1 && nextIndex < cities.length - 1) {
+      final nextCity = cities[nextIndex + 1];
+      final clearedRanges = Map<String, DateTimeRange>.from(nextRanges)
+        ..remove(nextCity);
+      state = state.copyWith(
+        selectedCity: nextCity,
+        startDate: null,
+        endDate: null,
+        cityDateRanges: clearedRanges,
+      );
+    } else {
+      state = state.copyWith(endDate: normalized, cityDateRanges: nextRanges);
+    }
+
+    return true;
   }
 
   bool get isValidSelection {
+    if (state.selectedCity.isEmpty) return false;
     final start = state.startDate;
     final end = state.endDate;
     if (start == null || end == null) return false;
     final days = end.difference(start).inDays;
     return days >= 0 && days <= 7;
+  }
+
+  bool isAllCitiesSelected(List<String> cities) {
+    if (cities.isEmpty) return false;
+    for (final city in cities) {
+      final range = state.cityDateRanges[city];
+      if (range == null) return false;
+      final days = range.end.difference(range.start).inDays;
+      if (days < 0 || days > 7) return false;
+    }
+    return true;
   }
 
   bool isInRange(DateTime date) {

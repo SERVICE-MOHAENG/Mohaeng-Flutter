@@ -10,6 +10,7 @@ import 'package:mohaeng_app_service/features/auth/presentation/view/ui/login_scr
 import 'package:mohaeng_app_service/features/auth/presentation/view/ui/sign_up_screen.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view/ui/main_screen.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/additional_request_screen.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/budget_amount_screen.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/budget_range_screen.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/companion_select_screen.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/concept_select_screen.dart';
@@ -59,6 +60,7 @@ class MyApp extends StatelessWidget {
           AppRoutes.roadmapConcept: (_) => ConceptSelectScreen(),
           AppRoutes.roadmapTravelStyle: (_) => TravelStyleSelectScreen(),
           AppRoutes.roadmapBudgetRange: (_) => BudgetRangeScreen(),
+          AppRoutes.roadmapBudgetAmount: (_) => BudgetAmountScreen(),
           AppRoutes.roadmapAdditionalRequest: (_) => AdditionalRequestScreen(),
           AppRoutes.roadmapResult: (_) => RoadmapResultScreen(),
         },

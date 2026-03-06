@@ -6,6 +6,7 @@ import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/country_regions_view_model.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
 
 class RegionSelectScreen extends ConsumerStatefulWidget {
@@ -16,16 +17,25 @@ class RegionSelectScreen extends ConsumerStatefulWidget {
 }
 
 class _RegionSelectScreenState extends ConsumerState<RegionSelectScreen> {
+  static const String _countryName = '미국';
+
   late final TextEditingController _searchController;
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _searchController = TextEditingController();
+    _searchController = TextEditingController()
+      ..addListener(_handleSearchChanged);
+    Future.microtask(
+      () =>
+          ref.read(countryRegionsViewModelProvider.notifier).load(_countryName),
+    );
   }
 
   @override
   void dispose() {
+    _searchController.removeListener(_handleSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -33,6 +43,8 @@ class _RegionSelectScreenState extends ConsumerState<RegionSelectScreen> {
   @override
   Widget build(BuildContext context) {
     final regionState = ref.watch(regionSelectViewModelProvider);
+    final countryRegionsState = ref.watch(countryRegionsViewModelProvider);
+
     return MLayout(
       backgroundColor: MColor.white100,
       bottomSheet: Padding(
@@ -59,7 +71,16 @@ class _RegionSelectScreenState extends ConsumerState<RegionSelectScreen> {
               padding: EdgeInsets.symmetric(horizontal: 16.w),
               child: _buildSelectedChips(regionState.selectedCities),
             ),
-            const Spacer(),
+            SizedBox(height: 12.h),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                child: _buildRegionSuggestions(
+                  countryRegionsState: countryRegionsState,
+                  selectedCities: regionState.selectedCities,
+                ),
+              ),
+            ),
             SizedBox(height: 16.h),
           ],
         ),
@@ -121,7 +142,7 @@ class _RegionSelectScreenState extends ConsumerState<RegionSelectScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              '미국',
+              _countryName,
               style: MTextStyles.bodyM.copyWith(color: MColor.gray900),
             ),
             SizedBox(width: 8.w),
@@ -148,6 +169,7 @@ class _RegionSelectScreenState extends ConsumerState<RegionSelectScreen> {
     return TextFormField(
       controller: _searchController,
       style: MTextStyles.bodyM.copyWith(color: MColor.gray800),
+      onFieldSubmitted: (_) => _handleAddCity(),
       decoration: InputDecoration(
         isDense: true,
         filled: true,
@@ -157,12 +179,16 @@ class _RegionSelectScreenState extends ConsumerState<RegionSelectScreen> {
         contentPadding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
         suffixIcon: Padding(
           padding: EdgeInsets.only(right: 8.w, top: 8.h, bottom: 8.h),
-          child: Container(
-            decoration: BoxDecoration(
-              color: MColor.primary500,
-              borderRadius: BorderRadius.circular(65.r),
+          child: InkWell(
+            onTap: _handleAddCity,
+            borderRadius: BorderRadius.circular(65.r),
+            child: Container(
+              decoration: BoxDecoration(
+                color: MColor.primary500,
+                borderRadius: BorderRadius.circular(65.r),
+              ),
+              child: Icon(Icons.search, size: 16.sp, color: MColor.white100),
             ),
-            child: Icon(Icons.search, size: 16.sp, color: MColor.white100),
           ),
         ),
         enabledBorder: OutlineInputBorder(
@@ -176,6 +202,28 @@ class _RegionSelectScreenState extends ConsumerState<RegionSelectScreen> {
       ),
       textInputAction: TextInputAction.search,
     );
+  }
+
+  void _handleAddCity() {
+    final city = _searchController.text.trim();
+    if (city.trim().isEmpty) return;
+    _addCity(city, clearInput: true);
+  }
+
+  void _handleSearchChanged() {
+    final next = _searchController.text.trim();
+    if (next == _searchQuery) return;
+    setState(() => _searchQuery = next);
+  }
+
+  void _addCity(String city, {bool clearInput = false}) {
+    final normalized = city.trim();
+    if (normalized.isEmpty) return;
+    ref.read(regionSelectViewModelProvider.notifier).addCity(normalized);
+    if (clearInput) {
+      _searchController.clear();
+    }
+    FocusScope.of(context).unfocus();
   }
 
   Widget _buildSelectedChips(List<String> cities) {
@@ -198,6 +246,103 @@ class _RegionSelectScreenState extends ConsumerState<RegionSelectScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildRegionSuggestions({
+    required CountryRegionsState countryRegionsState,
+    required List<String> selectedCities,
+  }) {
+    if (countryRegionsState.isLoading) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    }
+
+    if (countryRegionsState.errorMessage != null) {
+      return Align(
+        alignment: Alignment.topLeft,
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                countryRegionsState.errorMessage!,
+                style: MTextStyles.sLabelM.copyWith(color: MColor.gray500),
+              ),
+            ),
+            TextButton(
+              onPressed: () => ref
+                  .read(countryRegionsViewModelProvider.notifier)
+                  .load(_countryName),
+              child: Text(
+                '다시 시도',
+                style: MTextStyles.sLabelM.copyWith(color: MColor.primary500),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final availableCityNames =
+        countryRegionsState.regions
+            .map((region) => region.name.trim())
+            .where((name) => name.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+
+    final query = _searchQuery.toLowerCase();
+    final filteredCityNames = availableCityNames
+        .where((name) {
+          if (selectedCities.contains(name)) return false;
+          if (query.isEmpty) return true;
+          return name.toLowerCase().contains(query);
+        })
+        .take(30)
+        .toList();
+
+    if (filteredCityNames.isEmpty) {
+      if (_searchQuery.isEmpty) return const SizedBox.shrink();
+      return Align(
+        alignment: Alignment.topLeft,
+        child: Text(
+          '검색 결과가 없습니다.',
+          style: MTextStyles.sLabelM.copyWith(color: MColor.gray500),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: EdgeInsets.zero,
+      itemCount: filteredCityNames.length,
+      separatorBuilder: (_, _) => SizedBox(height: 8.h),
+      itemBuilder: (context, index) {
+        final city = filteredCityNames[index];
+        return InkWell(
+          borderRadius: BorderRadius.circular(10.r),
+          onTap: () => _addCity(city, clearInput: true),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+            decoration: BoxDecoration(
+              color: MColor.white100,
+              borderRadius: BorderRadius.circular(10.r),
+              border: Border.all(color: MColor.gray100, width: 1.w),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.location_city, size: 16.sp, color: MColor.gray500),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: Text(
+                    city,
+                    style: MTextStyles.bodyM.copyWith(color: MColor.gray900),
+                  ),
+                ),
+                Icon(Icons.add, size: 16.sp, color: MColor.primary500),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

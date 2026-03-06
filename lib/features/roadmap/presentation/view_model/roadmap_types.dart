@@ -1,58 +1,81 @@
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 
 enum CompanionType {
+  family,
+  friends,
+  couple,
+  spouse,
+  children,
   solo,
   parents,
-  friend,
-  lover,
-  child,
-  family,
-  coworker;
+  teacher,
+  students,
+  colleagues,
+  seniors;
 
   String get label => switch (this) {
+    CompanionType.family => '가족',
+    CompanionType.friends => '친구',
+    CompanionType.couple => '연인',
+    CompanionType.spouse => '배우자',
+    CompanionType.children => '아이',
     CompanionType.solo => '혼자',
     CompanionType.parents => '부모님',
-    CompanionType.friend => '친구',
-    CompanionType.lover => '연인',
-    CompanionType.child => '아이',
-    CompanionType.family => '가족',
-    CompanionType.coworker => '직장 동료',
+    CompanionType.teacher => '선생님',
+    CompanionType.students => '학생',
+    CompanionType.colleagues => '직장 동료',
+    CompanionType.seniors => '어르신',
   };
 
   List<String> get fallbackEmojis => switch (this) {
+    CompanionType.family => const ['👨‍👩‍👧‍👦'],
+    CompanionType.friends => const ['🧑‍🤝‍🧑'],
+    CompanionType.couple => const ['👫'],
+    CompanionType.spouse => const ['💍'],
+    CompanionType.children => const ['👶'],
     CompanionType.solo => const ['🚶‍♂️'],
     CompanionType.parents => const ['🚶‍♂️', '🚶‍♀️'],
-    CompanionType.friend => const ['🚶‍♂️', '🚶‍♂️'],
-    CompanionType.lover => const ['👫'],
-    CompanionType.child => const ['👶'],
-    CompanionType.family => const ['👨‍👩‍👧‍👦'],
-    CompanionType.coworker => const ['👨‍💼'],
+    CompanionType.teacher => const ['🧑‍🏫'],
+    CompanionType.students => const ['🧑‍🎓'],
+    CompanionType.colleagues => const ['👨‍💼'],
+    CompanionType.seniors => const ['🧓'],
   };
 
   List<String> get imagePaths => switch (this) {
+    CompanionType.family => const ['assets/images/companion/family.png'],
+    CompanionType.friends => const [
+      'assets/images/companion/alone.png',
+      'assets/images/companion/friend.png',
+    ],
+    CompanionType.couple => const ['assets/images/companion/couple.png'],
+    CompanionType.spouse => const ['assets/images/companion/couple.png'],
+    CompanionType.children => const ['assets/images/companion/baby.png'],
     CompanionType.solo => const ['assets/images/companion/alone.png'],
     CompanionType.parents => const [
       'assets/images/companion/alone.png',
       'assets/images/companion/parent.png',
     ],
-    CompanionType.friend => const [
+    CompanionType.teacher => const ['assets/images/companion/worker.png'],
+    CompanionType.students => const [
       'assets/images/companion/alone.png',
       'assets/images/companion/friend.png',
     ],
-    CompanionType.lover => const ['assets/images/companion/couple.png'],
-    CompanionType.child => const ['assets/images/companion/baby.png'],
-    CompanionType.family => const ['assets/images/companion/family.png'],
-    CompanionType.coworker => const ['assets/images/companion/worker.png'],
+    CompanionType.colleagues => const ['assets/images/companion/worker.png'],
+    CompanionType.seniors => const ['assets/images/companion/parent.png'],
   };
 
   String get apiValue => switch (this) {
+    CompanionType.family => 'FAMILY',
+    CompanionType.friends => 'FRIENDS',
+    CompanionType.couple => 'COUPLE',
+    CompanionType.spouse => 'SPOUSE',
+    CompanionType.children => 'CHILDREN',
     CompanionType.solo => 'SOLO',
     CompanionType.parents => 'PARENTS',
-    CompanionType.friend => 'FRIEND',
-    CompanionType.lover => 'LOVER',
-    CompanionType.child => 'CHILD',
-    CompanionType.family => 'FAMILY',
-    CompanionType.coworker => 'COWORKER',
+    CompanionType.teacher => 'TEACHER',
+    CompanionType.students => 'STUDENTS',
+    CompanionType.colleagues => 'COLLEAGUES',
+    CompanionType.seniors => 'SENIORS',
   };
 }
 
@@ -73,15 +96,15 @@ enum TravelConcept {
   String get label => switch (this) {
     TravelConcept.sightseeing => '관광',
     TravelConcept.food => '먹방',
-    TravelConcept.family => '가족 여행',
+    TravelConcept.family => '가족여행',
     TravelConcept.healing => '힐링',
     TravelConcept.nature => '자연',
     TravelConcept.shopping => '쇼핑',
-    TravelConcept.city => '도시 여행',
-    TravelConcept.photo => '사진 인생샷',
-    TravelConcept.unique => '이색 여행',
-    TravelConcept.honeymoon => '신혼 여행',
-    TravelConcept.cultureArt => '문화, 예술',
+    TravelConcept.city => '도시여행',
+    TravelConcept.photo => '사진·인생샷',
+    TravelConcept.unique => '이색여행',
+    TravelConcept.honeymoon => '신혼여행',
+    TravelConcept.cultureArt => '문화·예술',
     TravelConcept.activity => '액티비티',
   };
 
@@ -117,13 +140,13 @@ enum TravelConcept {
 
   String get apiValue => switch (this) {
     TravelConcept.sightseeing => 'SIGHTSEEING',
-    TravelConcept.food => 'FOOD',
-    TravelConcept.family => 'FAMILY',
+    TravelConcept.food => 'FOOD_TOUR',
+    TravelConcept.family => 'FAMILY_TRIP',
     TravelConcept.healing => 'HEALING',
     TravelConcept.nature => 'NATURE',
     TravelConcept.shopping => 'SHOPPING',
-    TravelConcept.city => 'CITY',
-    TravelConcept.photo => 'PHOTO',
+    TravelConcept.city => 'CITY_TRIP',
+    TravelConcept.photo => 'PHOTO_SPOTS',
     TravelConcept.unique => 'UNIQUE_TRIP',
     TravelConcept.honeymoon => 'HONEYMOON',
     TravelConcept.cultureArt => 'CULTURE_ART',

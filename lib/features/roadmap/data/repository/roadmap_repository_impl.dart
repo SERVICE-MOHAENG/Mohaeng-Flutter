@@ -4,6 +4,7 @@ import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_itinerar
 import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_itinerary_status_models.dart';
 import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_chat_models.dart';
 import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_modification_status_models.dart';
+import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_preference_result_models.dart';
 import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_survey_models.dart';
 import 'package:mohaeng_app_service/features/roadmap/domain/repository/roadmap_repository.dart';
 
@@ -57,5 +58,17 @@ class RoadmapRepositoryImpl implements RoadmapRepository {
     required String jobId,
   }) {
     return _remoteDataSource.getModificationStatus(jobId: jobId);
+  }
+
+  @override
+  Future<List<RoadmapPreferenceResultItem>> getPreferenceJobResult({
+    required String jobId,
+  }) {
+    return _remoteDataSource.getPreferenceJobResult(jobId: jobId);
+  }
+
+  @override
+  Future<List<RoadmapPreferenceResultItem>> getPreferenceMeResult() {
+    return _remoteDataSource.getPreferenceMeResult();
   }
 }

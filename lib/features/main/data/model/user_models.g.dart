@@ -12,6 +12,7 @@ MainUserResponse _$MainUserResponseFromJson(Map<String, dynamic> json) =>
       name: json['name'] as String?,
       email: json['email'] as String?,
       profileImage: json['profileImage'] as String?,
+      visitedCountries: _readIntNullable(json['visitedCountries']),
       isActivate: _readBoolNullable(json['isActivate']),
       createdAt: json['createdAt'] as String?,
     );
@@ -22,6 +23,7 @@ Map<String, dynamic> _$MainUserResponseToJson(MainUserResponse instance) =>
       'name': instance.name,
       'email': instance.email,
       'profileImage': instance.profileImage,
+      'visitedCountries': _writeIntNullable(instance.visitedCountries),
       'isActivate': _writeBoolNullable(instance.isActivate),
       'createdAt': instance.createdAt,
     };

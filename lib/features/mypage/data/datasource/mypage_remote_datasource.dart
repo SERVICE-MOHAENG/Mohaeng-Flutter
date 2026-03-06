@@ -39,6 +39,7 @@ class MyPageRemoteDataSource {
   static const String _myVisitedCountriesPath =
       '${ApiEndpoints.visitedCountries}/me';
   static const String _visitedCountriesPath = ApiEndpoints.visitedCountries;
+  static const String _myAccountPath = '${ApiEndpoints.basePath}/users/me';
 
   Future<CoursesResponse> getMyCourses({
     int page = 1,
@@ -183,6 +184,10 @@ class MyPageRemoteDataSource {
       '$_visitedCountriesPath/$id',
       cancelToken: cancelToken,
     );
+  }
+
+  Future<void> deleteMyAccount({CancelToken? cancelToken}) async {
+    await _apiClient.delete<dynamic>(_myAccountPath, cancelToken: cancelToken);
   }
 }
 

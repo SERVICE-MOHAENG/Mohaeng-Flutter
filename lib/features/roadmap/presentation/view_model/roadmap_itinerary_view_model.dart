@@ -9,23 +9,28 @@ class RoadmapItineraryState {
   const RoadmapItineraryState({
     this.isLoading = false,
     this.errorMessage,
+    this.statusCode,
     this.response,
   });
 
   final bool isLoading;
   final String? errorMessage;
+  final int? statusCode;
   final RoadmapItineraryResponse? response;
 
   RoadmapItineraryState copyWith({
     bool? isLoading,
     String? errorMessage,
     bool clearError = false,
+    int? statusCode,
+    bool clearStatusCode = false,
     RoadmapItineraryResponse? response,
     bool keepResponse = true,
   }) {
     return RoadmapItineraryState(
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      statusCode: clearStatusCode ? null : (statusCode ?? this.statusCode),
       response: keepResponse ? (response ?? this.response) : response,
     );
   }
@@ -44,7 +49,11 @@ class RoadmapItineraryViewModel extends StateNotifier<RoadmapItineraryState> {
       return false;
     }
 
-    state = state.copyWith(isLoading: true, clearError: true);
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+      clearStatusCode: true,
+    );
 
     try {
       final response = await _createRoadmapItineraryUsecase(
@@ -52,15 +61,23 @@ class RoadmapItineraryViewModel extends StateNotifier<RoadmapItineraryState> {
       );
       state = state.copyWith(
         isLoading: false,
+        clearStatusCode: true,
         response: response,
         clearError: true,
       );
       return true;
+    } on ApiError catch (error) {
+      state = state.copyWith(
+        isLoading: false,
+        statusCode: error.statusCode,
+        errorMessage: error.message,
+      );
+      return false;
     } catch (error) {
       state = state.copyWith(
         isLoading: false,
+        clearStatusCode: true,
         errorMessage: switch (error) {
-          ApiError(:final message) => message,
           _ => '여행 일정을 생성하지 못했어요.',
         },
       );

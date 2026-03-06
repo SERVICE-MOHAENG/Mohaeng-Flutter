@@ -122,10 +122,54 @@ class RoadmapSurveyResponse {
   final String jobId;
   final String status;
 
-  factory RoadmapSurveyResponse.fromJson(Map<String, dynamic> json) =>
-      _$RoadmapSurveyResponseFromJson(json);
+  factory RoadmapSurveyResponse.fromJson(Map<String, dynamic> json) {
+    final source = _normalizeSurveyJson(json);
+    final surveyId = _readStringValue(
+      source,
+      keys: const ['surveyId', 'survey_id'],
+    );
+
+    if (surveyId == null || surveyId.isEmpty) {
+      throw const FormatException('surveyId is missing in survey response.');
+    }
+
+    final jobId =
+        _readStringValue(source, keys: const ['jobId', 'job_id']) ?? '';
+    final status =
+        _readStringValue(source, keys: const ['status']) ?? 'PENDING';
+
+    return RoadmapSurveyResponse(
+      surveyId: surveyId,
+      jobId: jobId,
+      status: status,
+    );
+  }
 
   Map<String, dynamic> toJson() => _$RoadmapSurveyResponseToJson(this);
+}
+
+Map<String, dynamic> _normalizeSurveyJson(Map<String, dynamic> json) {
+  final survey = json['survey'];
+  if (survey is Map<String, dynamic>) {
+    return survey;
+  }
+  if (survey is Map) {
+    return survey.map((key, value) => MapEntry(key.toString(), value));
+  }
+  return json;
+}
+
+String? _readStringValue(
+  Map<String, dynamic> json, {
+  required List<String> keys,
+}) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value is String && value.trim().isNotEmpty) {
+      return value.trim();
+    }
+  }
+  return null;
 }
 
 String _formatDate(DateTime date) {
@@ -149,11 +193,8 @@ DateTime _parseDate(String value) {
 }
 
 String _pacePreferenceToJson(PacePreference value) => value.apiValue;
-PacePreference _pacePreferenceFromJson(String value) =>
-    PacePreference.values.firstWhere(
-      (e) => e.apiValue == value,
-      orElse: () => PacePreference.DENSE,
-    );
+PacePreference _pacePreferenceFromJson(String value) => PacePreference.values
+    .firstWhere((e) => e.apiValue == value, orElse: () => PacePreference.DENSE);
 
 String _planningPreferenceToJson(PlanningPreference value) => value.apiValue;
 PlanningPreference _planningPreferenceFromJson(String value) =>
@@ -185,34 +226,31 @@ PriorityPreference _priorityPreferenceFromJson(String value) =>
     );
 
 String _budgetRangeToJson(BudgetRange value) => value.apiValue;
-BudgetRange _budgetRangeFromJson(String value) =>
-    BudgetRange.values.firstWhere(
-      (e) => e.apiValue == value,
-      orElse: () => BudgetRange.MID,
-    );
+BudgetRange _budgetRangeFromJson(String value) => BudgetRange.values.firstWhere(
+  (e) => e.apiValue == value,
+  orElse: () => BudgetRange.MID,
+);
 
 List<String> _companionTypeListToJson(List<CompanionType> values) =>
     values.map((value) => value.apiValue).toList();
-List<CompanionType> _companionTypeListFromJson(List<dynamic> values) =>
-    values
-        .map((value) => value.toString())
-        .map(
-          (value) => CompanionType.values.firstWhere(
-            (e) => e.apiValue == value,
-            orElse: () => CompanionType.solo,
-          ),
-        )
-        .toList();
+List<CompanionType> _companionTypeListFromJson(List<dynamic> values) => values
+    .map((value) => value.toString())
+    .map(
+      (value) => CompanionType.values.firstWhere(
+        (e) => e.apiValue == value,
+        orElse: () => CompanionType.solo,
+      ),
+    )
+    .toList();
 
 List<String> _travelConceptListToJson(List<TravelConcept> values) =>
     values.map((value) => value.apiValue).toList();
-List<TravelConcept> _travelConceptListFromJson(List<dynamic> values) =>
-    values
-        .map((value) => value.toString())
-        .map(
-          (value) => TravelConcept.values.firstWhere(
-            (e) => e.apiValue == value,
-            orElse: () => TravelConcept.sightseeing,
-          ),
-        )
-        .toList();
+List<TravelConcept> _travelConceptListFromJson(List<dynamic> values) => values
+    .map((value) => value.toString())
+    .map(
+      (value) => TravelConcept.values.firstWhere(
+        (e) => e.apiValue == value,
+        orElse: () => TravelConcept.sightseeing,
+      ),
+    )
+    .toList();

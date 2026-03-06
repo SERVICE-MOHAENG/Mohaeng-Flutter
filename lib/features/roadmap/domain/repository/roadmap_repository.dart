@@ -4,6 +4,7 @@ import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_itinerar
 import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_itinerary_result_models.dart';
 import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_chat_models.dart';
 import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_modification_status_models.dart';
+import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_preference_result_models.dart';
 
 abstract class RoadmapRepository {
   Future<RoadmapSurveyResponse> createSurvey({
@@ -30,4 +31,10 @@ abstract class RoadmapRepository {
   Future<RoadmapModificationStatusResponse> getModificationStatus({
     required String jobId,
   });
+
+  Future<List<RoadmapPreferenceResultItem>> getPreferenceJobResult({
+    required String jobId,
+  });
+
+  Future<List<RoadmapPreferenceResultItem>> getPreferenceMeResult();
 }

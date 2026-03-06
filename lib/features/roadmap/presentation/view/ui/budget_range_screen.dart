@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
+import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
@@ -21,21 +22,25 @@ class _BudgetRangeScreenState extends ConsumerState<BudgetRangeScreen> {
       value: BudgetRange.LOW,
       label: '가성비 / 저예산',
       emoji: '💸',
+      imagePath: MImages.travelBudgetValue,
     ),
     _BudgetOption(
       value: BudgetRange.MID,
       label: '기본 / 적당한',
       emoji: '💰',
+      imagePath: MImages.travelBudgetBasic,
     ),
     _BudgetOption(
       value: BudgetRange.HIGH,
       label: '프리미엄',
       emoji: '✨',
+      imagePath: MImages.travelBudgetPremium,
     ),
     _BudgetOption(
       value: BudgetRange.LUXURY,
       label: '럭셔리',
       emoji: '💎',
+      imagePath: MImages.travelBudgetLuxury,
     ),
   ];
 
@@ -149,7 +154,7 @@ class _BudgetRangeScreenState extends ConsumerState<BudgetRangeScreen> {
         onPressed: enabled
             ? () => Navigator.pushNamed(
                   context,
-                  AppRoutes.roadmapAdditionalRequest,
+                  AppRoutes.roadmapBudgetAmount,
                 )
             : null,
         style: ElevatedButton.styleFrom(
@@ -177,11 +182,13 @@ class _BudgetOption {
     required this.value,
     required this.label,
     required this.emoji,
+    required this.imagePath,
   });
 
   final BudgetRange value;
   final String label;
   final String emoji;
+  final String imagePath;
 }
 
 class _BudgetOptionCard extends StatelessWidget {
@@ -215,7 +222,18 @@ class _BudgetOptionCard extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(option.emoji, style: TextStyle(fontSize: 34.sp, height: 1)),
+              Image.asset(
+                option.imagePath,
+                width: 64.w,
+                height: 64.w,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return Text(
+                    option.emoji,
+                    style: TextStyle(fontSize: 34.sp, height: 1),
+                  );
+                },
+              ),
               SizedBox(height: 12.h),
               Text(
                 option.label,

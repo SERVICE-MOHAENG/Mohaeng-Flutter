@@ -19,6 +19,7 @@ class AdditionalRequestScreen extends ConsumerStatefulWidget {
 class _AdditionalRequestScreenState
     extends ConsumerState<AdditionalRequestScreen> {
   late final TextEditingController _requestController;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -35,11 +36,15 @@ class _AdditionalRequestScreenState
   @override
   Widget build(BuildContext context) {
     final surveyState = ref.watch(roadmapSurveyViewModelProvider);
+    final itineraryState = ref.watch(roadmapItineraryViewModelProvider);
+    final isLoading =
+        _isSubmitting || surveyState.isLoading || itineraryState.isLoading;
+
     return MLayout(
       backgroundColor: MColor.white100,
       bottomSheet: Padding(
         padding: EdgeInsets.symmetric(vertical: 45.h, horizontal: 16.w),
-        child: _buildCompleteButton(isLoading: surveyState.isLoading),
+        child: _buildCompleteButton(isLoading: isLoading),
       ),
       body: SafeArea(
         child: Column(
@@ -168,7 +173,7 @@ class _AdditionalRequestScreenState
           ),
         ),
         child: Text(
-          isLoading ? '저장 중...' : '완료',
+          isLoading ? '로드맵 생성 중...' : '완료',
           style: MTextStyles.labelM.copyWith(
             color: isLoading ? MColor.gray300 : MColor.white100,
           ),
@@ -178,6 +183,10 @@ class _AdditionalRequestScreenState
   }
 
   Future<void> _onTapComplete() async {
+    if (_isSubmitting) return;
+
+    setState(() => _isSubmitting = true);
+
     final schedule = ref.read(scheduleSelectViewModelProvider);
     final region = ref.read(regionSelectViewModelProvider);
     final people = ref.read(peopleSelectViewModelProvider);
@@ -187,7 +196,7 @@ class _AdditionalRequestScreenState
     final budget = ref.read(budgetRangeViewModelProvider);
     final additional = ref.read(additionalRequestViewModelProvider);
 
-    final success = await ref
+    final isSurveySuccess = await ref
         .read(roadmapSurveyViewModelProvider.notifier)
         .submitFromSelections(
           schedule: schedule,
@@ -202,16 +211,89 @@ class _AdditionalRequestScreenState
 
     if (!mounted) return;
 
-    if (success) {
-      Navigator.pushNamed(context, AppRoutes.roadmapResult);
+    if (!isSurveySuccess) {
+      final message =
+          ref.read(roadmapSurveyViewModelProvider).errorMessage ??
+          '로드맵 설문을 저장하지 못했어요.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+      setState(() => _isSubmitting = false);
       return;
     }
 
-    final message =
-        ref.read(roadmapSurveyViewModelProvider).errorMessage ??
-        '로드맵 설문을 저장하지 못했어요.';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+    final surveyResponse = ref.read(roadmapSurveyViewModelProvider).response;
+    if (surveyResponse == null || surveyResponse.surveyId.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('설문 생성 결과를 확인하지 못했어요.')));
+      setState(() => _isSubmitting = false);
+      return;
+    }
+
+    final isItinerarySuccess = await ref
+        .read(roadmapItineraryViewModelProvider.notifier)
+        .submit(surveyResponse.surveyId);
+
+    if (!mounted) return;
+
+    if (!isItinerarySuccess) {
+      final itineraryState = ref.read(roadmapItineraryViewModelProvider);
+      final fallbackJobId = surveyResponse.jobId.trim();
+      final canOpenExistingJob =
+          fallbackJobId.isNotEmpty &&
+          (itineraryState.statusCode == 409 ||
+              _looksLikeAlreadyProcessing(itineraryState.errorMessage));
+
+      if (canOpenExistingJob) {
+        setState(() => _isSubmitting = false);
+        Navigator.pushNamed(
+          context,
+          AppRoutes.roadmapResult,
+          arguments: fallbackJobId,
+        );
+        return;
+      }
+
+      final message = itineraryState.errorMessage ?? '로드맵 생성을 시작하지 못했어요.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+      setState(() => _isSubmitting = false);
+      return;
+    }
+
+    final itineraryJobId = ref
+        .read(roadmapItineraryViewModelProvider)
+        .response
+        ?.jobId;
+    if (itineraryJobId == null || itineraryJobId.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('로드맵 작업 ID를 확인하지 못했어요.')));
+      setState(() => _isSubmitting = false);
+      return;
+    }
+
+    setState(() => _isSubmitting = false);
+    Navigator.pushNamed(
+      context,
+      AppRoutes.roadmapResult,
+      arguments: itineraryJobId.trim(),
     );
+  }
+
+  bool _looksLikeAlreadyProcessing(String? message) {
+    if (message == null) return false;
+
+    final normalized = message.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+
+    return normalized.contains('already') ||
+        normalized.contains('processing') ||
+        normalized.contains('in progress') ||
+        normalized.contains('진행 중') ||
+        normalized.contains('처리 중') ||
+        normalized.contains('이미');
   }
 }

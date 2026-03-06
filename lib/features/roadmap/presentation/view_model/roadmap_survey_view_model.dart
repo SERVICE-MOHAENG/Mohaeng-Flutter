@@ -110,27 +110,12 @@ _SurveyBuildResult _buildRequest({
   required BudgetRangeState budget,
   required AdditionalRequestState additional,
 }) {
-  final start = schedule.startDate;
-  final end = schedule.endDate;
-  if (start == null || end == null) {
-    return const _SurveyBuildResult.error('여행 날짜를 선택해주세요.');
-  }
-
-  if (end.isBefore(start)) {
-    return const _SurveyBuildResult.error('여행 날짜를 다시 선택해주세요.');
-  }
-
-  if (_daysBetween(start, end) > 7) {
-    return const _SurveyBuildResult.error('여행 기간은 최대 7일로 선택해주세요.');
-  }
-
   final regions = region.selectedCities;
   if (regions.isEmpty) {
     return const _SurveyBuildResult.error('여행 지역을 선택해주세요.');
   }
 
-  final companionType = companion.selected;
-  if (companionType == null) {
+  if (companion.selected.isEmpty) {
     return const _SurveyBuildResult.error('동행인을 선택해주세요.');
   }
 
@@ -156,20 +141,42 @@ _SurveyBuildResult _buildRequest({
     return const _SurveyBuildResult.error('예산 범위를 선택해주세요.');
   }
 
+  final cityRanges = schedule.cityDateRanges;
+  if (cityRanges.isEmpty) {
+    return const _SurveyBuildResult.error('여행 날짜를 선택해주세요.');
+  }
+  for (final city in regions) {
+    if (!cityRanges.containsKey(city)) {
+      return const _SurveyBuildResult.error('도시별 여행 날짜를 선택해주세요.');
+    }
+  }
+
+  for (final range in cityRanges.values) {
+    if (range.end.isBefore(range.start)) {
+      return const _SurveyBuildResult.error('여행 날짜를 다시 선택해주세요.');
+    }
+    if (_daysBetween(range.start, range.end) > 7) {
+      return const _SurveyBuildResult.error('여행 기간은 최대 7일로 선택해주세요.');
+    }
+  }
+
+  final allRanges = cityRanges.values.toList();
+  final earliestStart = allRanges.map((range) => range.start).reduce(_minDate);
+  final latestEnd = allRanges.map((range) => range.end).reduce(_maxDate);
+
   final request = RoadmapSurveyRequest(
-    startDate: start,
-    endDate: end,
-    regions: regions
-        .map(
-          (regionName) => RoadmapSurveyRegionRequest(
-            region: regionName,
-            startDate: start,
-            endDate: end,
-          ),
-        )
-        .toList(),
+    startDate: earliestStart,
+    endDate: latestEnd,
+    regions: regions.map((regionName) {
+      final range = cityRanges[regionName]!;
+      return RoadmapSurveyRegionRequest(
+        region: regionName,
+        startDate: range.start,
+        endDate: range.end,
+      );
+    }).toList(),
     peopleCount: people.count,
-    companionTypes: [companionType],
+    companionTypes: companion.selected.toList(),
     travelThemes: concept.selected.toList(),
     pacePreference: pace,
     planningPreference: planning,
@@ -180,7 +187,7 @@ _SurveyBuildResult _buildRequest({
     notes: additional.request.trim(),
   );
 
-  return _SurveyBuildResult(request: request);
+  return _SurveyBuildResult.success(request);
 }
 
 int _daysBetween(DateTime start, DateTime end) {
@@ -189,13 +196,13 @@ int _daysBetween(DateTime start, DateTime end) {
   return normalizedEnd.difference(normalizedStart).inDays;
 }
 
+DateTime _minDate(DateTime a, DateTime b) => a.isBefore(b) ? a : b;
+DateTime _maxDate(DateTime a, DateTime b) => a.isAfter(b) ? a : b;
+
 @immutable
 class _SurveyBuildResult {
-  const _SurveyBuildResult({this.request, this.errorMessage});
-
-  const _SurveyBuildResult.error(String message)
-    : request = null,
-      errorMessage = message;
+  const _SurveyBuildResult.success(this.request) : errorMessage = null;
+  const _SurveyBuildResult.error(this.errorMessage) : request = null;
 
   final RoadmapSurveyRequest? request;
   final String? errorMessage;

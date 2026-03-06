@@ -17,6 +17,7 @@ class RoadmapModificationStatusResponse {
     this.createdAt,
     this.startedAt,
     this.completedAt,
+    this.travelCourseId,
   });
 
   final String jobId;
@@ -32,11 +33,12 @@ class RoadmapModificationStatusResponse {
   final DateTime? startedAt;
   @JsonKey(fromJson: _parseDateTimeNullable, toJson: _dateTimeToJsonNullable)
   final DateTime? completedAt;
+  @JsonKey(name: 'travelCourseId')
+  final Object? travelCourseId;
 
   factory RoadmapModificationStatusResponse.fromJson(
     Map<String, dynamic> json,
-  ) =>
-      _$RoadmapModificationStatusResponseFromJson(json);
+  ) => _$RoadmapModificationStatusResponseFromJson(json);
 
   Map<String, dynamic> toJson() =>
       _$RoadmapModificationStatusResponseToJson(this);

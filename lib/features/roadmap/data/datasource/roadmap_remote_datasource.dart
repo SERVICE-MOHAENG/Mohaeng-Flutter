@@ -9,6 +9,7 @@ import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_itinerar
 import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_itinerary_result_models.dart';
 import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_chat_models.dart';
 import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_modification_status_models.dart';
+import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_preference_result_models.dart';
 import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_survey_models.dart';
 
 class RoadmapRemoteDataSource {
@@ -32,10 +33,15 @@ class RoadmapRemoteDataSource {
 
   final ApiClient _apiClient;
 
-  static const String _surveyPath = '${ApiEndpoints.basePath}/itineraries/surveys';
+  static const String _surveyPath =
+      '${ApiEndpoints.basePath}/itineraries/surveys';
   static const String _itineraryPath = '${ApiEndpoints.basePath}/itineraries';
   static const String _modificationJobPath =
       '${ApiEndpoints.basePath}/itineraries/modification-jobs';
+  static const String _preferenceJobPath =
+      '${ApiEndpoints.basePath}/preferences/jobs';
+  static const String _preferenceMeResultPath =
+      '${ApiEndpoints.basePath}/preferences/me/result';
 
   Future<RoadmapSurveyResponse> createSurvey({
     required RoadmapSurveyRequest request,
@@ -118,6 +124,31 @@ class RoadmapRemoteDataSource {
     final payload = _unwrapPayload(response.data);
     return RoadmapModificationStatusResponse.fromJson(payload);
   }
+
+  Future<List<RoadmapPreferenceResultItem>> getPreferenceJobResult({
+    required String jobId,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await _apiClient.get<dynamic>(
+      '$_preferenceJobPath/$jobId/result',
+      cancelToken: cancelToken,
+    );
+
+    final payload = _unwrapListPayload(response.data);
+    return payload.map(RoadmapPreferenceResultItem.fromJson).toList();
+  }
+
+  Future<List<RoadmapPreferenceResultItem>> getPreferenceMeResult({
+    CancelToken? cancelToken,
+  }) async {
+    final response = await _apiClient.get<dynamic>(
+      _preferenceMeResultPath,
+      cancelToken: cancelToken,
+    );
+
+    final payload = _unwrapListPayload(response.data);
+    return payload.map(RoadmapPreferenceResultItem.fromJson).toList();
+  }
 }
 
 String _readBaseUrl() {
@@ -138,4 +169,33 @@ Map<String, dynamic> _unwrapPayload(Object? data) {
   }
 
   throw const FormatException('응답 형식이 올바르지 않습니다.');
+}
+
+List<Map<String, dynamic>> _unwrapListPayload(Object? data) {
+  if (data is List) {
+    return _parseMapList(data);
+  }
+
+  if (data is Map<String, dynamic>) {
+    final nested = data['data'];
+    if (nested is List) {
+      return _parseMapList(nested);
+    }
+  }
+
+  throw const FormatException('응답 형식이 올바르지 않습니다.');
+}
+
+List<Map<String, dynamic>> _parseMapList(List<dynamic> source) {
+  final result = <Map<String, dynamic>>[];
+  for (final item in source) {
+    if (item is Map<String, dynamic>) {
+      result.add(item);
+      continue;
+    }
+    if (item is Map) {
+      result.add(item.map((key, value) => MapEntry(key.toString(), value)));
+    }
+  }
+  return result;
 }
