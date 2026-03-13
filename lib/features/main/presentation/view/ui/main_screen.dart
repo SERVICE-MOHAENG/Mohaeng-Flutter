@@ -63,7 +63,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   @override
   void dispose() {
-    _globeController.dispose();
     _coursesPageController.dispose();
     super.dispose();
   }
