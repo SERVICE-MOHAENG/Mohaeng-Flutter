@@ -6,7 +6,15 @@ class GetMyCoursesUsecase {
 
   final MyPageRepository _repository;
 
-  Future<CoursesResponse> call({int page = 1, int limit = 20}) {
-    return _repository.getMyCourses(page: page, limit: limit);
+  Future<CoursesResponse> call({
+    int page = 1,
+    int limit = 20,
+    bool forceRefresh = false,
+  }) {
+    return _repository.getMyCourses(
+      page: page,
+      limit: limit,
+      forceRefresh: forceRefresh,
+    );
   }
 }

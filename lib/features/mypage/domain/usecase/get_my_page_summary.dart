@@ -6,7 +6,7 @@ class GetMyPageSummaryUsecase {
 
   final MyPageRepository _repository;
 
-  Future<MyPageSummaryResponse> call() {
-    return _repository.getMyPageSummary();
+  Future<MyPageSummaryResponse> call({bool forceRefresh = false}) {
+    return _repository.getMyPageSummary(forceRefresh: forceRefresh);
   }
 }

@@ -6,7 +6,15 @@ class GetMyBlogsUsecase {
 
   final MyPageRepository _repository;
 
-  Future<BlogsResponse> call({int page = 1, int limit = 6}) {
-    return _repository.getMyBlogs(page: page, limit: limit);
+  Future<BlogsResponse> call({
+    int page = 1,
+    int limit = 6,
+    bool forceRefresh = false,
+  }) {
+    return _repository.getMyBlogs(
+      page: page,
+      limit: limit,
+      forceRefresh: forceRefresh,
+    );
   }
 }

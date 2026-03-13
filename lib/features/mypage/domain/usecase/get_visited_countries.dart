@@ -6,7 +6,15 @@ class GetVisitedCountriesUsecase {
 
   final MyPageRepository _repository;
 
-  Future<VisitedCountryItemsResponse> call({int page = 1, int limit = 10}) {
-    return _repository.getVisitedCountries(page: page, limit: limit);
+  Future<VisitedCountryItemsResponse> call({
+    int page = 1,
+    int limit = 10,
+    bool forceRefresh = false,
+  }) {
+    return _repository.getVisitedCountries(
+      page: page,
+      limit: limit,
+      forceRefresh: forceRefresh,
+    );
   }
 }

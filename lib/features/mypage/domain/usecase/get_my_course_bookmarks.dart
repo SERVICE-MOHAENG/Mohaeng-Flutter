@@ -6,7 +6,15 @@ class GetMyCourseBookmarksUsecase {
 
   final MyPageRepository _repository;
 
-  Future<CourseItemsResponse> call({int page = 1, int limit = 20}) {
-    return _repository.getMyCourseBookmarks(page: page, limit: limit);
+  Future<CourseItemsResponse> call({
+    int page = 1,
+    int limit = 20,
+    bool forceRefresh = false,
+  }) {
+    return _repository.getMyCourseBookmarks(
+      page: page,
+      limit: limit,
+      forceRefresh: forceRefresh,
+    );
   }
 }
