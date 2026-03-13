@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mohaeng_app_service/features/auth/data/auth_token_storage.dart';
 import 'package:mohaeng_app_service/features/mypage/data/repository/mypage_repository_impl.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/repository/mypage_repository.dart';
+import 'package:mohaeng_app_service/features/mypage/domain/usecase/clear_my_page_cache.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/delete_my_account.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_blogs.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_course_bookmarks.dart';
@@ -43,6 +44,10 @@ final deleteMyAccountUsecaseProvider = Provider<DeleteMyAccountUsecase>(
   (ref) => DeleteMyAccountUsecase(ref.watch(myPageRepositoryProvider)),
 );
 
+final clearMyPageCacheUsecaseProvider = Provider<ClearMyPageCacheUsecase>(
+  (ref) => ClearMyPageCacheUsecase(ref.watch(myPageRepositoryProvider)),
+);
+
 final myPageViewModelProvider =
     StateNotifierProvider<MyPageViewModel, MyPageState>(
       (ref) => MyPageViewModel(
@@ -56,6 +61,7 @@ final myPageViewModelProvider =
           getVisitedCountriesUsecaseProvider,
         ),
         deleteMyAccountUsecase: ref.watch(deleteMyAccountUsecaseProvider),
+        clearMyPageCacheUsecase: ref.watch(clearMyPageCacheUsecaseProvider),
         tokenStorage: ref.watch(myPageAuthTokenStorageProvider),
       ),
     );

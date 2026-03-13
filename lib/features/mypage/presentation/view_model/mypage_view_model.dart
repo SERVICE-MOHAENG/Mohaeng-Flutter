@@ -6,6 +6,7 @@ import 'package:mohaeng_app_service/features/mypage/data/model/blog_models.dart'
 import 'package:mohaeng_app_service/features/mypage/data/model/course_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/mypage_summary_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/visited_country_models.dart';
+import 'package:mohaeng_app_service/features/mypage/domain/usecase/clear_my_page_cache.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/delete_my_account.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_blogs.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_course_bookmarks.dart';
@@ -82,6 +83,7 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
     required GetMyBlogsUsecase getMyBlogsUsecase,
     required GetVisitedCountriesUsecase getVisitedCountriesUsecase,
     required DeleteMyAccountUsecase deleteMyAccountUsecase,
+    required ClearMyPageCacheUsecase clearMyPageCacheUsecase,
     required AuthTokenStorage tokenStorage,
   }) : _getMyPageSummaryUsecase = getMyPageSummaryUsecase,
        _getMyCoursesUsecase = getMyCoursesUsecase,
@@ -89,6 +91,7 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
        _getMyBlogsUsecase = getMyBlogsUsecase,
        _getVisitedCountriesUsecase = getVisitedCountriesUsecase,
        _deleteMyAccountUsecase = deleteMyAccountUsecase,
+       _clearMyPageCacheUsecase = clearMyPageCacheUsecase,
        _tokenStorage = tokenStorage,
        super(const MyPageState());
 
@@ -98,18 +101,22 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
   final GetMyBlogsUsecase _getMyBlogsUsecase;
   final GetVisitedCountriesUsecase _getVisitedCountriesUsecase;
   final DeleteMyAccountUsecase _deleteMyAccountUsecase;
+  final ClearMyPageCacheUsecase _clearMyPageCacheUsecase;
   final AuthTokenStorage _tokenStorage;
 
-  Future<void> loadInitial() async {
-    await Future.wait([loadUser(), refreshAll()]);
+  Future<void> loadInitial({bool forceRefresh = false}) async {
+    await Future.wait([
+      loadUser(forceRefresh: forceRefresh),
+      refreshAll(forceRefresh: forceRefresh),
+    ]);
   }
 
-  Future<void> loadUser() async {
+  Future<void> loadUser({bool forceRefresh = false}) async {
     if (state.isLoadingUser) return;
 
     state = state.copyWith(isLoadingUser: true, clearUserError: true);
     try {
-      final user = await _getMyPageSummaryUsecase();
+      final user = await _getMyPageSummaryUsecase(forceRefresh: forceRefresh);
       state = state.copyWith(
         isLoadingUser: false,
         user: user,
@@ -126,7 +133,7 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
     }
   }
 
-  Future<void> refreshAll() async {
+  Future<void> refreshAll({bool forceRefresh = false}) async {
     if (state.isLoading) return;
 
     state = state.copyWith(isLoading: true, clearLoadError: true);
@@ -138,7 +145,11 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
     VisitedCountryItemsResponse? visitedCountries;
 
     try {
-      myCourses = await _getMyCoursesUsecase(page: 1, limit: 20);
+      myCourses = await _getMyCoursesUsecase(
+        page: 1,
+        limit: 20,
+        forceRefresh: forceRefresh,
+      );
     } catch (error) {
       errors.add(_errorMessage(error, fallback: '내 여행 일정(코스)을 불러오지 못했어요.'));
     }
@@ -147,19 +158,28 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
       myCourseBookmarks = await _getMyCourseBookmarksUsecase(
         page: 1,
         limit: 20,
+        forceRefresh: forceRefresh,
       );
     } catch (error) {
       errors.add(_errorMessage(error, fallback: '북마크한 코스를 불러오지 못했어요.'));
     }
 
     try {
-      myBlogs = await _getMyBlogsUsecase(page: 1, limit: 6);
+      myBlogs = await _getMyBlogsUsecase(
+        page: 1,
+        limit: 6,
+        forceRefresh: forceRefresh,
+      );
     } catch (error) {
       errors.add(_errorMessage(error, fallback: '작성한 여행 기록(블로그)을 불러오지 못했어요.'));
     }
 
     try {
-      visitedCountries = await _getVisitedCountriesUsecase(page: 1, limit: 10);
+      visitedCountries = await _getVisitedCountriesUsecase(
+        page: 1,
+        limit: 10,
+        forceRefresh: forceRefresh,
+      );
     } catch (error) {
       errors.add(_errorMessage(error, fallback: '방문한 국가를 불러오지 못했어요.'));
     }
@@ -180,6 +200,7 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
     state = state.copyWith(isDeletingAccount: true);
     try {
       await _deleteMyAccountUsecase();
+      _clearMyPageCacheUsecase();
       await _tokenStorage.clearTokens();
     } finally {
       if (mounted) {
@@ -189,6 +210,7 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
   }
 
   Future<void> logout() async {
+    _clearMyPageCacheUsecase();
     await _tokenStorage.clearTokens();
   }
 

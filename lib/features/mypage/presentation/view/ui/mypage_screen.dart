@@ -47,7 +47,9 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          await ref.read(myPageViewModelProvider.notifier).loadInitial();
+          await ref
+              .read(myPageViewModelProvider.notifier)
+              .loadInitial(forceRefresh: true);
         },
         child: SingleChildScrollView(
           padding: EdgeInsets.zero,
