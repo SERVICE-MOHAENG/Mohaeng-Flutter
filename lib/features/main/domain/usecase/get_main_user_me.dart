@@ -1,4 +1,4 @@
-import 'package:mohaeng_app_service/features/main/data/model/user_models.dart';
+import 'package:mohaeng_app_service/core/model/user_summary_models.dart';
 import 'package:mohaeng_app_service/features/main/domain/repository/main_repository.dart';
 
 class GetMainUserMeUsecase {
@@ -6,7 +6,7 @@ class GetMainUserMeUsecase {
 
   final MainRepository _repository;
 
-  Future<MainUserResponse> call() {
+  Future<UserSummaryResponse> call() {
     return _repository.getMainUserMe();
   }
 }

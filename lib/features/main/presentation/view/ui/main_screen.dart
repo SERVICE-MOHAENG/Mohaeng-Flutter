@@ -299,9 +299,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   Widget _buildGreetingCard(MainUserState userState) {
-    final name = (userState.user?.name ?? '여행자').trim();
+    final name = (userState.user?.profile.name ?? '여행자').trim();
     final greeting = userState.isLoading ? '안녕하세요...' : '안녕하세요 $name님,';
-    final visitedCountries = userState.user?.visitedCountries ?? 0;
+    final visitedCountries = userState.user?.stats.visitedCountries ?? 0;
 
     return Container(
       padding: EdgeInsets.only(bottom: 28.h, left: 20.w, top: 20.h),

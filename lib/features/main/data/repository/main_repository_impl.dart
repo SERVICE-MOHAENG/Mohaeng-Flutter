@@ -1,7 +1,7 @@
+import 'package:mohaeng_app_service/core/model/user_summary_models.dart';
 import 'package:mohaeng_app_service/features/main/data/datasource/main_remote_datasource.dart';
 import 'package:mohaeng_app_service/features/main/data/model/blog_models.dart';
 import 'package:mohaeng_app_service/features/main/data/model/course_models.dart';
-import 'package:mohaeng_app_service/features/main/data/model/user_models.dart';
 import 'package:mohaeng_app_service/features/main/domain/repository/main_repository.dart';
 
 class MainRepositoryImpl implements MainRepository {
@@ -37,7 +37,7 @@ class MainRepositoryImpl implements MainRepository {
   }
 
   @override
-  Future<MainUserResponse> getMainUserMe() {
+  Future<UserSummaryResponse> getMainUserMe() {
     return _remoteDataSource.getMainUserMe();
   }
 }

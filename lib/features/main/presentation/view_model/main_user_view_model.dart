@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mohaeng_app_service/core/model/user_summary_models.dart';
 import 'package:mohaeng_app_service/core/network/api_error.dart';
-import 'package:mohaeng_app_service/features/main/data/model/user_models.dart';
 import 'package:mohaeng_app_service/features/main/domain/usecase/get_main_user_me.dart';
 
 @immutable
@@ -10,13 +10,13 @@ class MainUserState {
 
   final bool isLoading;
   final String? errorMessage;
-  final MainUserResponse? user;
+  final UserSummaryResponse? user;
 
   MainUserState copyWith({
     bool? isLoading,
     String? errorMessage,
     bool clearError = false,
-    MainUserResponse? user,
+    UserSummaryResponse? user,
     bool keepUser = true,
   }) {
     return MainUserState(
