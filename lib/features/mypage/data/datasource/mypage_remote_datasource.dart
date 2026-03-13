@@ -7,6 +7,7 @@ import 'package:mohaeng_app_service/core/network/query_params.dart';
 import 'package:mohaeng_app_service/features/auth/data/auth_token_storage.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/blog_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/course_models.dart';
+import 'package:mohaeng_app_service/features/mypage/data/model/mypage_summary_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/visited_country_models.dart';
 
 class MyPageRemoteDataSource {
@@ -40,6 +41,18 @@ class MyPageRemoteDataSource {
       '${ApiEndpoints.visitedCountries}/me';
   static const String _visitedCountriesPath = ApiEndpoints.visitedCountries;
   static const String _myAccountPath = '${ApiEndpoints.basePath}/users/me';
+
+  Future<MyPageSummaryResponse> getMyPageSummary({
+    CancelToken? cancelToken,
+  }) async {
+    final response = await _apiClient.get<dynamic>(
+      _myAccountPath,
+      cancelToken: cancelToken,
+    );
+
+    final payload = _unwrapPayload(response.data);
+    return UserSummaryResponse.fromJson(payload);
+  }
 
   Future<CoursesResponse> getMyCourses({
     int page = 1,

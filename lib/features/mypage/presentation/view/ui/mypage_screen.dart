@@ -113,6 +113,21 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     }
   }
 
+  Future<void> _handleLogoutTap() async {
+    try {
+      await ref.read(myPageViewModelProvider.notifier).logout();
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (_) => false);
+    } catch (error) {
+      if (!mounted) return;
+      final message = switch (error) {
+        ApiError(:final message) => message,
+        _ => '로그아웃에 실패했어요. 잠시 후 다시 시도해 주세요.',
+      };
+      _showMessage(message);
+    }
+  }
+
   void _showMessage(String message) {
     ScaffoldMessenger.of(
       context,
@@ -120,9 +135,10 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
   }
 
   Widget _buildProfileHeader(MyPageState state) {
-    final name = state.user?.name?.trim();
-    final email = state.user?.email?.trim();
-    final imageUrl = state.user?.profileImage?.trim();
+    final profile = state.user?.profile;
+    final name = profile?.name?.trim();
+    final email = profile?.email?.trim();
+    final imageUrl = profile?.profileImageUrl?.trim();
     final showName = (name == null || name.isEmpty) ? null : name;
     final showEmail = (email == null || email.isEmpty) ? null : email;
     final showImageUrl = (imageUrl == null || imageUrl.isEmpty)
@@ -181,9 +197,11 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
   }
 
   Widget _buildStatsCard(MyPageState state) {
-    final visitedCount = state.visitedCountries?.total.toString() ?? '-';
-    final blogCount = state.myBlogs?.total.toString() ?? '-';
-    final bookmarkCount = state.myCourseBookmarks?.total.toString() ?? '-';
+    final stats = state.user?.stats;
+    final roadmapCount = stats?.createdRoadmaps.toString() ?? '-';
+    final visitedCount = stats?.visitedCountries.toString() ?? '-';
+    final blogCount = stats?.writtenBlogs.toString() ?? '-';
+    final likedRegionCount = stats?.likedRegions.toString() ?? '-';
 
     return Container(
       padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 12.w),
@@ -193,10 +211,10 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
       ),
       child: Row(
         children: [
-          const _StatItem(title: '총 이용 횟수', value: '-'),
+          _StatItem(title: '생성한 로드맵', value: roadmapCount),
           _StatItem(title: '방문한 국가', value: visitedCount, isEmphasized: true),
           _StatItem(title: '작성한 여행 기록', value: blogCount),
-          _StatItem(title: '찜한 여행지', value: bookmarkCount),
+          _StatItem(title: '찜한 여행지', value: likedRegionCount),
         ],
       ),
     );
@@ -650,7 +668,10 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildSettingItem('비밀번호 변경'),
-                _buildSettingItem('로그아웃'),
+                _buildSettingItem(
+                  '로그아웃',
+                  onTap: state.isDeletingAccount ? null : _handleLogoutTap,
+                ),
                 _buildSettingItem(
                   state.isDeletingAccount ? '회원탈퇴 처리중…' : '회원탈퇴',
                   onTap: state.isDeletingAccount

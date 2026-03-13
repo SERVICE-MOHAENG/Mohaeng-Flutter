@@ -2,15 +2,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mohaeng_app_service/core/network/api_error.dart';
 import 'package:mohaeng_app_service/features/auth/data/auth_token_storage.dart';
-import 'package:mohaeng_app_service/features/main/data/model/user_models.dart';
-import 'package:mohaeng_app_service/features/main/domain/usecase/get_main_user_me.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/blog_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/course_models.dart';
+import 'package:mohaeng_app_service/features/mypage/data/model/mypage_summary_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/visited_country_models.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/delete_my_account.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_blogs.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_course_bookmarks.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_courses.dart';
+import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_page_summary.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_visited_countries.dart';
 
 @immutable
@@ -30,7 +30,7 @@ class MyPageState {
 
   final bool isLoadingUser;
   final String? userErrorMessage;
-  final MainUserResponse? user;
+  final MyPageSummaryResponse? user;
 
   final bool isLoading;
   final bool isDeletingAccount;
@@ -44,7 +44,7 @@ class MyPageState {
     bool? isLoadingUser,
     String? userErrorMessage,
     bool clearUserError = false,
-    MainUserResponse? user,
+    MyPageSummaryResponse? user,
     bool keepUser = true,
     bool? isLoading,
     bool? isDeletingAccount,
@@ -76,14 +76,14 @@ class MyPageState {
 
 class MyPageViewModel extends StateNotifier<MyPageState> {
   MyPageViewModel({
-    required GetMainUserMeUsecase getMainUserMeUsecase,
+    required GetMyPageSummaryUsecase getMyPageSummaryUsecase,
     required GetMyCoursesUsecase getMyCoursesUsecase,
     required GetMyCourseBookmarksUsecase getMyCourseBookmarksUsecase,
     required GetMyBlogsUsecase getMyBlogsUsecase,
     required GetVisitedCountriesUsecase getVisitedCountriesUsecase,
     required DeleteMyAccountUsecase deleteMyAccountUsecase,
     required AuthTokenStorage tokenStorage,
-  }) : _getMainUserMeUsecase = getMainUserMeUsecase,
+  }) : _getMyPageSummaryUsecase = getMyPageSummaryUsecase,
        _getMyCoursesUsecase = getMyCoursesUsecase,
        _getMyCourseBookmarksUsecase = getMyCourseBookmarksUsecase,
        _getMyBlogsUsecase = getMyBlogsUsecase,
@@ -92,7 +92,7 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
        _tokenStorage = tokenStorage,
        super(const MyPageState());
 
-  final GetMainUserMeUsecase _getMainUserMeUsecase;
+  final GetMyPageSummaryUsecase _getMyPageSummaryUsecase;
   final GetMyCoursesUsecase _getMyCoursesUsecase;
   final GetMyCourseBookmarksUsecase _getMyCourseBookmarksUsecase;
   final GetMyBlogsUsecase _getMyBlogsUsecase;
@@ -109,7 +109,7 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
 
     state = state.copyWith(isLoadingUser: true, clearUserError: true);
     try {
-      final user = await _getMainUserMeUsecase();
+      final user = await _getMyPageSummaryUsecase();
       state = state.copyWith(
         isLoadingUser: false,
         user: user,
@@ -120,7 +120,7 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
         isLoadingUser: false,
         userErrorMessage: switch (error) {
           ApiError(:final message) => message,
-          _ => '사용자 정보를 불러오지 못했어요.',
+          _ => '상단 요약 정보를 불러오지 못했어요.',
         },
       );
     }
@@ -186,6 +186,10 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
         state = state.copyWith(isDeletingAccount: false);
       }
     }
+  }
+
+  Future<void> logout() async {
+    await _tokenStorage.clearTokens();
   }
 
   String _errorMessage(Object error, {required String fallback}) {

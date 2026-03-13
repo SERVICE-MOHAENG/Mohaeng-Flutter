@@ -1,8 +1,11 @@
 import 'package:mohaeng_app_service/features/mypage/data/model/course_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/blog_models.dart';
+import 'package:mohaeng_app_service/features/mypage/data/model/mypage_summary_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/visited_country_models.dart';
 
 abstract class MyPageRepository {
+  Future<MyPageSummaryResponse> getMyPageSummary();
+
   Future<CoursesResponse> getMyCourses({int page = 1, int limit = 20});
 
   Future<CourseItemsResponse> getMyCourseBookmarks({
