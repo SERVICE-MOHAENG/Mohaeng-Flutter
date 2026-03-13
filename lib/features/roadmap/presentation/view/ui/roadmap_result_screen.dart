@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -646,35 +647,6 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     return orderedPlaces;
   }
 
-  void _reorderPlaces(_DayPlan dayPlan, int oldIndex, int newIndex) {
-    final dayKey = _dayOrderKey(dayPlan);
-    final currentOrderKeys =
-        List<String>.from(
-          _dayPlaceOrderCache[dayKey] ?? _buildPlaceOrderKeys(dayPlan.places),
-        );
-
-    if (oldIndex < 0 || oldIndex >= currentOrderKeys.length) {
-      return;
-    }
-
-    var targetIndex = newIndex;
-    if (targetIndex > oldIndex) {
-      targetIndex -= 1;
-    }
-    if (targetIndex < 0) {
-      targetIndex = 0;
-    }
-    if (targetIndex >= currentOrderKeys.length) {
-      targetIndex = currentOrderKeys.length - 1;
-    }
-
-    setState(() {
-      final moved = currentOrderKeys.removeAt(oldIndex);
-      currentOrderKeys.insert(targetIndex, moved);
-      _dayPlaceOrderCache[dayKey] = currentOrderKeys;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final resultState = ref.watch(roadmapItineraryResultViewModelProvider);
@@ -709,8 +681,7 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     final timelineItems = selectedDay == null
         ? const <_TimelineItem>[]
         : _buildTimelineItems(_resolveOrderedPlaces(selectedDay));
-    final selectedPlaces =
-        selectedDay == null
+    final selectedPlaces = selectedDay == null
         ? const <RoadmapItineraryPlace>[]
         : _resolveOrderedPlaces(selectedDay);
     final markers = _buildMapMarkers(
@@ -724,7 +695,7 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     );
 
     return MLayout(
-      backgroundColor: MColor.white100,
+      backgroundColor: MColor.gray50,
       bottomSheet: _buildRequestBottomSheet(
         context,
         isSending: chatState.isLoading || _isModificationPolling,
@@ -739,7 +710,7 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
               data: roadmapData,
               mapKey: 'map_${selectedDay?.dayNumber ?? 0}_${markers.length}',
             ),
-            SizedBox(height: 14.h),
+            SizedBox(height: 16.h),
             if (isSuccessStatus && dayPlans.isNotEmpty)
               _DayTabs(
                 dayPlans: dayPlans,
@@ -750,14 +721,16 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
                 },
               )
             else
-              SizedBox(height: 80.h),
+              SizedBox(height: 58.h),
+            SizedBox(height: 16.h),
             if (isSuccessStatus && dayPlans.length > 1)
               _PageDots(
                 count: dayPlans.length,
                 selectedIndex: _selectedDayIndex.clamp(0, dayPlans.length - 1),
               )
             else
-              SizedBox(height: 10.h),
+              SizedBox(height: 2.h),
+            SizedBox(height: 20.h),
             if (_isModificationPolling)
               Padding(
                 padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 10.h),
@@ -769,7 +742,7 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
                       : 'PENDING',
                 ),
               ),
-            SizedBox(height: 10.h),
+            SizedBox(height: _isModificationPolling ? 10.h : 0),
             Expanded(
               child: _TimelinePanel(
                 isSuccessStatus: isSuccessStatus,
@@ -777,10 +750,7 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
                 shouldShowPollingIndicator: shouldShowPollingIndicator,
                 emptyMessage: emptyMessage,
                 timelineItems: timelineItems,
-                onReorder: selectedDay == null
-                    ? null
-                    : (oldIndex, newIndex) =>
-                          _reorderPlaces(selectedDay, oldIndex, newIndex),
+                onReorder: null,
                 onTapHome: _goToHome,
                 bottomPadding:
                     _inputSheetBodySpacing.h +
@@ -914,89 +884,131 @@ class _MapSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = _resolveTitle(data);
     final period = _formatPeriod(data?.startDate, data?.endDate);
-    final meta = _formatTripMeta(data);
+    final meta = _formatTripMeta(data).replaceAll('   ', ' · ');
     final summary = _resolveSummaryText(data);
     final tags = _resolveTags(data?.tags);
-    final topPadding = MediaQuery.paddingOf(context).top + 10.h;
+    final tripMeta = [
+      period,
+      meta,
+    ].where((text) => text.trim().isNotEmpty).join('   ');
+    final topInset = MediaQuery.paddingOf(context).top;
 
     return SizedBox(
-      height: 430.h,
+      height: 417.h,
       width: double.infinity,
       child: Stack(
         children: [
           Positioned.fill(
-            child: ClipRRect(
-              borderRadius: BorderRadius.vertical(
-                bottom: Radius.circular(30.r),
-              ),
-              child: GoogleMap(
-                key: ValueKey(mapKey),
-                initialCameraPosition: CameraPosition(
-                  target: center,
-                  zoom: 12.5,
-                ),
-                myLocationButtonEnabled: false,
-                mapToolbarEnabled: false,
-                zoomControlsEnabled: false,
-                markers: markers,
-              ),
+            child: GoogleMap(
+              key: ValueKey(mapKey),
+              initialCameraPosition: CameraPosition(target: center, zoom: 12.5),
+              myLocationButtonEnabled: false,
+              mapToolbarEnabled: false,
+              zoomControlsEnabled: false,
+              markers: markers,
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ColoredBox(color: const Color(0x33262626)),
             ),
           ),
           Positioned.fill(
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.vertical(
-                    bottom: Radius.circular(30.r),
-                  ),
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.black.withValues(alpha: 0.25),
-                      Colors.black.withValues(alpha: 0.08),
+                      Colors.black.withValues(alpha: 0.22),
+                      Colors.black.withValues(alpha: 0.06),
                       Colors.transparent,
                     ],
-                    stops: const [0, 0.38, 1],
+                    stops: const [0, 0.46, 1],
                   ),
                 ),
               ),
             ),
           ),
           Positioned(
-            top: topPadding,
-            left: 12.w,
-            right: 12.w,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(
-                  spacing: 8.w,
-                  runSpacing: 8.h,
-                  children: [
-                    _WhiteChip(text: title),
-                    if (period.isNotEmpty || meta.isNotEmpty)
-                      _WhiteChip(
-                        text: [
-                          period,
-                          meta,
-                        ].where((text) => text.trim().isNotEmpty).join('   '),
-                      ),
-                  ],
+            left: 16.w,
+            top: topInset + 2.h,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => Navigator.of(context).maybePop(),
+                borderRadius: BorderRadius.circular(12.r),
+                child: SizedBox(
+                  width: 24.w,
+                  height: 24.w,
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 18.sp,
+                    color: MColor.gray900,
+                  ),
                 ),
-                if (summary != null) ...[
-                  SizedBox(height: 8.h),
-                  _WhiteChip(text: summary),
-                ],
-                if (tags.isNotEmpty) ...[
-                  SizedBox(height: 8.h),
+              ),
+            ),
+          ),
+          Positioned(
+            top: topInset + 40.h,
+            left: 16.w,
+            child: SizedBox(
+              width: 280.w,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Wrap(
                     spacing: 8.w,
                     runSpacing: 8.h,
-                    children: [for (final tag in tags) _TagChip(text: tag)],
+                    children: [
+                      _OverlayChip(
+                        text: title,
+                        textColor: MColor.gray800,
+                        horizontalPadding: 12.w,
+                        verticalPadding: 7.h,
+                        maxWidth: 124.w,
+                      ),
+                      if (tripMeta.isNotEmpty)
+                        _OverlayChip(
+                          text: tripMeta,
+                          textColor: MColor.gray600,
+                          horizontalPadding: 10.w,
+                          verticalPadding: 6.h,
+                          maxWidth: 165.w,
+                          textStyle: MTextStyles.sLabelM.copyWith(
+                            fontSize: 8.sp,
+                            height: 1.2,
+                            color: MColor.gray600,
+                          ),
+                        ),
+                    ],
                   ),
+                  if (summary != null || tags.isNotEmpty) SizedBox(height: 8.h),
+                  if (summary != null || tags.isNotEmpty)
+                    Wrap(
+                      spacing: 8.w,
+                      runSpacing: 8.h,
+                      children: [
+                        if (summary != null)
+                          _OverlayChip(
+                            text: summary,
+                            textColor: MColor.gray600,
+                            horizontalPadding: 10.w,
+                            verticalPadding: 6.h,
+                            maxWidth: 124.w,
+                            textStyle: MTextStyles.sLabelM.copyWith(
+                              fontSize: 8.sp,
+                              height: 1.2,
+                              color: MColor.gray600,
+                            ),
+                          ),
+                        for (final tag in tags.take(2)) _HashTagChip(text: tag),
+                      ],
+                    ),
                 ],
-              ],
+              ),
             ),
           ),
         ],
@@ -1005,43 +1017,115 @@ class _MapSection extends StatelessWidget {
   }
 }
 
-class _WhiteChip extends StatelessWidget {
-  const _WhiteChip({required this.text});
+class _OverlayChip extends StatelessWidget {
+  const _OverlayChip({
+    required this.text,
+    required this.textColor,
+    required this.horizontalPadding,
+    required this.verticalPadding,
+    this.maxWidth,
+    this.textStyle,
+  });
 
   final String text;
+  final Color textColor;
+  final double horizontalPadding;
+  final double verticalPadding;
+  final double? maxWidth;
+  final TextStyle? textStyle;
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(4999.r);
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+      constraints: maxWidth == null
+          ? null
+          : BoxConstraints(maxWidth: maxWidth!),
       decoration: BoxDecoration(
-        color: MColor.white100.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(22.r),
+        borderRadius: radius,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 7.5.r,
+            offset: Offset(0, 5.h),
+            spreadRadius: -1.5,
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 3.r,
+            offset: Offset(0, 2.h),
+            spreadRadius: -2,
+          ),
+        ],
       ),
-      child: Text(
-        text,
-        style: MTextStyles.sLabelM.copyWith(color: MColor.gray700),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: horizontalPadding,
+              vertical: verticalPadding,
+            ),
+            color: MColor.white100.withValues(alpha: 0.9),
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style:
+                  textStyle ??
+                  MTextStyles.sLabelM.copyWith(color: textColor, height: 1.2),
+            ),
+          ),
+        ),
       ),
     );
   }
 }
 
-class _TagChip extends StatelessWidget {
-  const _TagChip({required this.text});
+class _HashTagChip extends StatelessWidget {
+  const _HashTagChip({required this.text});
 
   final String text;
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(7499.25.r);
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
       decoration: BoxDecoration(
-        color: MColor.primary500.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: radius,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 11.25.r,
+            offset: Offset(0, 7.5.h),
+            spreadRadius: -2.25,
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 4.5.r,
+            offset: Offset(0, 3.h),
+            spreadRadius: -3,
+          ),
+        ],
       ),
-      child: Text(
-        text,
-        style: MTextStyles.sLabelM.copyWith(color: MColor.white100),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 4.5, sigmaY: 4.5),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 6.h),
+            color: MColor.primary500,
+            child: Text(
+              text,
+              style: MTextStyles.sLabelM.copyWith(
+                fontSize: 9.sp,
+                height: 1.2,
+                color: MColor.white100,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1064,62 +1148,80 @@ class _DayTabs extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: 12.w),
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.all(7.w),
+        height: 58.h,
         decoration: BoxDecoration(
-          color: MColor.gray50,
-          borderRadius: BorderRadius.circular(14.r),
+          color: MColor.white100.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(11.833.r),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 10.r,
-              offset: Offset(0, 3.h),
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 36.978.r,
+              spreadRadius: -8.875,
             ),
           ],
         ),
-        child: Row(
-          children: [
-            for (int i = 0; i < dayPlans.length; i++) ...[
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => onChanged(i),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeOut,
-                    padding: EdgeInsets.symmetric(vertical: 10.h),
-                    decoration: BoxDecoration(
-                      color: i == selectedIndex
-                          ? MColor.primary500
-                          : MColor.gray50,
-                      borderRadius: BorderRadius.circular(10.r),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Day ${dayPlans[i].dayNumber}',
-                          style: MTextStyles.sLabelM.copyWith(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(11.833.r),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 4.437, sigmaY: 4.437),
+            child: Padding(
+              padding: EdgeInsets.all(8.w),
+              child: Row(
+                children: [
+                  for (int i = 0; i < dayPlans.length; i++) ...[
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => onChanged(i),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOut,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 10.w,
+                            vertical: 8.h,
+                          ),
+                          decoration: BoxDecoration(
                             color: i == selectedIndex
-                                ? MColor.white100
-                                : MColor.gray300,
+                                ? MColor.primary500
+                                : MColor.gray50,
+                            borderRadius: BorderRadius.circular(8.875.r),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Day ${dayPlans[i].dayNumber <= 0 ? i + 1 : dayPlans[i].dayNumber}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: MTextStyles.sLabelM.copyWith(
+                                  color: i == selectedIndex
+                                      ? MColor.white100.withValues(alpha: 0.75)
+                                      : MColor.gray400.withValues(alpha: 0.75),
+                                  height: 1.2,
+                                ),
+                              ),
+                              SizedBox(height: 2.h),
+                              Text(
+                                _formatDateWithWeekday(dayPlans[i].date),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: MTextStyles.sLabelM.copyWith(
+                                  color: i == selectedIndex
+                                      ? MColor.white100
+                                      : MColor.gray600,
+                                  height: 1.2,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        SizedBox(height: 4.h),
-                        Text(
-                          _formatDateWithWeekday(dayPlans[i].date),
-                          style: MTextStyles.sLabelM.copyWith(
-                            color: i == selectedIndex
-                                ? MColor.white100
-                                : MColor.gray500,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
+                    if (i != dayPlans.length - 1) SizedBox(width: 8.w),
+                  ],
+                ],
               ),
-              if (i != dayPlans.length - 1) SizedBox(width: 6.w),
-            ],
-          ],
+            ),
+          ),
         ),
       ),
     );
@@ -1134,25 +1236,20 @@ class _PageDots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(top: 4.h),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          for (int i = 0; i < count; i++) ...[
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              width: i == selectedIndex ? 24.w : 16.w,
-              height: 3.h,
-              decoration: BoxDecoration(
-                color: i == selectedIndex ? MColor.gray600 : MColor.gray200,
-                borderRadius: BorderRadius.circular(2.r),
-              ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (int i = 0; i < count; i++) ...[
+          Container(
+            width: 24.w,
+            height: 2.h,
+            decoration: BoxDecoration(
+              color: i == selectedIndex ? MColor.gray500 : MColor.gray100,
             ),
-            if (i != count - 1) SizedBox(width: 6.w),
-          ],
+          ),
+          if (i != count - 1) SizedBox(width: 7.w),
         ],
-      ),
+      ],
     );
   }
 }
@@ -1183,12 +1280,12 @@ class _TimelinePanel extends StatelessWidget {
     final canReorder = onReorder != null && timelineItems.length > 1;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, bottomPadding),
+      padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, bottomPadding),
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
           color: const Color(0xFFF4F4F4),
-          borderRadius: BorderRadius.circular(18.r),
+          borderRadius: BorderRadius.circular(12.r),
         ),
         child: !isSuccessStatus || timelineItems.isEmpty
             ? Center(
@@ -1245,29 +1342,23 @@ class _TimelinePanel extends StatelessWidget {
               )
             : canReorder
             ? ReorderableListView.builder(
-                padding: EdgeInsets.fromLTRB(18.w, 20.h, 18.w, 20.h),
+                padding: EdgeInsets.only(bottom: 88.832.h),
                 buildDefaultDragHandles: false,
                 itemCount: timelineItems.length,
                 onReorder: onReorder!,
                 itemBuilder: (context, index) {
                   final item = timelineItems[index];
-                  return Padding(
+                  return _TimelineRow(
                     key: ValueKey(item.id),
-                    padding: EdgeInsets.only(
-                      bottom: index == timelineItems.length - 1 ? 0 : 8.h,
-                    ),
-                    child: _TimelineRow(
-                      item: item,
-                      isLast: index == timelineItems.length - 1,
-                      dragIndex: index,
-                    ),
+                    item: item,
+                    isLast: index == timelineItems.length - 1,
+                    dragIndex: index,
                   );
                 },
               )
-            : ListView.separated(
-                padding: EdgeInsets.fromLTRB(18.w, 20.h, 18.w, 20.h),
+            : ListView.builder(
+                padding: EdgeInsets.only(bottom: 88.832.h),
                 itemCount: timelineItems.length,
-                separatorBuilder: (_, index) => SizedBox(height: 8.h),
                 itemBuilder: (context, index) {
                   final item = timelineItems[index];
                   return _TimelineRow(
@@ -1296,87 +1387,125 @@ class _TimelineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 52.w,
-          child: Column(
-            children: [
-              Container(
-                width: 48.w,
-                height: 48.w,
-                decoration: BoxDecoration(
-                  color: MColor.primary500,
-                  borderRadius: BorderRadius.circular(14.r),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 8.r,
-                      offset: Offset(0, 3.h),
+    return SizedBox(
+      height: 88.h,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20.w),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 48.w,
+              child: Column(
+                children: [
+                  Container(
+                    width: 48.w,
+                    height: 48.w,
+                    decoration: BoxDecoration(
+                      color: MColor.primary500,
+                      borderRadius: BorderRadius.circular(13.952.r),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0xFFBFDBFE),
+                          blurRadius: 5.232,
+                          spreadRadius: -0.872,
+                          offset: Offset(0, 3.488),
+                        ),
+                        BoxShadow(
+                          color: Color(0xFFBFDBFE),
+                          blurRadius: 3.488,
+                          spreadRadius: -1.744,
+                          offset: Offset(0, 1.744),
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '${item.order}',
+                      style: MTextStyles.bodyB.copyWith(
+                        color: MColor.white100,
+                        fontSize: 17.44.sp,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+                  if (!isLast) ...[
+                    SizedBox(height: 5.h),
+                    Container(
+                      width: 1.744.w,
+                      height: 20.928.h,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999.r),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [MColor.primary500, MColor.primary100],
+                        ),
+                      ),
                     ),
                   ],
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  '${item.order}',
-                  style: MTextStyles.bodyB.copyWith(color: MColor.white100),
-                ),
-              ),
-              if (!isLast)
-                Container(
-                  margin: EdgeInsets.only(top: 8.h),
-                  width: 2.w,
-                  height: 34.h,
-                  decoration: BoxDecoration(
-                    color: MColor.primary500.withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(1.r),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        SizedBox(width: 12.w),
-        Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(top: 4.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  style: MTextStyles.bodyB.copyWith(color: MColor.gray800),
-                ),
-                SizedBox(height: 4.h),
-                if (item.time.isNotEmpty)
-                  Text(
-                    item.time,
-                    style: MTextStyles.bodyM.copyWith(color: MColor.gray300),
-                  ),
-                if (item.description.isNotEmpty) ...[
-                  SizedBox(height: 4.h),
-                  Text(
-                    item.description,
-                    style: MTextStyles.bodyM.copyWith(color: MColor.gray700),
-                  ),
                 ],
-              ],
-            ),
-          ),
-        ),
-        if (dragIndex != null)
-          ReorderableDragStartListener(
-            index: dragIndex!,
-            child: Padding(
-              padding: EdgeInsets.only(top: 6.h, left: 10.w),
-              child: Icon(
-                Icons.drag_indicator_rounded,
-                size: 20.sp,
-                color: MColor.gray300,
               ),
             ),
-          ),
-      ],
+            SizedBox(width: 14.w),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(top: 1.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: MTextStyles.labelB.copyWith(
+                        color: MColor.gray800,
+                        height: 1,
+                      ),
+                    ),
+                    if (item.time.isNotEmpty) ...[
+                      SizedBox(height: 2.h),
+                      Text(
+                        item.time,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: MTextStyles.labelM.copyWith(
+                          color: MColor.gray300,
+                          height: 1.33,
+                        ),
+                      ),
+                    ],
+                    if (item.description.isNotEmpty) ...[
+                      SizedBox(height: 2.h),
+                      Text(
+                        item.description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: MTextStyles.labelM.copyWith(
+                          color: MColor.gray800,
+                          height: 1.33,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            if (dragIndex != null)
+              ReorderableDragStartListener(
+                index: dragIndex!,
+                child: Padding(
+                  padding: EdgeInsets.only(top: 8.h, left: 10.w),
+                  child: Icon(
+                    Icons.drag_indicator_rounded,
+                    size: 20.sp,
+                    color: MColor.gray300,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
