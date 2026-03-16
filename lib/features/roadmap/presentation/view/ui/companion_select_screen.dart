@@ -81,7 +81,7 @@ class _CompanionSelectScreenState extends ConsumerState<CompanionSelectScreen> {
           ),
           SizedBox(height: 16.h),
           Text(
-            '여행을 함께 할 예정인 동행자를 선택해주세요!',
+            '여행을 함께 할 예정인 동행자를 하나만 선택해주세요!',
             textAlign: TextAlign.center,
             style: MTextStyles.labelM.copyWith(color: MColor.gray400),
           ),

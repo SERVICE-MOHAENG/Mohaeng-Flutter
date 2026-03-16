@@ -17,12 +17,9 @@ class CompanionSelectViewModel extends StateNotifier<CompanionSelectState> {
   CompanionSelectViewModel() : super(const CompanionSelectState());
 
   void toggle(CompanionType type) {
-    final next = {...state.selected};
-    if (next.contains(type)) {
-      next.remove(type);
-    } else {
-      next.add(type);
-    }
+    final next = state.selected.contains(type)
+        ? <CompanionType>{}
+        : <CompanionType>{type};
     state = state.copyWith(selected: next);
   }
 }

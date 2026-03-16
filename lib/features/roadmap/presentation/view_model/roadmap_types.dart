@@ -4,41 +4,29 @@ enum CompanionType {
   family,
   friends,
   couple,
-  spouse,
   children,
-  solo,
   parents,
-  teacher,
-  students,
   colleagues,
-  seniors;
+  solo;
 
   String get label => switch (this) {
     CompanionType.family => '가족',
     CompanionType.friends => '친구',
     CompanionType.couple => '연인',
-    CompanionType.spouse => '배우자',
     CompanionType.children => '아이',
-    CompanionType.solo => '혼자',
     CompanionType.parents => '부모님',
-    CompanionType.teacher => '선생님',
-    CompanionType.students => '학생',
     CompanionType.colleagues => '직장 동료',
-    CompanionType.seniors => '어르신',
+    CompanionType.solo => '혼자',
   };
 
   List<String> get fallbackEmojis => switch (this) {
     CompanionType.family => const ['👨‍👩‍👧‍👦'],
     CompanionType.friends => const ['🧑‍🤝‍🧑'],
     CompanionType.couple => const ['👫'],
-    CompanionType.spouse => const ['💍'],
     CompanionType.children => const ['👶'],
-    CompanionType.solo => const ['🚶‍♂️'],
     CompanionType.parents => const ['🚶‍♂️', '🚶‍♀️'],
-    CompanionType.teacher => const ['🧑‍🏫'],
-    CompanionType.students => const ['🧑‍🎓'],
     CompanionType.colleagues => const ['👨‍💼'],
-    CompanionType.seniors => const ['🧓'],
+    CompanionType.solo => const ['🚶‍♂️'],
   };
 
   List<String> get imagePaths => switch (this) {
@@ -48,34 +36,23 @@ enum CompanionType {
       'assets/images/companion/friend.png',
     ],
     CompanionType.couple => const ['assets/images/companion/couple.png'],
-    CompanionType.spouse => const ['assets/images/companion/couple.png'],
     CompanionType.children => const ['assets/images/companion/baby.png'],
-    CompanionType.solo => const ['assets/images/companion/alone.png'],
     CompanionType.parents => const [
       'assets/images/companion/alone.png',
       'assets/images/companion/parent.png',
     ],
-    CompanionType.teacher => const ['assets/images/companion/worker.png'],
-    CompanionType.students => const [
-      'assets/images/companion/alone.png',
-      'assets/images/companion/friend.png',
-    ],
     CompanionType.colleagues => const ['assets/images/companion/worker.png'],
-    CompanionType.seniors => const ['assets/images/companion/parent.png'],
+    CompanionType.solo => const ['assets/images/companion/alone.png'],
   };
 
   String get apiValue => switch (this) {
     CompanionType.family => 'FAMILY',
     CompanionType.friends => 'FRIENDS',
     CompanionType.couple => 'COUPLE',
-    CompanionType.spouse => 'SPOUSE',
     CompanionType.children => 'CHILDREN',
-    CompanionType.solo => 'SOLO',
     CompanionType.parents => 'PARENTS',
-    CompanionType.teacher => 'TEACHER',
-    CompanionType.students => 'STUDENTS',
     CompanionType.colleagues => 'COLLEAGUES',
-    CompanionType.seniors => 'SENIORS',
+    CompanionType.solo => 'SOLO',
   };
 }
 
