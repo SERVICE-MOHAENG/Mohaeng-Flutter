@@ -247,9 +247,10 @@ class _AdditionalRequestScreenState
 
       if (canOpenExistingJob) {
         setState(() => _isSubmitting = false);
-        Navigator.pushNamed(
+        Navigator.pushNamedAndRemoveUntil(
           context,
           AppRoutes.roadmapResult,
+          ModalRoute.withName(AppRoutes.root),
           arguments: fallbackJobId,
         );
         return;
@@ -276,9 +277,10 @@ class _AdditionalRequestScreenState
     }
 
     setState(() => _isSubmitting = false);
-    Navigator.pushNamed(
+    Navigator.pushNamedAndRemoveUntil(
       context,
       AppRoutes.roadmapResult,
+      ModalRoute.withName(AppRoutes.root),
       arguments: itineraryJobId.trim(),
     );
   }

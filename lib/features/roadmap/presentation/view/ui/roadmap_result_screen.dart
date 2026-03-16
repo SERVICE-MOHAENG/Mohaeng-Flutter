@@ -26,28 +26,52 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
   static const LatLng _defaultCenter = LatLng(37.5665, 126.9780);
   static const Duration _resultPollingInterval = Duration(seconds: 30);
   static const Duration _modificationPollingInterval = Duration(seconds: 30);
+  static const Duration _modificationResponsePreviewDuration = Duration(
+    milliseconds: 1200,
+  );
   static const double _inputSheetBodySpacing = 86;
+  static const double _timelineRowHeight = 88;
+  static const int _conversationPanelPageIndex = 0;
+  static const int _timelinePanelPageIndex = 1;
 
   bool _isInitialized = false;
   bool _isRefreshing = false;
   bool _isModificationPolling = false;
+  bool _isAwaitingModifiedTimeline = false;
   bool _hasShownSuccessMessage = false;
   Timer? _resultPollingTimer;
   Timer? _modificationPollingTimer;
   Timer? _dotAnimationTimer;
   String? _jobId;
+  String? _travelCourseId;
   String? _modificationJobId;
   String? _lastResultStatus;
   int _dotCount = 1;
+  int _bottomPanelPageIndex = _timelinePanelPageIndex;
   int _selectedDayIndex = 0;
+  int _focusedTimelineIndex = 0;
   final Map<String, List<String>> _dayPlaceOrderCache =
       <String, List<String>>{};
+  late final PageController _bottomPanelPageController;
   late final TextEditingController _requestInputController;
+  late final ScrollController _timelineScrollController;
+  GoogleMapController? _mapController;
+  String? _currentTimelineDayKey;
+  bool _isModificationAssistantTyping = false;
+  List<_ModificationConversationEntry> _modificationConversation =
+      const <_ModificationConversationEntry>[];
+  List<RoadmapItineraryPlace> _currentTimelinePlaces =
+      const <RoadmapItineraryPlace>[];
 
   @override
   void initState() {
     super.initState();
+    _bottomPanelPageController = PageController(
+      initialPage: _timelinePanelPageIndex,
+    );
     _requestInputController = TextEditingController();
+    _timelineScrollController = ScrollController()
+      ..addListener(_handleTimelineScroll);
   }
 
   @override
@@ -76,11 +100,34 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
 
   @override
   void dispose() {
+    _bottomPanelPageController.dispose();
     _requestInputController.dispose();
+    _timelineScrollController
+      ..removeListener(_handleTimelineScroll)
+      ..dispose();
     _stopModificationPolling();
     _stopDotAnimation();
     _stopResultPolling();
     super.dispose();
+  }
+
+  void _handleTimelineScroll() {
+    if (!_timelineScrollController.hasClients ||
+        _currentTimelinePlaces.isEmpty) {
+      return;
+    }
+
+    final rowHeight = _timelineRowHeight.h;
+    if (rowHeight <= 0) return;
+
+    final nextIndex =
+        ((_timelineScrollController.offset + (rowHeight * 0.5)) / rowHeight)
+            .floor()
+            .clamp(0, _currentTimelinePlaces.length - 1);
+
+    if (nextIndex == _focusedTimelineIndex) return;
+    _focusedTimelineIndex = nextIndex;
+    unawaited(_focusMapOnTimelineIndex(nextIndex));
   }
 
   String? _resolveJobId() {
@@ -183,6 +230,95 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     _dotAnimationTimer = null;
   }
 
+  void _jumpToBottomPanelPage(int pageIndex, {bool animate = true}) {
+    void movePage() {
+      if (!_bottomPanelPageController.hasClients) return;
+      if (animate) {
+        unawaited(
+          _bottomPanelPageController.animateToPage(
+            pageIndex,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+          ),
+        );
+        return;
+      }
+      _bottomPanelPageController.jumpToPage(pageIndex);
+    }
+
+    if (_bottomPanelPageController.hasClients) {
+      movePage();
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      movePage();
+    });
+  }
+
+  void _onBottomPanelPageChanged(int pageIndex) {
+    if (_bottomPanelPageIndex == pageIndex) return;
+    setState(() {
+      _bottomPanelPageIndex = pageIndex;
+    });
+  }
+
+  void _showBottomPanel(int pageIndex) {
+    if (_bottomPanelPageIndex != pageIndex) {
+      setState(() {
+        _bottomPanelPageIndex = pageIndex;
+      });
+    }
+    _jumpToBottomPanelPage(pageIndex);
+  }
+
+  void _beginModificationConversation(String requestMessage) {
+    setState(() {
+      _isAwaitingModifiedTimeline = true;
+      _isModificationAssistantTyping = true;
+      _bottomPanelPageIndex = _conversationPanelPageIndex;
+      _modificationConversation = <_ModificationConversationEntry>[
+        ..._modificationConversation,
+        _ModificationConversationEntry.user(requestMessage),
+      ];
+    });
+    _jumpToBottomPanelPage(_conversationPanelPageIndex);
+  }
+
+  void _appendModificationAssistantMessage(String responseMessage) {
+    if (mounted) {
+      setState(() {
+        _isModificationAssistantTyping = false;
+        _modificationConversation = <_ModificationConversationEntry>[
+          ..._modificationConversation,
+          _ModificationConversationEntry.assistant(responseMessage),
+        ];
+      });
+      return;
+    }
+    _isModificationAssistantTyping = false;
+    _modificationConversation = <_ModificationConversationEntry>[
+      ..._modificationConversation,
+      _ModificationConversationEntry.assistant(responseMessage),
+    ];
+  }
+
+  void _restoreModificationConversation({
+    required List<_ModificationConversationEntry> messages,
+    required bool isAwaitingTimeline,
+    required bool isAssistantTyping,
+  }) {
+    _modificationConversation = messages;
+    _isAwaitingModifiedTimeline = isAwaitingTimeline;
+    _isModificationAssistantTyping = isAssistantTyping;
+  }
+
+  void _finishModificationConversationWaiting() {
+    _isAwaitingModifiedTimeline = false;
+    _isModificationAssistantTyping = false;
+  }
+
   Future<void> _fetchRoadmapResult({required bool isManualRefresh}) async {
     if (_isRefreshing) {
       _logResult('skip fetch: already in progress');
@@ -214,6 +350,10 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
 
     final resultState = ref.read(roadmapItineraryResultViewModelProvider);
     _lastResultStatus = resultState.result?.status;
+    final nextTravelCourseId = resultState.result?.travelCourseId?.trim();
+    if (nextTravelCourseId != null && nextTravelCourseId.isNotEmpty) {
+      _travelCourseId = nextTravelCourseId;
+    }
     _logResult(
       'fetch finished: status=${_lastResultStatus ?? 'null'}, error=${resultState.errorMessage}',
     );
@@ -305,6 +445,11 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
       return travelCourseId;
     }
 
+    final cachedTravelCourseId = _travelCourseId?.trim();
+    if (cachedTravelCourseId != null && cachedTravelCourseId.isNotEmpty) {
+      return cachedTravelCourseId;
+    }
+
     final fallback = _jobId?.trim();
     if (fallback != null && fallback.isNotEmpty) {
       return fallback;
@@ -337,27 +482,52 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     if (_isSuccessStatus(status)) {
       _stopModificationPolling();
 
-      final nextTravelCourseId = _extractTravelCourseId(statusState.status);
-      if (nextTravelCourseId != null && nextTravelCourseId.isNotEmpty) {
-        if (_jobId != nextTravelCourseId) {
+      final nextJobId = statusState.status?.jobId.trim();
+      if (nextJobId != null && nextJobId.isNotEmpty) {
+        if (_jobId != nextJobId) {
           _dayPlaceOrderCache.clear();
         }
-        _jobId = nextTravelCourseId;
+        _jobId = nextJobId;
+      }
+
+      final nextTravelCourseId = _extractTravelCourseId(statusState.status);
+      if (nextTravelCourseId != null && nextTravelCourseId.isNotEmpty) {
+        _travelCourseId = nextTravelCourseId;
       }
 
       final successMessage =
           _extractStatusMessage(statusState.status?.message) ??
           '로드맵 수정이 반영되었습니다.';
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(successMessage)));
+      _appendModificationAssistantMessage(successMessage);
+
+      if (intent == 'ask_clarification') {
+        if (mounted) {
+          setState(_finishModificationConversationWaiting);
+        } else {
+          _finishModificationConversationWaiting();
+        }
+        return;
+      }
+
+      await Future<void>.delayed(_modificationResponsePreviewDuration);
+      if (!mounted) return;
 
       await _fetchRoadmapResult(isManualRefresh: true);
+      if (mounted) {
+        setState(_finishModificationConversationWaiting);
+      } else {
+        _finishModificationConversationWaiting();
+      }
       return;
     }
 
     if (_isFailedStatus(status)) {
       _stopModificationPolling();
+      if (mounted) {
+        setState(_finishModificationConversationWaiting);
+      } else {
+        _finishModificationConversationWaiting();
+      }
 
       final failureMessage =
           _extractStatusMessage(statusState.status?.errorMessage) ??
@@ -429,6 +599,14 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
       return;
     }
 
+    final previousConversation = List<_ModificationConversationEntry>.from(
+      _modificationConversation,
+    );
+    final previousAwaitingTimeline = _isAwaitingModifiedTimeline;
+    final previousAssistantTyping = _isModificationAssistantTyping;
+
+    _beginModificationConversation(message);
+
     final isSuccess = await ref
         .read(roadmapChatViewModelProvider.notifier)
         .submit(itineraryId: itineraryId, message: message);
@@ -436,6 +614,13 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     if (!mounted) return;
 
     if (!isSuccess) {
+      setState(() {
+        _restoreModificationConversation(
+          messages: previousConversation,
+          isAwaitingTimeline: previousAwaitingTimeline,
+          isAssistantTyping: previousAssistantTyping,
+        );
+      });
       final errorMessage =
           ref.read(roadmapChatViewModelProvider).errorMessage ??
           '로드맵 수정 요청을 전송하지 못했어요.';
@@ -446,23 +631,22 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     }
 
     final response = ref.read(roadmapChatViewModelProvider).response;
-    final successMessage = response?.message.trim();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          successMessage != null && successMessage.isNotEmpty
-              ? successMessage
-              : '로드맵 수정 요청을 전송했어요.',
-        ),
-      ),
-    );
     _requestInputController.clear();
     FocusScope.of(context).unfocus();
 
     final modificationJobId = response?.jobId.trim();
     if (modificationJobId != null && modificationJobId.isNotEmpty) {
       _startModificationPolling(modificationJobId);
+      return;
     }
+
+    setState(() {
+      _restoreModificationConversation(
+        messages: previousConversation,
+        isAwaitingTimeline: previousAwaitingTimeline,
+        isAssistantTyping: previousAssistantTyping,
+      );
+    });
   }
 
   Widget _buildRequestBottomSheet(
@@ -558,6 +742,43 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     });
   }
 
+  void _syncTimelineContext({
+    required String? dayKey,
+    required List<RoadmapItineraryPlace> places,
+  }) {
+    final dayChanged = _currentTimelineDayKey != dayKey;
+    _currentTimelineDayKey = dayKey;
+    _currentTimelinePlaces = places;
+
+    if (places.isEmpty) {
+      _focusedTimelineIndex = 0;
+      return;
+    }
+
+    if (dayChanged) {
+      _focusedTimelineIndex = 0;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_timelineScrollController.hasClients) {
+          _timelineScrollController.jumpTo(0);
+        }
+        unawaited(_focusMapOnTimelineIndex(0, animate: false));
+      });
+      return;
+    }
+
+    final clampedIndex = _focusedTimelineIndex.clamp(0, places.length - 1);
+    if (clampedIndex == _focusedTimelineIndex) return;
+
+    _focusedTimelineIndex = clampedIndex;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        _focusMapOnTimelineIndex(_focusedTimelineIndex, animate: false),
+      );
+    });
+  }
+
   String _dayOrderKey(_DayPlan dayPlan) {
     final day = dayPlan.dayNumber;
     final date = dayPlan.date?.toIso8601String() ?? 'none';
@@ -647,6 +868,79 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     return orderedPlaces;
   }
 
+  int? _findNearestMappablePlaceIndex(
+    List<RoadmapItineraryPlace> places,
+    int preferredIndex,
+  ) {
+    if (places.isEmpty) return null;
+
+    final start = preferredIndex.clamp(0, places.length - 1);
+    for (int distance = 0; distance < places.length; distance++) {
+      final left = start - distance;
+      if (left >= 0 && _placeHasValidCoordinate(places[left])) {
+        return left;
+      }
+
+      final right = start + distance;
+      if (distance != 0 &&
+          right < places.length &&
+          _placeHasValidCoordinate(places[right])) {
+        return right;
+      }
+    }
+
+    return null;
+  }
+
+  bool _placeHasValidCoordinate(RoadmapItineraryPlace place) {
+    final latitude = place.latitude;
+    final longitude = place.longitude;
+    if (latitude == null || longitude == null) return false;
+    return _isValidCoordinate(latitude, longitude);
+  }
+
+  String _markerIdForPlace(RoadmapItineraryPlace place, int index) {
+    final placeId = place.placeId?.trim();
+    if (placeId != null && placeId.isNotEmpty) {
+      return placeId;
+    }
+    return 'place_$index';
+  }
+
+  Future<void> _focusMapOnTimelineIndex(
+    int index, {
+    bool animate = true,
+  }) async {
+    final controller = _mapController;
+    if (controller == null || _currentTimelinePlaces.isEmpty) return;
+
+    final targetIndex = _findNearestMappablePlaceIndex(
+      _currentTimelinePlaces,
+      index,
+    );
+    if (targetIndex == null) return;
+
+    final place = _currentTimelinePlaces[targetIndex];
+    final latitude = place.latitude;
+    final longitude = place.longitude;
+    if (latitude == null || longitude == null) return;
+
+    final target = LatLng(latitude, longitude);
+    try {
+      final update = CameraUpdate.newLatLng(target);
+      if (animate) {
+        await controller.animateCamera(update);
+      } else {
+        await controller.moveCamera(update);
+      }
+      await controller.showMarkerInfoWindow(
+        MarkerId(_markerIdForPlace(place, targetIndex)),
+      );
+    } catch (_) {
+      // Ignore camera sync failures from disposed or not-yet-ready map views.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final resultState = ref.watch(roadmapItineraryResultViewModelProvider);
@@ -678,13 +972,23 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     final selectedDay = dayPlans.isEmpty
         ? null
         : dayPlans[_selectedDayIndex.clamp(0, dayPlans.length - 1)];
+    final selectedDayKey = selectedDay == null
+        ? null
+        : _dayOrderKey(selectedDay);
     final timelineItems = selectedDay == null
         ? const <_TimelineItem>[]
         : _buildTimelineItems(_resolveOrderedPlaces(selectedDay));
     final selectedPlaces = selectedDay == null
         ? const <RoadmapItineraryPlace>[]
         : _resolveOrderedPlaces(selectedDay);
+    final hasConversationPanel =
+        _isAwaitingModifiedTimeline || _modificationConversation.isNotEmpty;
+    _syncTimelineContext(dayKey: selectedDayKey, places: selectedPlaces);
     final markers = _buildMapMarkers(
+      isSuccessStatus: isSuccessStatus,
+      places: selectedPlaces,
+    );
+    final polylines = _buildMapPolylines(
       isSuccessStatus: isSuccessStatus,
       places: selectedPlaces,
     );
@@ -693,6 +997,12 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
       isLoading: isLoading,
       resultStatus: status,
     );
+    final modificationPollingStatus =
+        (modificationState.status?.status.trim().isNotEmpty ?? false)
+        ? modificationState.status!.status.trim().toUpperCase()
+        : 'PENDING';
+    final bottomPanelPadding =
+        _inputSheetBodySpacing.h + MediaQuery.paddingOf(context).bottom;
 
     return MLayout(
       backgroundColor: MColor.gray50,
@@ -707,54 +1017,92 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
             _MapSection(
               center: mapCenter,
               markers: markers,
+              polylines: polylines,
               data: roadmapData,
               mapKey: 'map_${selectedDay?.dayNumber ?? 0}_${markers.length}',
+              onMapCreated: (controller) {
+                _mapController = controller;
+                unawaited(
+                  _focusMapOnTimelineIndex(
+                    _focusedTimelineIndex,
+                    animate: false,
+                  ),
+                );
+              },
             ),
-            SizedBox(height: 16.h),
-            if (isSuccessStatus && dayPlans.isNotEmpty)
-              _DayTabs(
-                dayPlans: dayPlans,
-                selectedIndex: _selectedDayIndex.clamp(0, dayPlans.length - 1),
-                onChanged: (index) {
-                  if (_selectedDayIndex == index) return;
-                  setState(() => _selectedDayIndex = index);
-                },
-              )
-            else
-              SizedBox(height: 58.h),
-            SizedBox(height: 16.h),
-            if (isSuccessStatus && dayPlans.length > 1)
-              _PageDots(
-                count: dayPlans.length,
-                selectedIndex: _selectedDayIndex.clamp(0, dayPlans.length - 1),
-              )
-            else
-              SizedBox(height: 2.h),
-            SizedBox(height: 20.h),
-            if (_isModificationPolling)
-              Padding(
-                padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 10.h),
-                child: _ModificationPollingBanner(
-                  status:
-                      (modificationState.status?.status.trim().isNotEmpty ??
-                          false)
-                      ? modificationState.status!.status.trim().toUpperCase()
-                      : 'PENDING',
-                ),
-              ),
-            SizedBox(height: _isModificationPolling ? 10.h : 0),
             Expanded(
-              child: _TimelinePanel(
-                isSuccessStatus: isSuccessStatus,
-                isFailedStatus: isFailedStatus,
-                shouldShowPollingIndicator: shouldShowPollingIndicator,
-                emptyMessage: emptyMessage,
-                timelineItems: timelineItems,
-                onReorder: null,
-                onTapHome: _goToHome,
-                bottomPadding:
-                    _inputSheetBodySpacing.h +
-                    MediaQuery.paddingOf(context).bottom,
+              child: ColoredBox(
+                color: MColor.white100,
+                child: hasConversationPanel
+                    ? Column(
+                        children: [
+                          SizedBox(height: 16.h),
+                          _BottomPanelSwitcher(
+                            selectedIndex: _bottomPanelPageIndex,
+                            onChanged: _showBottomPanel,
+                          ),
+                          SizedBox(height: 16.h),
+                          Expanded(
+                            child: PageView(
+                              controller: _bottomPanelPageController,
+                              onPageChanged: _onBottomPanelPageChanged,
+                              children: [
+                                _ConversationPanel(
+                                  modificationConversation:
+                                      _modificationConversation,
+                                  isAssistantTyping:
+                                      _isModificationAssistantTyping,
+                                  typingDotCount: _dotCount,
+                                  bottomPadding: bottomPanelPadding,
+                                ),
+                                _TimelinePanelPage(
+                                  topSpacing: 0,
+                                  isSuccessStatus: isSuccessStatus,
+                                  isFailedStatus: isFailedStatus,
+                                  shouldShowPollingIndicator:
+                                      shouldShowPollingIndicator,
+                                  emptyMessage: emptyMessage,
+                                  dayPlans: dayPlans,
+                                  selectedDayIndex: _selectedDayIndex,
+                                  onDayChanged: (index) {
+                                    if (_selectedDayIndex == index) return;
+                                    setState(() => _selectedDayIndex = index);
+                                  },
+                                  showModificationPollingBanner:
+                                      _isModificationPolling,
+                                  modificationPollingStatus:
+                                      modificationPollingStatus,
+                                  timelineItems: timelineItems,
+                                  onReorder: null,
+                                  onTapHome: _goToHome,
+                                  scrollController: _timelineScrollController,
+                                  bottomPadding: bottomPanelPadding,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      )
+                    : _TimelinePanelPage(
+                        topSpacing: 16.h,
+                        isSuccessStatus: isSuccessStatus,
+                        isFailedStatus: isFailedStatus,
+                        shouldShowPollingIndicator: shouldShowPollingIndicator,
+                        emptyMessage: emptyMessage,
+                        dayPlans: dayPlans,
+                        selectedDayIndex: _selectedDayIndex,
+                        onDayChanged: (index) {
+                          if (_selectedDayIndex == index) return;
+                          setState(() => _selectedDayIndex = index);
+                        },
+                        showModificationPollingBanner: _isModificationPolling,
+                        modificationPollingStatus: modificationPollingStatus,
+                        timelineItems: timelineItems,
+                        onReorder: null,
+                        onTapHome: _goToHome,
+                        scrollController: _timelineScrollController,
+                        bottomPadding: bottomPanelPadding,
+                      ),
               ),
             ),
           ],
@@ -785,10 +1133,7 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
       if (lat == null || lng == null) continue;
       if (!_isValidCoordinate(lat, lng)) continue;
 
-      final markerId =
-          (place.placeId != null && place.placeId!.trim().isNotEmpty)
-          ? place.placeId!.trim()
-          : 'place_$i';
+      final markerId = _markerIdForPlace(place, i);
       markers.add(
         Marker(
           markerId: MarkerId(markerId),
@@ -812,6 +1157,40 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     }
 
     return markers;
+  }
+
+  Set<Polyline> _buildMapPolylines({
+    required bool isSuccessStatus,
+    required List<RoadmapItineraryPlace> places,
+  }) {
+    if (!isSuccessStatus || places.length < 2) {
+      return const <Polyline>{};
+    }
+
+    final points = <LatLng>[];
+    for (final place in places) {
+      final lat = place.latitude;
+      final lng = place.longitude;
+      if (lat == null || lng == null) continue;
+      if (!_isValidCoordinate(lat, lng)) continue;
+      points.add(LatLng(lat, lng));
+    }
+
+    if (points.length < 2) {
+      return const <Polyline>{};
+    }
+
+    return {
+      Polyline(
+        polylineId: const PolylineId('selected_day_route'),
+        points: points,
+        color: MColor.primary500.withValues(alpha: 0.88),
+        width: 5,
+        startCap: Cap.roundCap,
+        endCap: Cap.roundCap,
+        geodesic: true,
+      ),
+    };
   }
 
   LatLng _resolveMapCenter(List<RoadmapItineraryPlace> places) {
@@ -871,14 +1250,18 @@ class _MapSection extends StatelessWidget {
   const _MapSection({
     required this.center,
     required this.markers,
+    required this.polylines,
     required this.data,
     required this.mapKey,
+    required this.onMapCreated,
   });
 
   final LatLng center;
   final Set<Marker> markers;
+  final Set<Polyline> polylines;
   final RoadmapItineraryData? data;
   final String mapKey;
+  final ValueChanged<GoogleMapController> onMapCreated;
 
   @override
   Widget build(BuildContext context) {
@@ -902,10 +1285,12 @@ class _MapSection extends StatelessWidget {
             child: GoogleMap(
               key: ValueKey(mapKey),
               initialCameraPosition: CameraPosition(target: center, zoom: 12.5),
+              onMapCreated: onMapCreated,
               myLocationButtonEnabled: false,
               mapToolbarEnabled: false,
               zoomControlsEnabled: false,
               markers: markers,
+              polylines: polylines,
             ),
           ),
           Positioned.fill(
@@ -1254,6 +1639,218 @@ class _PageDots extends StatelessWidget {
   }
 }
 
+class _BottomPanelSwitcher extends StatelessWidget {
+  const _BottomPanelSwitcher({
+    required this.selectedIndex,
+    required this.onChanged,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const labels = <String>['AI 채팅', '일정표'];
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 24.w),
+      child: Container(
+        padding: EdgeInsets.all(4.r),
+        decoration: BoxDecoration(
+          color: MColor.gray50,
+          borderRadius: BorderRadius.circular(14.r),
+          border: Border.all(color: MColor.gray100, width: 1),
+        ),
+        child: Row(
+          children: [
+            for (int i = 0; i < labels.length; i++) ...[
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onChanged(i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    padding: EdgeInsets.symmetric(vertical: 10.h),
+                    decoration: BoxDecoration(
+                      color: i == selectedIndex
+                          ? MColor.white100
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10.r),
+                      boxShadow: i == selectedIndex
+                          ? [
+                              BoxShadow(
+                                color: MColor.gray900.withValues(alpha: 0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Text(
+                      labels[i],
+                      textAlign: TextAlign.center,
+                      style: MTextStyles.labelM.copyWith(
+                        color: i == selectedIndex
+                            ? MColor.gray900
+                            : MColor.gray400,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              if (i != labels.length - 1) SizedBox(width: 6.w),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TimelinePanelPage extends StatelessWidget {
+  const _TimelinePanelPage({
+    required this.topSpacing,
+    required this.isSuccessStatus,
+    required this.isFailedStatus,
+    required this.shouldShowPollingIndicator,
+    required this.emptyMessage,
+    required this.dayPlans,
+    required this.selectedDayIndex,
+    required this.onDayChanged,
+    required this.showModificationPollingBanner,
+    required this.modificationPollingStatus,
+    required this.timelineItems,
+    required this.onReorder,
+    required this.onTapHome,
+    required this.scrollController,
+    required this.bottomPadding,
+  });
+
+  final double topSpacing;
+  final bool isSuccessStatus;
+  final bool isFailedStatus;
+  final bool shouldShowPollingIndicator;
+  final String emptyMessage;
+  final List<_DayPlan> dayPlans;
+  final int selectedDayIndex;
+  final ValueChanged<int> onDayChanged;
+  final bool showModificationPollingBanner;
+  final String modificationPollingStatus;
+  final List<_TimelineItem> timelineItems;
+  final void Function(int oldIndex, int newIndex)? onReorder;
+  final VoidCallback onTapHome;
+  final ScrollController scrollController;
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        SizedBox(height: topSpacing),
+        if (isSuccessStatus && dayPlans.isNotEmpty)
+          _DayTabs(
+            dayPlans: dayPlans,
+            selectedIndex: selectedDayIndex.clamp(0, dayPlans.length - 1),
+            onChanged: onDayChanged,
+          )
+        else
+          SizedBox(height: 58.h),
+        SizedBox(height: 16.h),
+        if (isSuccessStatus && dayPlans.length > 1)
+          _PageDots(
+            count: dayPlans.length,
+            selectedIndex: selectedDayIndex.clamp(0, dayPlans.length - 1),
+          )
+        else
+          SizedBox(height: 2.h),
+        SizedBox(height: 20.h),
+        if (showModificationPollingBanner)
+          Padding(
+            padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 10.h),
+            child: _ModificationPollingBanner(
+              status: modificationPollingStatus,
+            ),
+          ),
+        SizedBox(height: showModificationPollingBanner ? 10.h : 0),
+        Expanded(
+          child: _TimelinePanel(
+            isSuccessStatus: isSuccessStatus,
+            isFailedStatus: isFailedStatus,
+            shouldShowPollingIndicator: shouldShowPollingIndicator,
+            emptyMessage: emptyMessage,
+            timelineItems: timelineItems,
+            onReorder: onReorder,
+            onTapHome: onTapHome,
+            scrollController: scrollController,
+            bottomPadding: bottomPadding,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ConversationPanel extends StatelessWidget {
+  const _ConversationPanel({
+    required this.modificationConversation,
+    required this.isAssistantTyping,
+    required this.typingDotCount,
+    required this.bottomPadding,
+  });
+
+  final List<_ModificationConversationEntry> modificationConversation;
+  final bool isAssistantTyping;
+  final int typingDotCount;
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, bottomPadding),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (modificationConversation.isEmpty && !isAssistantTyping)
+              _ConversationBubble(
+                roleLabel: '모행',
+                message:
+                    '원하는 일정 수정을 자유롭게 말씀해 주세요.\n장소 변경, 동선 조정, 시간 여유 확보도 도와드릴게요.',
+                alignment: Alignment.centerLeft,
+                backgroundColor: MColor.gray50,
+                textColor: MColor.gray800,
+                borderColor: MColor.gray100,
+              ),
+            for (int i = 0; i < modificationConversation.length; i++) ...[
+              _ConversationBubble(
+                roleLabel: modificationConversation[i].speaker.label,
+                message: modificationConversation[i].message,
+                alignment: modificationConversation[i].speaker.isUser
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
+                backgroundColor: modificationConversation[i].speaker.isUser
+                    ? MColor.primary500
+                    : MColor.gray50,
+                textColor: modificationConversation[i].speaker.isUser
+                    ? MColor.white100
+                    : MColor.gray800,
+                borderColor: modificationConversation[i].speaker.isUser
+                    ? null
+                    : MColor.gray100,
+              ),
+              if (i != modificationConversation.length - 1 || isAssistantTyping)
+                SizedBox(height: 14.h),
+            ],
+            if (isAssistantTyping)
+              _TypingConversationBubble(dotCount: typingDotCount),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _TimelinePanel extends StatelessWidget {
   const _TimelinePanel({
     required this.isSuccessStatus,
@@ -1263,6 +1860,7 @@ class _TimelinePanel extends StatelessWidget {
     required this.timelineItems,
     required this.onReorder,
     required this.onTapHome,
+    required this.scrollController,
     required this.bottomPadding,
   });
 
@@ -1273,101 +1871,250 @@ class _TimelinePanel extends StatelessWidget {
   final List<_TimelineItem> timelineItems;
   final void Function(int oldIndex, int newIndex)? onReorder;
   final VoidCallback onTapHome;
+  final ScrollController scrollController;
   final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
     final canReorder = onReorder != null && timelineItems.length > 1;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, bottomPadding),
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF4F4F4),
-          borderRadius: BorderRadius.circular(12.r),
-        ),
-        child: !isSuccessStatus || timelineItems.isEmpty
-            ? Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 20.w,
-                    vertical: 24.h,
+    if (!isSuccessStatus || timelineItems.isEmpty) {
+      return Padding(
+        padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, bottomPadding),
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 24.h),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (shouldShowPollingIndicator)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 16.h),
+                    child: const CircularProgressIndicator(strokeWidth: 2),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (shouldShowPollingIndicator)
-                        Padding(
-                          padding: EdgeInsets.only(bottom: 16.h),
-                          child: const CircularProgressIndicator(
-                            strokeWidth: 2,
+                Text(
+                  emptyMessage,
+                  textAlign: TextAlign.center,
+                  style: MTextStyles.labelM.copyWith(color: MColor.gray400),
+                ),
+                if (isFailedStatus)
+                  Padding(
+                    padding: EdgeInsets.only(top: 16.h),
+                    child: SizedBox(
+                      width: 180.w,
+                      height: 44.h,
+                      child: ElevatedButton(
+                        onPressed: onTapHome,
+                        style: ElevatedButton.styleFrom(
+                          elevation: 0,
+                          backgroundColor: MColor.primary500,
+                          foregroundColor: MColor.white100,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.r),
                           ),
                         ),
-                      Text(
-                        emptyMessage,
-                        textAlign: TextAlign.center,
-                        style: MTextStyles.labelM.copyWith(
-                          color: MColor.gray400,
+                        child: Text(
+                          '홈 화면으로 가기',
+                          style: MTextStyles.labelM.copyWith(
+                            color: MColor.white100,
+                          ),
                         ),
                       ),
-                      if (isFailedStatus)
-                        Padding(
-                          padding: EdgeInsets.only(top: 16.h),
-                          child: SizedBox(
-                            width: 180.w,
-                            height: 44.h,
-                            child: ElevatedButton(
-                              onPressed: onTapHome,
-                              style: ElevatedButton.styleFrom(
-                                elevation: 0,
-                                backgroundColor: MColor.primary500,
-                                foregroundColor: MColor.white100,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12.r),
-                                ),
-                              ),
-                              child: Text(
-                                '홈 화면으로 가기',
-                                style: MTextStyles.labelM.copyWith(
-                                  color: MColor.white100,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
-                ),
-              )
-            : canReorder
-            ? ReorderableListView.builder(
-                padding: EdgeInsets.only(bottom: 88.832.h),
-                buildDefaultDragHandles: false,
-                itemCount: timelineItems.length,
-                onReorder: onReorder!,
-                itemBuilder: (context, index) {
-                  final item = timelineItems[index];
-                  return _TimelineRow(
-                    key: ValueKey(item.id),
-                    item: item,
-                    isLast: index == timelineItems.length - 1,
-                    dragIndex: index,
-                  );
-                },
-              )
-            : ListView.builder(
-                padding: EdgeInsets.only(bottom: 88.832.h),
-                itemCount: timelineItems.length,
-                itemBuilder: (context, index) {
-                  final item = timelineItems[index];
-                  return _TimelineRow(
-                    key: ValueKey(item.id),
-                    item: item,
-                    isLast: index == timelineItems.length - 1,
-                  );
-                },
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (canReorder) {
+      return ReorderableListView.builder(
+        scrollController: scrollController,
+        padding: EdgeInsets.only(top: 4.h, bottom: 88.832.h),
+        buildDefaultDragHandles: false,
+        itemCount: timelineItems.length,
+        onReorder: onReorder!,
+        itemBuilder: (context, index) {
+          final item = timelineItems[index];
+          return _TimelineRow(
+            key: ValueKey(item.id),
+            item: item,
+            isLast: index == timelineItems.length - 1,
+            dragIndex: index,
+          );
+        },
+      );
+    }
+
+    return ListView.builder(
+      controller: scrollController,
+      padding: EdgeInsets.only(top: 4.h, bottom: 88.832.h),
+      itemCount: timelineItems.length,
+      itemBuilder: (context, index) {
+        final item = timelineItems[index];
+        return _TimelineRow(
+          key: ValueKey(item.id),
+          item: item,
+          isLast: index == timelineItems.length - 1,
+        );
+      },
+    );
+  }
+}
+
+enum _ModificationConversationSpeaker {
+  user,
+  assistant;
+
+  bool get isUser => this == _ModificationConversationSpeaker.user;
+
+  String get label => switch (this) {
+    _ModificationConversationSpeaker.user => '나',
+    _ModificationConversationSpeaker.assistant => '모행',
+  };
+}
+
+class _ModificationConversationEntry {
+  const _ModificationConversationEntry({
+    required this.speaker,
+    required this.message,
+  });
+
+  const _ModificationConversationEntry.user(String message)
+    : this(speaker: _ModificationConversationSpeaker.user, message: message);
+
+  const _ModificationConversationEntry.assistant(String message)
+    : this(
+        speaker: _ModificationConversationSpeaker.assistant,
+        message: message,
+      );
+
+  final _ModificationConversationSpeaker speaker;
+  final String message;
+}
+
+class _ConversationBubble extends StatelessWidget {
+  const _ConversationBubble({
+    required this.roleLabel,
+    required this.message,
+    required this.alignment,
+    required this.backgroundColor,
+    required this.textColor,
+    this.borderColor,
+  });
+
+  final String roleLabel;
+  final String message;
+  final Alignment alignment;
+  final Color backgroundColor;
+  final Color textColor;
+  final Color? borderColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final isRightAligned = alignment == Alignment.centerRight;
+    return Align(
+      alignment: alignment,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 263.w),
+        child: Column(
+          crossAxisAlignment: isRightAligned
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(bottom: 6.h),
+              child: Text(
+                roleLabel,
+                style: MTextStyles.sLabelM.copyWith(color: MColor.gray300),
               ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(18.r),
+                  topRight: Radius.circular(18.r),
+                  bottomLeft: Radius.circular(isRightAligned ? 18.r : 4.r),
+                  bottomRight: Radius.circular(isRightAligned ? 4.r : 18.r),
+                ),
+                border: borderColor == null
+                    ? null
+                    : Border.all(color: borderColor!, width: 1),
+              ),
+              child: Text(
+                message,
+                style: MTextStyles.labelM.copyWith(
+                  color: textColor,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TypingConversationBubble extends StatelessWidget {
+  const _TypingConversationBubble({required this.dotCount});
+
+  final int dotCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 180.w),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(bottom: 6.h),
+              child: Text(
+                '모행',
+                style: MTextStyles.sLabelM.copyWith(color: MColor.gray300),
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+              decoration: BoxDecoration(
+                color: MColor.gray50,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(18.r),
+                  topRight: Radius.circular(18.r),
+                  bottomLeft: Radius.circular(4.r),
+                  bottomRight: Radius.circular(18.r),
+                ),
+                border: Border.all(color: MColor.gray100, width: 1),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (int i = 0; i < 3; i++) ...[
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      width: 8.w,
+                      height: 8.w,
+                      decoration: BoxDecoration(
+                        color: i < dotCount
+                            ? MColor.primary500
+                            : MColor.gray100,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    if (i != 2) SizedBox(width: 6.w),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

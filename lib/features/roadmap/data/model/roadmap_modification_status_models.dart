@@ -38,7 +38,9 @@ class RoadmapModificationStatusResponse {
 
   factory RoadmapModificationStatusResponse.fromJson(
     Map<String, dynamic> json,
-  ) => _$RoadmapModificationStatusResponseFromJson(json);
+  ) => _$RoadmapModificationStatusResponseFromJson(
+    _normalizeModificationStatusJson(json),
+  );
 
   Map<String, dynamic> toJson() =>
       _$RoadmapModificationStatusResponseToJson(this);
@@ -53,3 +55,16 @@ DateTime? _parseDateTimeNullable(Object? value) {
 }
 
 String? _dateTimeToJsonNullable(DateTime? value) => value?.toIso8601String();
+
+Map<String, dynamic> _normalizeModificationStatusJson(
+  Map<String, dynamic> json,
+) {
+  final nestedStatus = json['status'];
+  if (nestedStatus is Map<String, dynamic>) {
+    return nestedStatus;
+  }
+  if (nestedStatus is Map) {
+    return nestedStatus.map((key, value) => MapEntry(key.toString(), value));
+  }
+  return json;
+}
