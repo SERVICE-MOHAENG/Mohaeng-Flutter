@@ -37,14 +37,18 @@ class CoursesResponse {
 
   factory CoursesResponse.fromJson(Map<String, dynamic> json) {
     final nested = json['data'];
-    final payload = nested is Map<String, dynamic> ? nested : json;
+    final rawPayload = nested is Map<String, dynamic> ? nested : json;
+    final payload = <String, dynamic>{...rawPayload};
+    if (payload['courses'] is! List && payload['items'] is List) {
+      payload['courses'] = payload['items'];
+    }
     return _$CoursesResponseFromJson(payload);
   }
 
   Map<String, dynamic> toJson() => _$CoursesResponseToJson(this);
 }
 
-/// Used by `/courses/me/bookmarks`, `/courses/me/likes` responses.
+/// Used by `/courses/me/bookmarks`, `/users/me/liked-roadmaps` responses.
 @JsonSerializable(explicitToJson: true)
 class CourseItemsResponse {
   const CourseItemsResponse({
@@ -79,7 +83,11 @@ class CourseItemsResponse {
 
   factory CourseItemsResponse.fromJson(Map<String, dynamic> json) {
     final nested = json['data'];
-    final payload = nested is Map<String, dynamic> ? nested : json;
+    final rawPayload = nested is Map<String, dynamic> ? nested : json;
+    final payload = <String, dynamic>{...rawPayload};
+    if (payload['items'] is! List && payload['courses'] is List) {
+      payload['items'] = payload['courses'];
+    }
     return _$CourseItemsResponseFromJson(payload);
   }
 
@@ -93,16 +101,18 @@ class CourseResponse {
     this.title,
     this.countryCode,
     this.thumbnailUrl,
+    this.nights,
     this.days,
     this.likeCount,
+    this.isLiked,
     this.tags = const [],
     this.places = const [],
     this.createdAt,
     this.updatedAt,
   });
 
-  @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
-  final int? id;
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? id;
 
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? title;
@@ -114,10 +124,16 @@ class CourseResponse {
   final String? thumbnailUrl;
 
   @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
+  final int? nights;
+
+  @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
   final int? days;
 
   @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
   final int? likeCount;
+
+  @JsonKey(fromJson: _readBoolNullable, toJson: _writeBoolNullable)
+  final bool? isLiked;
 
   @JsonKey(fromJson: _readStringList, toJson: _writeStringList)
   final List<String> tags;
@@ -147,6 +163,9 @@ class CourseResponse {
           normalized['thumbnailUrl'] ??
           normalized['imageUrl'] ??
           normalized['thumbnail'];
+    }
+    if (!normalized.containsKey('tags') && normalized['hashTags'] is List) {
+      normalized['tags'] = normalized['hashTags'];
     }
     if (!normalized.containsKey('days') && normalized['durationDays'] != null) {
       normalized['days'] = normalized['durationDays'];
@@ -252,7 +271,7 @@ int _readIntWithFallback(Object? value, int fallback) {
 
 int _readPageInt(Object? value) => _readIntWithFallback(value, 1);
 
-int _readLimitInt(Object? value) => _readIntWithFallback(value, 20);
+int _readLimitInt(Object? value) => _readIntWithFallback(value, 10);
 
 int _readTotalInt(Object? value) => _readIntWithFallback(value, 0);
 
@@ -280,11 +299,25 @@ double? _writeDoubleNullable(double? value) => value;
 
 String? _readStringNullable(Object? value) {
   if (value == null) return null;
+  if (value is Map || value is List) return null;
   final s = value.toString().trim();
   return s.isEmpty ? null : s;
 }
 
 String? _writeStringNullable(String? value) => value;
+
+bool? _readBoolNullable(Object? value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  if (value is String) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized == 'true' || normalized == '1') return true;
+    if (normalized == 'false' || normalized == '0') return false;
+  }
+  return null;
+}
+
+bool? _writeBoolNullable(bool? value) => value;
 
 List<String> _readStringList(Object? value) {
   if (value is! List) return const <String>[];

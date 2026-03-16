@@ -7,6 +7,7 @@ import 'package:mohaeng_app_service/core/network/query_params.dart';
 import 'package:mohaeng_app_service/features/auth/data/auth_token_storage.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/blog_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/course_models.dart';
+import 'package:mohaeng_app_service/features/mypage/data/model/liked_region_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/mypage_summary_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/visited_country_models.dart';
 
@@ -31,12 +32,17 @@ class MyPageRemoteDataSource {
 
   final ApiClient _apiClient;
 
-  static const String _myCoursesPath = '${ApiEndpoints.courses}/me';
+  static const String _myRoadmapsPath =
+      '${ApiEndpoints.basePath}/users/me/roadmaps';
   static const String _myCourseBookmarksPath =
       '${ApiEndpoints.courses}/me/bookmarks';
-  static const String _myCourseLikesPath = '${ApiEndpoints.courses}/me/likes';
-  static const String _myBlogsPath = '${ApiEndpoints.blogs}/me';
-  static const String _myBlogLikesPath = '${ApiEndpoints.blogs}/me/likes';
+  static const String _myLikedRoadmapsPath =
+      '${ApiEndpoints.basePath}/users/me/liked-roadmaps';
+  static const String _myBlogsPath = '${ApiEndpoints.basePath}/users/me/blogs';
+  static const String _myLikedBlogsPath =
+      '${ApiEndpoints.basePath}/users/me/liked-blogs';
+  static const String _myLikedRegionsPath =
+      '${ApiEndpoints.basePath}/users/me/liked-regions';
   static const String _myVisitedCountriesPath =
       '${ApiEndpoints.visitedCountries}/me';
   static const String _visitedCountriesPath = ApiEndpoints.visitedCountries;
@@ -56,7 +62,7 @@ class MyPageRemoteDataSource {
 
   Future<CoursesResponse> getMyCourses({
     int page = 1,
-    int limit = 20,
+    int limit = 10,
     CancelToken? cancelToken,
   }) async {
     final queryParameters = removeNullQueryParams({
@@ -65,7 +71,7 @@ class MyPageRemoteDataSource {
     });
 
     final response = await _apiClient.get<dynamic>(
-      _myCoursesPath,
+      _myRoadmapsPath,
       queryParameters: queryParameters,
       cancelToken: cancelToken,
     );
@@ -96,7 +102,7 @@ class MyPageRemoteDataSource {
 
   Future<CourseItemsResponse> getMyCourseLikes({
     int page = 1,
-    int limit = 20,
+    int limit = 10,
     CancelToken? cancelToken,
   }) async {
     final queryParameters = removeNullQueryParams({
@@ -105,7 +111,7 @@ class MyPageRemoteDataSource {
     });
 
     final response = await _apiClient.get<dynamic>(
-      _myCourseLikesPath,
+      _myLikedRoadmapsPath,
       queryParameters: queryParameters,
       cancelToken: cancelToken,
     );
@@ -116,7 +122,7 @@ class MyPageRemoteDataSource {
 
   Future<BlogsResponse> getMyBlogs({
     int page = 1,
-    int limit = 6,
+    int limit = 10,
     CancelToken? cancelToken,
   }) async {
     final queryParameters = removeNullQueryParams({
@@ -136,7 +142,7 @@ class MyPageRemoteDataSource {
 
   Future<BlogItemsResponse> getMyBlogLikes({
     int page = 1,
-    int limit = 6,
+    int limit = 10,
     CancelToken? cancelToken,
   }) async {
     final queryParameters = removeNullQueryParams({
@@ -145,13 +151,33 @@ class MyPageRemoteDataSource {
     });
 
     final response = await _apiClient.get<dynamic>(
-      _myBlogLikesPath,
+      _myLikedBlogsPath,
       queryParameters: queryParameters,
       cancelToken: cancelToken,
     );
 
     final payload = _unwrapPayload(response.data);
     return BlogItemsResponse.fromJson(payload);
+  }
+
+  Future<LikedRegionsResponse> getLikedRegions({
+    int page = 1,
+    int limit = 10,
+    CancelToken? cancelToken,
+  }) async {
+    final queryParameters = removeNullQueryParams({
+      'page': _sanitizePage(page),
+      'limit': _sanitizeLimit(limit),
+    });
+
+    final response = await _apiClient.get<dynamic>(
+      _myLikedRegionsPath,
+      queryParameters: queryParameters,
+      cancelToken: cancelToken,
+    );
+
+    final payload = _unwrapPayload(response.data);
+    return LikedRegionsResponse.fromJson(payload);
   }
 
   Future<VisitedCountryItemsResponse> getVisitedCountries({

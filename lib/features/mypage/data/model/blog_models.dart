@@ -37,7 +37,11 @@ class BlogsResponse {
 
   factory BlogsResponse.fromJson(Map<String, dynamic> json) {
     final nested = json['data'];
-    final payload = nested is Map<String, dynamic> ? nested : json;
+    final rawPayload = nested is Map<String, dynamic> ? nested : json;
+    final payload = <String, dynamic>{...rawPayload};
+    if (payload['blogs'] is! List && payload['items'] is List) {
+      payload['blogs'] = payload['items'];
+    }
     return _$BlogsResponseFromJson(payload);
   }
 
@@ -79,7 +83,11 @@ class BlogItemsResponse {
 
   factory BlogItemsResponse.fromJson(Map<String, dynamic> json) {
     final nested = json['data'];
-    final payload = nested is Map<String, dynamic> ? nested : json;
+    final rawPayload = nested is Map<String, dynamic> ? nested : json;
+    final payload = <String, dynamic>{...rawPayload};
+    if (payload['items'] is! List && payload['blogs'] is List) {
+      payload['items'] = payload['blogs'];
+    }
     return _$BlogItemsResponseFromJson(payload);
   }
 
@@ -95,13 +103,14 @@ class BlogResponse {
     this.countryCode,
     this.thumbnailUrl,
     this.likeCount,
+    this.isLiked,
     this.tags = const [],
     this.createdAt,
     this.updatedAt,
   });
 
-  @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
-  final int? id;
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? id;
 
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? title;
@@ -117,6 +126,9 @@ class BlogResponse {
 
   @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
   final int? likeCount;
+
+  @JsonKey(fromJson: _readBoolNullable, toJson: _writeBoolNullable)
+  final bool? isLiked;
 
   @JsonKey(fromJson: _readStringList, toJson: _writeStringList)
   final List<String> tags;
@@ -150,6 +162,9 @@ class BlogResponse {
     if (!normalized.containsKey('likeCount') && normalized['likes'] != null) {
       normalized['likeCount'] = normalized['likes'];
     }
+    if (!normalized.containsKey('tags') && normalized['hashTags'] is List) {
+      normalized['tags'] = normalized['hashTags'];
+    }
 
     return _$BlogResponseFromJson(normalized);
   }
@@ -177,7 +192,7 @@ int _readIntWithFallback(Object? value, int fallback) {
 
 int _readPageInt(Object? value) => _readIntWithFallback(value, 1);
 
-int _readLimitInt(Object? value) => _readIntWithFallback(value, 6);
+int _readLimitInt(Object? value) => _readIntWithFallback(value, 10);
 
 int _readTotalInt(Object? value) => _readIntWithFallback(value, 0);
 
@@ -196,11 +211,25 @@ int? _writeIntNullable(int? value) => value;
 
 String? _readStringNullable(Object? value) {
   if (value == null) return null;
+  if (value is Map || value is List) return null;
   final s = value.toString().trim();
   return s.isEmpty ? null : s;
 }
 
 String? _writeStringNullable(String? value) => value;
+
+bool? _readBoolNullable(Object? value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  if (value is String) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized == 'true' || normalized == '1') return true;
+    if (normalized == 'false' || normalized == '0') return false;
+  }
+  return null;
+}
+
+bool? _writeBoolNullable(bool? value) => value;
 
 List<String> _readStringList(Object? value) {
   if (value is! List) return const <String>[];

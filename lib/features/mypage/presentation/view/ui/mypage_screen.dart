@@ -9,6 +9,7 @@ import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/blog_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/course_models.dart';
+import 'package:mohaeng_app_service/features/mypage/data/model/liked_region_models.dart';
 import 'package:mohaeng_app_service/features/mypage/presentation/view_model/mypage_providers.dart';
 import 'package:mohaeng_app_service/features/mypage/presentation/view_model/mypage_view_model.dart';
 
@@ -20,6 +21,14 @@ class MyPageScreen extends ConsumerStatefulWidget {
 }
 
 class _MyPageScreenState extends ConsumerState<MyPageScreen> {
+  static const List<String> _scheduleTabs = <String>[
+    '내 여행 일정',
+    '여행 기록',
+    '일정 좋아요',
+    '블로그 좋아요',
+    '좋아요한 여행지',
+  ];
+
   int _scheduleTabIndex = 0;
 
   @override
@@ -213,7 +222,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
       ),
       child: Row(
         children: [
-          _StatItem(title: '생성한 로드맵', value: roadmapCount),
+          _StatItem(title: '여행 일정\n생성 횟수', value: roadmapCount),
           _StatItem(title: '방문한 국가', value: visitedCount, isEmphasized: true),
           _StatItem(title: '작성한 여행 기록', value: blogCount),
           _StatItem(title: '찜한 여행지', value: likedRegionCount),
@@ -223,32 +232,38 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
   }
 
   Widget _buildScheduleSection(MyPageState state) {
-    final tabs = const ['내 여행 일정', '여행 기록', '북마크'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 20.w),
           child: Text(
-            '내 일정',
+            '내 활동',
             style: MTextStyles.lBodyM.copyWith(color: MColor.gray800),
           ),
         ),
         SizedBox(height: 10.h),
-        Row(
-          children: [
-            for (int i = 0; i < tabs.length; i++)
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => setState(() => _scheduleTabIndex = i),
-                  child: _ScheduleTab(
-                    label: tabs[i],
-                    isSelected: _scheduleTabIndex == i,
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: EdgeInsets.symmetric(horizontal: 20.w),
+          child: Row(
+            children: [
+              for (int i = 0; i < _scheduleTabs.length; i++) ...[
+                SizedBox(
+                  width: 104.w,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => setState(() => _scheduleTabIndex = i),
+                    child: _ScheduleTab(
+                      label: _scheduleTabs[i],
+                      isSelected: _scheduleTabIndex == i,
+                    ),
                   ),
                 ),
-              ),
-          ],
+                if (i != _scheduleTabs.length - 1) SizedBox(width: 8.w),
+              ],
+            ],
+          ),
         ),
         SizedBox(height: 12.h),
         Container(
@@ -269,7 +284,9 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
       return switch (_scheduleTabIndex) {
         0 => state.myCourses == null,
         1 => state.myBlogs == null,
-        _ => state.myCourseBookmarks == null,
+        2 => state.myCourseLikes == null,
+        3 => state.myBlogLikes == null,
+        _ => state.likedRegions == null,
       };
     }
 
@@ -335,17 +352,16 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
         emptyText: '작성한 여행 기록(블로그)이 없어요.',
       ),
       2 => _buildCourseCards(
-        courses: state.myCourseBookmarks?.items ?? const <CourseResponse>[],
-        emptyText: '북마크한 코스가 없어요.',
+        courses: state.myCourseLikes?.items ?? const <CourseResponse>[],
+        emptyText: '좋아요한 일정이 없어요.',
       ),
-      _ => SizedBox(
-        height: 60.h,
-        child: Center(
-          child: Text(
-            '표시할 데이터가 없어요.',
-            style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
-          ),
-        ),
+      3 => _buildBlogCards(
+        blogs: state.myBlogLikes?.items ?? const <BlogResponse>[],
+        emptyText: '좋아요한 블로그가 없어요.',
+      ),
+      _ => _buildLikedRegionCards(
+        regions: state.likedRegions?.items ?? const <LikedRegionResponse>[],
+        emptyText: '좋아요한 여행지가 없어요.',
       ),
     };
   }
@@ -416,9 +432,46 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     );
   }
 
+  Widget _buildLikedRegionCards({
+    required List<LikedRegionResponse> regions,
+    required String emptyText,
+    bool showTitle = true,
+  }) {
+    if (regions.isEmpty) {
+      return SizedBox(
+        height: 60.h,
+        child: Center(
+          child: Text(
+            emptyText,
+            style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
+          ),
+        ),
+      );
+    }
+
+    final display = regions.take(3).toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        for (int i = 0; i < display.length; i++) ...[
+          _buildLikedRegionCard(region: display[i]),
+          if (i != display.length - 1) SizedBox(height: 10.h),
+        ],
+        if (showTitle) ...[
+          SizedBox(height: 10.h),
+          _buildIndicatorRow(count: display.length),
+        ],
+      ],
+    );
+  }
+
   Widget _buildTripCard({required CourseResponse course}) {
     final title = (course.title ?? '여행 코스').trim();
-    final daysText = course.days == null ? '일정' : '${course.days}일 일정';
+    final daysText = switch ((course.nights, course.days)) {
+      (final nights?, final days?) => '$nights박 $days일',
+      (_, final days?) => '$days일 일정',
+      _ => '일정',
+    };
     final tags = course.tags
         .where((e) => e.trim().isNotEmpty)
         .take(2)
@@ -502,6 +555,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
   Widget _buildBlogCard({required BlogResponse blog}) {
     final title = (blog.title ?? '여행 기록').trim();
     final description = (blog.description ?? '').trim();
+    final createdAtText = _formatCreatedAt(blog.createdAt);
     final tags = blog.tags
         .where((e) => e.trim().isNotEmpty)
         .take(2)
@@ -534,7 +588,9 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
                 ),
                 SizedBox(height: 4.h),
                 Text(
-                  description.isEmpty ? '내용이 없어요.' : description,
+                  description.isNotEmpty
+                      ? description
+                      : (createdAtText ?? '내용이 없어요.'),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
@@ -573,6 +629,68 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     );
   }
 
+  Widget _buildLikedRegionCard({required LikedRegionResponse region}) {
+    final title = (region.regionName ?? '여행지').trim();
+    final description = (region.description ?? '').trim();
+
+    return Container(
+      padding: EdgeInsets.all(12.r),
+      decoration: BoxDecoration(
+        color: MColor.gray50,
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10.r),
+            child: _buildLikedRegionThumbnail(region.imageUrl),
+          ),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title.isEmpty ? '여행지' : title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: MTextStyles.labelB.copyWith(color: MColor.gray800),
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  description.isEmpty ? '설명이 없어요.' : description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
+                ),
+                SizedBox(height: 10.h),
+                Row(
+                  children: [
+                    _buildTag('#좋아요여행지'),
+                    const Spacer(),
+                    Icon(
+                      Icons.favorite_rounded,
+                      size: 14.w,
+                      color: MColor.primary500,
+                    ),
+                    SizedBox(width: 4.w),
+                    Text(
+                      (region.likeCount ?? 0).toString(),
+                      style: MTextStyles.sLabelM.copyWith(
+                        color: MColor.gray400,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBlogThumbnail(String? thumbnailUrl) {
     final uri = thumbnailUrl == null ? null : Uri.tryParse(thumbnailUrl);
     final isNetwork = uri != null && uri.hasScheme;
@@ -594,6 +712,41 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     }
 
     return Image.asset(MImages.sibuya, width: 58.w, height: 58.w);
+  }
+
+  Widget _buildLikedRegionThumbnail(String? imageUrl) {
+    final uri = imageUrl == null ? null : Uri.tryParse(imageUrl);
+    final isNetwork = uri != null && uri.hasScheme;
+
+    if (isNetwork) {
+      final url = imageUrl!;
+      return Image.network(
+        url,
+        width: 58.w,
+        height: 58.w,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Image.asset(
+          MImages.sibuya,
+          width: 58.w,
+          height: 58.w,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
+    return Image.asset(MImages.sibuya, width: 58.w, height: 58.w);
+  }
+
+  String? _formatCreatedAt(String? createdAt) {
+    final value = createdAt?.trim();
+    if (value == null || value.isEmpty) return null;
+
+    final parsed = DateTime.tryParse(value);
+    if (parsed == null) return null;
+
+    final month = parsed.month.toString().padLeft(2, '0');
+    final day = parsed.day.toString().padLeft(2, '0');
+    return '${parsed.year}.$month.$day 작성';
   }
 
   Widget _buildIndicatorRow({int count = 3}) {

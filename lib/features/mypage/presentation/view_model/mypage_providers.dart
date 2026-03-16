@@ -4,8 +4,11 @@ import 'package:mohaeng_app_service/features/mypage/data/repository/mypage_repos
 import 'package:mohaeng_app_service/features/mypage/domain/repository/mypage_repository.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/clear_my_page_cache.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/delete_my_account.dart';
+import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_liked_regions.dart';
+import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_blog_likes.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_blogs.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_course_bookmarks.dart';
+import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_course_likes.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_courses.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_page_summary.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_visited_countries.dart';
@@ -36,6 +39,18 @@ final getMyBlogsUsecaseProvider = Provider<GetMyBlogsUsecase>(
   (ref) => GetMyBlogsUsecase(ref.watch(myPageRepositoryProvider)),
 );
 
+final getMyCourseLikesUsecaseProvider = Provider<GetMyCourseLikesUsecase>(
+  (ref) => GetMyCourseLikesUsecase(ref.watch(myPageRepositoryProvider)),
+);
+
+final getMyBlogLikesUsecaseProvider = Provider<GetMyBlogLikesUsecase>(
+  (ref) => GetMyBlogLikesUsecase(ref.watch(myPageRepositoryProvider)),
+);
+
+final getLikedRegionsUsecaseProvider = Provider<GetLikedRegionsUsecase>(
+  (ref) => GetLikedRegionsUsecase(ref.watch(myPageRepositoryProvider)),
+);
+
 final getVisitedCountriesUsecaseProvider = Provider<GetVisitedCountriesUsecase>(
   (ref) => GetVisitedCountriesUsecase(ref.watch(myPageRepositoryProvider)),
 );
@@ -53,13 +68,10 @@ final myPageViewModelProvider =
       (ref) => MyPageViewModel(
         getMyPageSummaryUsecase: ref.watch(getMyPageSummaryUsecaseProvider),
         getMyCoursesUsecase: ref.watch(getMyCoursesUsecaseProvider),
-        getMyCourseBookmarksUsecase: ref.watch(
-          getMyCourseBookmarksUsecaseProvider,
-        ),
         getMyBlogsUsecase: ref.watch(getMyBlogsUsecaseProvider),
-        getVisitedCountriesUsecase: ref.watch(
-          getVisitedCountriesUsecaseProvider,
-        ),
+        getMyCourseLikesUsecase: ref.watch(getMyCourseLikesUsecaseProvider),
+        getMyBlogLikesUsecase: ref.watch(getMyBlogLikesUsecaseProvider),
+        getLikedRegionsUsecase: ref.watch(getLikedRegionsUsecaseProvider),
         deleteMyAccountUsecase: ref.watch(deleteMyAccountUsecaseProvider),
         clearMyPageCacheUsecase: ref.watch(clearMyPageCacheUsecaseProvider),
         tokenStorage: ref.watch(myPageAuthTokenStorageProvider),

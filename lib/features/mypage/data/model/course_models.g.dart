@@ -45,12 +45,14 @@ Map<String, dynamic> _$CourseItemsResponseToJson(
 
 CourseResponse _$CourseResponseFromJson(Map<String, dynamic> json) =>
     CourseResponse(
-      id: _readIntNullable(json['id']),
+      id: _readStringNullable(json['id']),
       title: _readStringNullable(json['title']),
       countryCode: _readStringNullable(json['countryCode']),
       thumbnailUrl: _readStringNullable(json['thumbnailUrl']),
+      nights: _readIntNullable(json['nights']),
       days: _readIntNullable(json['days']),
       likeCount: _readIntNullable(json['likeCount']),
+      isLiked: _readBoolNullable(json['isLiked']),
       tags: json['tags'] == null ? const [] : _readStringList(json['tags']),
       places: json['places'] == null
           ? const []
@@ -61,12 +63,14 @@ CourseResponse _$CourseResponseFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$CourseResponseToJson(CourseResponse instance) =>
     <String, dynamic>{
-      'id': _writeIntNullable(instance.id),
+      'id': _writeStringNullable(instance.id),
       'title': _writeStringNullable(instance.title),
       'countryCode': _writeStringNullable(instance.countryCode),
       'thumbnailUrl': _writeStringNullable(instance.thumbnailUrl),
+      'nights': _writeIntNullable(instance.nights),
       'days': _writeIntNullable(instance.days),
       'likeCount': _writeIntNullable(instance.likeCount),
+      'isLiked': _writeBoolNullable(instance.isLiked),
       'tags': _writeStringList(instance.tags),
       'places': _writePlacesList(instance.places),
       'createdAt': _writeStringNullable(instance.createdAt),

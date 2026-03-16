@@ -1,6 +1,7 @@
 import 'package:mohaeng_app_service/features/mypage/data/datasource/mypage_remote_datasource.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/blog_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/course_models.dart';
+import 'package:mohaeng_app_service/features/mypage/data/model/liked_region_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/mypage_summary_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/visited_country_models.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/repository/mypage_repository.dart';
@@ -24,6 +25,8 @@ class MyPageRepositoryImpl implements MyPageRepository {
       <String, _CacheEntry<BlogsResponse>>{};
   final Map<String, _CacheEntry<BlogItemsResponse>> _blogLikesCache =
       <String, _CacheEntry<BlogItemsResponse>>{};
+  final Map<String, _CacheEntry<LikedRegionsResponse>> _likedRegionsCache =
+      <String, _CacheEntry<LikedRegionsResponse>>{};
   final Map<String, _CacheEntry<VisitedCountryItemsResponse>>
   _visitedCountriesCache = <String, _CacheEntry<VisitedCountryItemsResponse>>{};
 
@@ -46,7 +49,7 @@ class MyPageRepositoryImpl implements MyPageRepository {
   @override
   Future<CoursesResponse> getMyCourses({
     int page = 1,
-    int limit = 20,
+    int limit = 10,
     bool forceRefresh = false,
   }) async {
     final key = _pageKey(page: page, limit: limit);
@@ -90,7 +93,7 @@ class MyPageRepositoryImpl implements MyPageRepository {
   @override
   Future<CourseItemsResponse> getMyCourseLikes({
     int page = 1,
-    int limit = 20,
+    int limit = 10,
     bool forceRefresh = false,
   }) async {
     final key = _pageKey(page: page, limit: limit);
@@ -112,7 +115,7 @@ class MyPageRepositoryImpl implements MyPageRepository {
   @override
   Future<BlogsResponse> getMyBlogs({
     int page = 1,
-    int limit = 6,
+    int limit = 10,
     bool forceRefresh = false,
   }) async {
     final key = _pageKey(page: page, limit: limit);
@@ -134,7 +137,7 @@ class MyPageRepositoryImpl implements MyPageRepository {
   @override
   Future<BlogItemsResponse> getMyBlogLikes({
     int page = 1,
-    int limit = 6,
+    int limit = 10,
     bool forceRefresh = false,
   }) async {
     final key = _pageKey(page: page, limit: limit);
@@ -150,6 +153,28 @@ class MyPageRepositoryImpl implements MyPageRepository {
       limit: limit,
     );
     _blogLikesCache[key] = _CacheEntry(response);
+    return response;
+  }
+
+  @override
+  Future<LikedRegionsResponse> getLikedRegions({
+    int page = 1,
+    int limit = 10,
+    bool forceRefresh = false,
+  }) async {
+    final key = _pageKey(page: page, limit: limit);
+    final cached = _readCache(
+      entry: _likedRegionsCache[key],
+      ttl: _listCacheTtl,
+      forceRefresh: forceRefresh,
+    );
+    if (cached != null) return cached;
+
+    final response = await _remoteDataSource.getLikedRegions(
+      page: page,
+      limit: limit,
+    );
+    _likedRegionsCache[key] = _CacheEntry(response);
     return response;
   }
 
@@ -210,6 +235,7 @@ class MyPageRepositoryImpl implements MyPageRepository {
     _courseLikesCache.clear();
     _blogsCache.clear();
     _blogLikesCache.clear();
+    _likedRegionsCache.clear();
     _visitedCountriesCache.clear();
   }
 }

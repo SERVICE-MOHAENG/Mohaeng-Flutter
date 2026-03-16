@@ -6,7 +6,15 @@ class GetMyBlogLikesUsecase {
 
   final MyPageRepository _repository;
 
-  Future<BlogItemsResponse> call({int page = 1, int limit = 6}) {
-    return _repository.getMyBlogLikes(page: page, limit: limit);
+  Future<BlogItemsResponse> call({
+    int page = 1,
+    int limit = 10,
+    bool forceRefresh = false,
+  }) {
+    return _repository.getMyBlogLikes(
+      page: page,
+      limit: limit,
+      forceRefresh: forceRefresh,
+    );
   }
 }

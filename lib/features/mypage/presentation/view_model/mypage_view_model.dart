@@ -4,15 +4,16 @@ import 'package:mohaeng_app_service/core/network/api_error.dart';
 import 'package:mohaeng_app_service/features/auth/data/auth_token_storage.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/blog_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/course_models.dart';
+import 'package:mohaeng_app_service/features/mypage/data/model/liked_region_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/mypage_summary_models.dart';
-import 'package:mohaeng_app_service/features/mypage/data/model/visited_country_models.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/clear_my_page_cache.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/delete_my_account.dart';
+import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_liked_regions.dart';
+import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_blog_likes.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_blogs.dart';
-import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_course_bookmarks.dart';
+import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_course_likes.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_courses.dart';
 import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_my_page_summary.dart';
-import 'package:mohaeng_app_service/features/mypage/domain/usecase/get_visited_countries.dart';
 
 @immutable
 class MyPageState {
@@ -24,9 +25,10 @@ class MyPageState {
     this.isDeletingAccount = false,
     this.loadErrorMessage,
     this.myCourses,
-    this.myCourseBookmarks,
     this.myBlogs,
-    this.visitedCountries,
+    this.myCourseLikes,
+    this.myBlogLikes,
+    this.likedRegions,
   });
 
   final bool isLoadingUser;
@@ -37,9 +39,10 @@ class MyPageState {
   final bool isDeletingAccount;
   final String? loadErrorMessage;
   final CoursesResponse? myCourses;
-  final CourseItemsResponse? myCourseBookmarks;
   final BlogsResponse? myBlogs;
-  final VisitedCountryItemsResponse? visitedCountries;
+  final CourseItemsResponse? myCourseLikes;
+  final BlogItemsResponse? myBlogLikes;
+  final LikedRegionsResponse? likedRegions;
 
   MyPageState copyWith({
     bool? isLoadingUser,
@@ -52,9 +55,10 @@ class MyPageState {
     String? loadErrorMessage,
     bool clearLoadError = false,
     CoursesResponse? myCourses,
-    CourseItemsResponse? myCourseBookmarks,
     BlogsResponse? myBlogs,
-    VisitedCountryItemsResponse? visitedCountries,
+    CourseItemsResponse? myCourseLikes,
+    BlogItemsResponse? myBlogLikes,
+    LikedRegionsResponse? likedRegions,
   }) {
     return MyPageState(
       isLoadingUser: isLoadingUser ?? this.isLoadingUser,
@@ -68,9 +72,10 @@ class MyPageState {
           ? null
           : (loadErrorMessage ?? this.loadErrorMessage),
       myCourses: myCourses ?? this.myCourses,
-      myCourseBookmarks: myCourseBookmarks ?? this.myCourseBookmarks,
       myBlogs: myBlogs ?? this.myBlogs,
-      visitedCountries: visitedCountries ?? this.visitedCountries,
+      myCourseLikes: myCourseLikes ?? this.myCourseLikes,
+      myBlogLikes: myBlogLikes ?? this.myBlogLikes,
+      likedRegions: likedRegions ?? this.likedRegions,
     );
   }
 }
@@ -79,17 +84,19 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
   MyPageViewModel({
     required GetMyPageSummaryUsecase getMyPageSummaryUsecase,
     required GetMyCoursesUsecase getMyCoursesUsecase,
-    required GetMyCourseBookmarksUsecase getMyCourseBookmarksUsecase,
     required GetMyBlogsUsecase getMyBlogsUsecase,
-    required GetVisitedCountriesUsecase getVisitedCountriesUsecase,
+    required GetMyCourseLikesUsecase getMyCourseLikesUsecase,
+    required GetMyBlogLikesUsecase getMyBlogLikesUsecase,
+    required GetLikedRegionsUsecase getLikedRegionsUsecase,
     required DeleteMyAccountUsecase deleteMyAccountUsecase,
     required ClearMyPageCacheUsecase clearMyPageCacheUsecase,
     required AuthTokenStorage tokenStorage,
   }) : _getMyPageSummaryUsecase = getMyPageSummaryUsecase,
        _getMyCoursesUsecase = getMyCoursesUsecase,
-       _getMyCourseBookmarksUsecase = getMyCourseBookmarksUsecase,
        _getMyBlogsUsecase = getMyBlogsUsecase,
-       _getVisitedCountriesUsecase = getVisitedCountriesUsecase,
+       _getMyCourseLikesUsecase = getMyCourseLikesUsecase,
+       _getMyBlogLikesUsecase = getMyBlogLikesUsecase,
+       _getLikedRegionsUsecase = getLikedRegionsUsecase,
        _deleteMyAccountUsecase = deleteMyAccountUsecase,
        _clearMyPageCacheUsecase = clearMyPageCacheUsecase,
        _tokenStorage = tokenStorage,
@@ -97,9 +104,10 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
 
   final GetMyPageSummaryUsecase _getMyPageSummaryUsecase;
   final GetMyCoursesUsecase _getMyCoursesUsecase;
-  final GetMyCourseBookmarksUsecase _getMyCourseBookmarksUsecase;
   final GetMyBlogsUsecase _getMyBlogsUsecase;
-  final GetVisitedCountriesUsecase _getVisitedCountriesUsecase;
+  final GetMyCourseLikesUsecase _getMyCourseLikesUsecase;
+  final GetMyBlogLikesUsecase _getMyBlogLikesUsecase;
+  final GetLikedRegionsUsecase _getLikedRegionsUsecase;
   final DeleteMyAccountUsecase _deleteMyAccountUsecase;
   final ClearMyPageCacheUsecase _clearMyPageCacheUsecase;
   final AuthTokenStorage _tokenStorage;
@@ -140,14 +148,15 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
 
     final errors = <String>[];
     CoursesResponse? myCourses;
-    CourseItemsResponse? myCourseBookmarks;
     BlogsResponse? myBlogs;
-    VisitedCountryItemsResponse? visitedCountries;
+    CourseItemsResponse? myCourseLikes;
+    BlogItemsResponse? myBlogLikes;
+    LikedRegionsResponse? likedRegions;
 
     try {
       myCourses = await _getMyCoursesUsecase(
         page: 1,
-        limit: 20,
+        limit: 10,
         forceRefresh: forceRefresh,
       );
     } catch (error) {
@@ -155,19 +164,9 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
     }
 
     try {
-      myCourseBookmarks = await _getMyCourseBookmarksUsecase(
-        page: 1,
-        limit: 20,
-        forceRefresh: forceRefresh,
-      );
-    } catch (error) {
-      errors.add(_errorMessage(error, fallback: '북마크한 코스를 불러오지 못했어요.'));
-    }
-
-    try {
       myBlogs = await _getMyBlogsUsecase(
         page: 1,
-        limit: 6,
+        limit: 10,
         forceRefresh: forceRefresh,
       );
     } catch (error) {
@@ -175,20 +174,41 @@ class MyPageViewModel extends StateNotifier<MyPageState> {
     }
 
     try {
-      visitedCountries = await _getVisitedCountriesUsecase(
+      myCourseLikes = await _getMyCourseLikesUsecase(
         page: 1,
         limit: 10,
         forceRefresh: forceRefresh,
       );
     } catch (error) {
-      errors.add(_errorMessage(error, fallback: '방문한 국가를 불러오지 못했어요.'));
+      errors.add(_errorMessage(error, fallback: '좋아요한 일정 목록을 불러오지 못했어요.'));
+    }
+
+    try {
+      myBlogLikes = await _getMyBlogLikesUsecase(
+        page: 1,
+        limit: 10,
+        forceRefresh: forceRefresh,
+      );
+    } catch (error) {
+      errors.add(_errorMessage(error, fallback: '좋아요한 블로그 목록을 불러오지 못했어요.'));
+    }
+
+    try {
+      likedRegions = await _getLikedRegionsUsecase(
+        page: 1,
+        limit: 10,
+        forceRefresh: forceRefresh,
+      );
+    } catch (error) {
+      errors.add(_errorMessage(error, fallback: '좋아요한 여행지 목록을 불러오지 못했어요.'));
     }
 
     state = state.copyWith(
       myCourses: myCourses,
-      myCourseBookmarks: myCourseBookmarks,
       myBlogs: myBlogs,
-      visitedCountries: visitedCountries,
+      myCourseLikes: myCourseLikes,
+      myBlogLikes: myBlogLikes,
+      likedRegions: likedRegions,
       isLoading: false,
       loadErrorMessage: errors.isEmpty ? null : errors.first,
     );

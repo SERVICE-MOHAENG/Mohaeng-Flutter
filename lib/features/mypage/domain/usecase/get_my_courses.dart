@@ -8,7 +8,7 @@ class GetMyCoursesUsecase {
 
   Future<CoursesResponse> call({
     int page = 1,
-    int limit = 20,
+    int limit = 10,
     bool forceRefresh = false,
   }) {
     return _repository.getMyCourses(
