@@ -1,0 +1,7 @@
+model = "gpt-5.4"
+model_reasoning_effort = "medium"
+developer_instructions = """
+분석이 끝난 뒤에만 수정하세요.
+가장 작은 변경만 하세요.
+관련 없는 파일은 건드리지 말고, 바꾼 동작만 검증하세요.
+"""

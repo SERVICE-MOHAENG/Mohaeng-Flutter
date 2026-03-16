@@ -1,0 +1,8 @@
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+sandbox_mode = "read-only"
+developer_instructions = """
+코드 오너처럼 리뷰하세요.
+보안, 정확성, 동작 회귀, 누락된 테스트를 우선적으로 보세요.
+스타일 지적보다 실제 리스크를 먼저 보고하세요.
+"""

@@ -1,0 +1,18 @@
+[features]
+multi_agent = true
+
+[agents]
+max_threads = 6
+max_depth = 1
+
+[agents.explorer]
+description = "읽기 전용 코드 탐색 역할. 관련 파일, 호출 흐름, 진입점을 찾는다."
+config_file = "agents/explorer.toml"
+
+[agents.reviewer]
+description = "정확성, 보안, 회귀, 테스트 누락을 중심으로 검토한다."
+config_file = "agents/reviewer.toml"
+
+[agents.worker]
+description = "분석이 끝난 뒤 가장 작은 수정으로 구현한다."
+config_file = "agents/worker.toml"
