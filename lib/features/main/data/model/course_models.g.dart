@@ -32,6 +32,7 @@ CourseResponse _$CourseResponseFromJson(Map<String, dynamic> json) =>
       thumbnailUrl: _readStringNullable(json['thumbnailUrl']),
       days: _readIntNullable(json['days']),
       likeCount: _readIntNullable(json['likeCount']),
+      isLiked: _readBoolNullable(json['isLiked']),
       tags: json['tags'] == null ? const [] : _readStringList(json['tags']),
       places: json['places'] == null
           ? const []
@@ -48,6 +49,7 @@ Map<String, dynamic> _$CourseResponseToJson(CourseResponse instance) =>
       'thumbnailUrl': _writeStringNullable(instance.thumbnailUrl),
       'days': _writeIntNullable(instance.days),
       'likeCount': _writeIntNullable(instance.likeCount),
+      'isLiked': _writeBoolNullable(instance.isLiked),
       'tags': _writeStringList(instance.tags),
       'places': _writePlacesList(instance.places),
       'createdAt': _writeStringNullable(instance.createdAt),

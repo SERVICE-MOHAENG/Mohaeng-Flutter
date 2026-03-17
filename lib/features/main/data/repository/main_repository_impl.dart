@@ -24,16 +24,8 @@ class MainRepositoryImpl implements MainRepository {
   }
 
   @override
-  Future<BlogsResponse> getMainBlogs({
-    String sortBy = 'latest',
-    int page = 1,
-    int limit = 6,
-  }) {
-    return _remoteDataSource.getMainBlogs(
-      sortBy: sortBy,
-      page: page,
-      limit: limit,
-    );
+  Future<BlogsResponse> getMainBlogs({int page = 1, int limit = 6}) {
+    return _remoteDataSource.getMainBlogs(page: page, limit: limit);
   }
 
   @override

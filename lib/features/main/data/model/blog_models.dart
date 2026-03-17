@@ -53,13 +53,18 @@ class BlogResponse {
     this.countryCode,
     this.thumbnailUrl,
     this.likeCount,
+    this.isLiked,
+    this.isPublic,
+    this.viewCount,
+    this.userId,
+    this.userName,
     this.tags = const [],
     this.createdAt,
     this.updatedAt,
   });
 
-  @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
-  final int? id;
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? id;
 
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? title;
@@ -75,6 +80,21 @@ class BlogResponse {
 
   @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
   final int? likeCount;
+
+  @JsonKey(fromJson: _readBoolNullable, toJson: _writeBoolNullable)
+  final bool? isLiked;
+
+  @JsonKey(fromJson: _readBoolNullable, toJson: _writeBoolNullable)
+  final bool? isPublic;
+
+  @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
+  final int? viewCount;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? userId;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? userName;
 
   @JsonKey(fromJson: _readStringList, toJson: _writeStringList)
   final List<String> tags;
@@ -107,6 +127,12 @@ class BlogResponse {
     }
     if (!normalized.containsKey('likeCount') && normalized['likes'] != null) {
       normalized['likeCount'] = normalized['likes'];
+    }
+    if (!normalized.containsKey('isLiked')) {
+      normalized['isLiked'] = normalized['isLiked'] ?? normalized['liked'];
+    }
+    if (!normalized.containsKey('tags') && normalized['hashTags'] is List) {
+      normalized['tags'] = normalized['hashTags'];
     }
 
     return _$BlogResponseFromJson(normalized);
@@ -154,11 +180,25 @@ int? _writeIntNullable(int? value) => value;
 
 String? _readStringNullable(Object? value) {
   if (value == null) return null;
+  if (value is Map || value is List) return null;
   final s = value.toString().trim();
   return s.isEmpty ? null : s;
 }
 
 String? _writeStringNullable(String? value) => value;
+
+bool? _readBoolNullable(Object? value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  if (value is String) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized == 'true' || normalized == '1') return true;
+    if (normalized == 'false' || normalized == '0') return false;
+  }
+  return null;
+}
+
+bool? _writeBoolNullable(bool? value) => value;
 
 List<String> _readStringList(Object? value) {
   if (value is! List) return const <String>[];

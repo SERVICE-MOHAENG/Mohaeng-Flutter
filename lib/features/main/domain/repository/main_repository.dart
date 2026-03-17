@@ -9,11 +9,7 @@ abstract class MainRepository {
     int limit = 10,
   });
 
-  Future<BlogsResponse> getMainBlogs({
-    String sortBy = 'latest',
-    int page = 1,
-    int limit = 6,
-  });
+  Future<BlogsResponse> getMainBlogs({int page = 1, int limit = 6});
 
   Future<UserSummaryResponse> getMainUserMe();
 }

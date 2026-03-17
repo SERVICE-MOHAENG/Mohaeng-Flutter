@@ -72,4 +72,33 @@ class MainCoursesViewModel extends StateNotifier<MainCoursesState> {
       );
     }
   }
+
+  void toggleLike(CourseResponse course) {
+    final nextCourses = state.courses.map((item) {
+      if (!_isSameCourse(item, course)) return item;
+
+      final isLiked = item.isLiked ?? false;
+      final nextIsLiked = !isLiked;
+      final currentLikeCount = item.likeCount ?? 0;
+      final nextLikeCount = nextIsLiked
+          ? currentLikeCount + 1
+          : currentLikeCount > 0
+          ? currentLikeCount - 1
+          : 0;
+
+      return item.copyWith(isLiked: nextIsLiked, likeCount: nextLikeCount);
+    }).toList(growable: false);
+
+    state = state.copyWith(courses: nextCourses);
+  }
+
+  bool _isSameCourse(CourseResponse left, CourseResponse right) {
+    if (left.id != null && right.id != null) {
+      return left.id == right.id;
+    }
+
+    return left.title == right.title &&
+        left.countryCode == right.countryCode &&
+        left.createdAt == right.createdAt;
+  }
 }

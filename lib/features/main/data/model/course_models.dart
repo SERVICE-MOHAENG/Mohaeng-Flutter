@@ -53,6 +53,7 @@ class CourseResponse {
     this.thumbnailUrl,
     this.days,
     this.likeCount,
+    this.isLiked,
     this.tags = const [],
     this.places = const [],
     this.createdAt,
@@ -76,6 +77,9 @@ class CourseResponse {
 
   @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
   final int? likeCount;
+
+  @JsonKey(fromJson: _readBoolNullable, toJson: _writeBoolNullable)
+  final bool? isLiked;
 
   @JsonKey(fromJson: _readStringList, toJson: _writeStringList)
   final List<String> tags;
@@ -110,6 +114,13 @@ class CourseResponse {
     if (!normalized.containsKey('likeCount') && normalized['likes'] != null) {
       normalized['likeCount'] = normalized['likes'];
     }
+    if (!normalized.containsKey('isLiked')) {
+      normalized['isLiked'] =
+          normalized['isLiked'] ??
+          normalized['liked'] ??
+          normalized['isBookmarked'] ??
+          normalized['bookmarked'];
+    }
     if (!normalized.containsKey('places') &&
         normalized['coursePlaces'] is List) {
       normalized['places'] = normalized['coursePlaces'];
@@ -119,6 +130,34 @@ class CourseResponse {
   }
 
   Map<String, dynamic> toJson() => _$CourseResponseToJson(this);
+
+  CourseResponse copyWith({
+    int? id,
+    String? title,
+    String? countryCode,
+    String? thumbnailUrl,
+    int? days,
+    int? likeCount,
+    bool? isLiked,
+    List<String>? tags,
+    List<CoursePlaceResponse>? places,
+    String? createdAt,
+    String? updatedAt,
+  }) {
+    return CourseResponse(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      countryCode: countryCode ?? this.countryCode,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      days: days ?? this.days,
+      likeCount: likeCount ?? this.likeCount,
+      isLiked: isLiked ?? this.isLiked,
+      tags: tags ?? this.tags,
+      places: places ?? this.places,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }
 
 @JsonSerializable()
@@ -213,6 +252,19 @@ int? _readIntNullable(Object? value) {
 }
 
 int? _writeIntNullable(int? value) => value;
+
+bool? _readBoolNullable(Object? value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  if (value is String) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized == 'true' || normalized == '1') return true;
+    if (normalized == 'false' || normalized == '0') return false;
+  }
+  return null;
+}
+
+bool? _writeBoolNullable(bool? value) => value;
 
 double? _readDoubleNullable(Object? value) {
   if (value is double) return value;

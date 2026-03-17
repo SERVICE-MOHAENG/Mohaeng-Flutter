@@ -10,26 +10,22 @@ class MainBlogsState {
     this.isLoading = false,
     this.errorMessage,
     this.blogs = const <BlogResponse>[],
-    this.sortBy = 'latest',
   });
 
   final bool isLoading;
   final String? errorMessage;
   final List<BlogResponse> blogs;
-  final String sortBy;
 
   MainBlogsState copyWith({
     bool? isLoading,
     String? errorMessage,
     bool clearError = false,
     List<BlogResponse>? blogs,
-    String? sortBy,
   }) {
     return MainBlogsState(
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       blogs: blogs ?? this.blogs,
-      sortBy: sortBy ?? this.sortBy,
     );
   }
 }
@@ -39,25 +35,13 @@ class MainBlogsViewModel extends StateNotifier<MainBlogsState> {
 
   final GetMainBlogsUsecase _getMainBlogsUsecase;
 
-  Future<void> load({String? sortBy}) async {
+  Future<void> load() async {
     if (state.isLoading) return;
 
-    final nextSortBy = sortBy == null
-        ? state.sortBy
-        : (sortBy == 'popular' ? 'popular' : 'latest');
-
-    state = state.copyWith(
-      isLoading: true,
-      clearError: true,
-      sortBy: nextSortBy,
-    );
+    state = state.copyWith(isLoading: true, clearError: true);
 
     try {
-      final response = await _getMainBlogsUsecase(
-        sortBy: nextSortBy,
-        page: 1,
-        limit: 6,
-      );
+      final response = await _getMainBlogsUsecase(page: 1, limit: 6);
 
       state = state.copyWith(
         isLoading: false,
