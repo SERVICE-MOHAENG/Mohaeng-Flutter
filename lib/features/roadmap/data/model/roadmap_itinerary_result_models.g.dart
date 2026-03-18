@@ -10,6 +10,7 @@ RoadmapItineraryResultResponse _$RoadmapItineraryResultResponseFromJson(
   Map<String, dynamic> json,
 ) => RoadmapItineraryResultResponse(
   status: json['status'] as String,
+  travelCourseId: json['travelCourseId'] as String?,
   data: json['data'] == null
       ? null
       : RoadmapItineraryData.fromJson(json['data'] as Map<String, dynamic>),
@@ -22,6 +23,7 @@ Map<String, dynamic> _$RoadmapItineraryResultResponseToJson(
   RoadmapItineraryResultResponse instance,
 ) => <String, dynamic>{
   'status': instance.status,
+  'travelCourseId': instance.travelCourseId,
   'data': instance.data,
   'error': instance.error,
 };

@@ -12,6 +12,7 @@ import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
 import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_itinerary_result_models.dart';
 import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_modification_status_models.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view/roadmap_modification_request_limit.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
 
 class RoadmapResultScreen extends ConsumerStatefulWidget {
@@ -58,6 +59,7 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
   GoogleMapController? _mapController;
   String? _currentTimelineDayKey;
   bool _isModificationAssistantTyping = false;
+  int _modificationRequestCount = 0;
   List<_ModificationConversationEntry> _modificationConversation =
       const <_ModificationConversationEntry>[];
   List<RoadmapItineraryPlace> _currentTimelinePlaces =
@@ -579,6 +581,13 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
   Future<void> _submitRoadmapModification() async {
     final chatState = ref.read(roadmapChatViewModelProvider);
     if (chatState.isLoading || _isModificationPolling) return;
+    if (_hasReachedModificationRequestLimit) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('로드맵 수정 요청은 최대 5회까지 가능해요.')));
+      return;
+    }
 
     final message = _requestInputController.text.trim();
     if (message.isEmpty) {
@@ -636,6 +645,11 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
 
     final modificationJobId = response?.jobId.trim();
     if (modificationJobId != null && modificationJobId.isNotEmpty) {
+      setState(() {
+        _modificationRequestCount = incrementRoadmapModificationRequestCount(
+          _modificationRequestCount,
+        );
+      });
       _startModificationPolling(modificationJobId);
       return;
     }
@@ -655,6 +669,10 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
   }) {
     final viewInsetsBottom = MediaQuery.viewInsetsOf(context).bottom;
     final safeBottom = MediaQuery.paddingOf(context).bottom;
+    final isInputEnabled = !isSending && !_hasReachedModificationRequestLimit;
+    final helperText = _hasReachedModificationRequestLimit
+        ? '로드맵 수정 요청 5/5 · 요청 가능 횟수를 모두 사용했어요.'
+        : '로드맵 수정 요청 $_modificationRequestCount/$roadmapModificationRequestLimit · 남은 횟수 $_remainingModificationRequestCount회';
 
     return AnimatedPadding(
       duration: const Duration(milliseconds: 220),
@@ -663,71 +681,102 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
       child: Container(
         color: MColor.white100,
         padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 10.h + safeBottom),
-        child: Container(
-          height: 44.h,
-          decoration: BoxDecoration(
-            color: const Color(0xFFEDEEF2),
-            borderRadius: BorderRadius.circular(10.r),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _requestInputController,
-                  enabled: !isSending,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) {
-                    if (isSending) return;
-                    _submitRoadmapModification();
-                  },
-                  style: MTextStyles.labelM.copyWith(color: MColor.gray700),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 14.w),
-                    hintText: '원하는 일정 수정 내용을 입력해주세요.',
-                    hintStyle: MTextStyles.labelM.copyWith(
-                      color: MColor.gray300,
-                    ),
-                  ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(left: 4.w, bottom: 6.h),
+              child: Text(
+                helperText,
+                style: MTextStyles.sLabelM.copyWith(
+                  color: _hasReachedModificationRequestLimit
+                      ? MColor.gray500
+                      : MColor.gray400,
                 ),
               ),
-              Padding(
-                padding: EdgeInsets.only(right: 6.w),
-                child: Material(
-                  color: isSending ? MColor.gray200 : MColor.primary500,
-                  borderRadius: BorderRadius.circular(9.r),
-                  child: InkWell(
-                    onTap: isSending ? null : _submitRoadmapModification,
-                    borderRadius: BorderRadius.circular(9.r),
-                    child: SizedBox(
-                      width: 32.w,
-                      height: 32.w,
-                      child: Center(
-                        child: isSending
-                            ? SizedBox(
-                                width: 14.w,
-                                height: 14.w,
-                                child: const CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Icon(
-                                Icons.arrow_upward_rounded,
-                                size: 18.sp,
-                                color: MColor.white100,
-                              ),
+            ),
+            Container(
+              height: 44.h,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEDEEF2),
+                borderRadius: BorderRadius.circular(10.r),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _requestInputController,
+                      enabled: isInputEnabled,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) {
+                        if (!isInputEnabled) return;
+                        _submitRoadmapModification();
+                      },
+                      style: MTextStyles.labelM.copyWith(color: MColor.gray700),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 14.w),
+                        hintText: _hasReachedModificationRequestLimit
+                            ? '수정 요청 가능 횟수를 모두 사용했어요.'
+                            : '원하는 일정 수정 내용을 입력해주세요.',
+                        hintStyle: MTextStyles.labelM.copyWith(
+                          color: MColor.gray300,
+                        ),
                       ),
                     ),
                   ),
-                ),
+                  Padding(
+                    padding: EdgeInsets.only(right: 6.w),
+                    child: Material(
+                      color: isInputEnabled
+                          ? MColor.primary500
+                          : MColor.gray200,
+                      borderRadius: BorderRadius.circular(9.r),
+                      child: InkWell(
+                        onTap: isInputEnabled
+                            ? _submitRoadmapModification
+                            : null,
+                        borderRadius: BorderRadius.circular(9.r),
+                        child: SizedBox(
+                          width: 32.w,
+                          height: 32.w,
+                          child: Center(
+                            child: isSending
+                                ? SizedBox(
+                                    width: 14.w,
+                                    height: 14.w,
+                                    child: const CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.arrow_upward_rounded,
+                                    size: 18.sp,
+                                    color: MColor.white100,
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  bool get _hasReachedModificationRequestLimit {
+    return hasReachedRoadmapModificationRequestLimit(_modificationRequestCount);
+  }
+
+  int get _remainingModificationRequestCount {
+    return remainingRoadmapModificationRequests(_modificationRequestCount);
   }
 
   void _syncSelectedDayIndex(int dayCount) {
