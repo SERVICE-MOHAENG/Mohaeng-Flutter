@@ -181,6 +181,12 @@ List<Map<String, dynamic>> _unwrapListPayload(Object? data) {
     if (nested is List) {
       return _parseMapList(nested);
     }
+    if (nested is Map<String, dynamic>) {
+      final destinations = nested['destinations'];
+      if (destinations is List) {
+        return _parseMapList(destinations);
+      }
+    }
   }
 
   throw const FormatException('응답 형식이 올바르지 않습니다.');
