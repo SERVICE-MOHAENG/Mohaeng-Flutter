@@ -14,10 +14,7 @@ class _MTabState extends State<MTab> {
   int _index = 0;
   late final PageController _pageController;
 
-  final List<Widget> _pages = const [
-    MainScreen(),
-    MyPageScreen(),
-  ];
+  final List<Widget> _pages = const [MainScreen(), MyPageScreen()];
 
   @override
   void initState() {
@@ -44,8 +41,9 @@ class _MTabState extends State<MTab> {
           backgroundColor: MColor.white100,
           indicatorColor: MColor.primary100,
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
-            final color =
-                states.contains(WidgetState.selected) ? MColor.gray800 : MColor.gray400;
+            final color = states.contains(WidgetState.selected)
+                ? MColor.gray800
+                : MColor.gray400;
             return TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -53,14 +51,16 @@ class _MTabState extends State<MTab> {
             );
           }),
           iconTheme: WidgetStateProperty.resolveWith((states) {
-            final color =
-                states.contains(WidgetState.selected) ? MColor.primary500 : MColor.gray400;
-            return IconThemeData(color: color, size: 22);
+            final color = states.contains(WidgetState.selected)
+                ? MColor.primary500
+                : MColor.gray400;
+            return IconThemeData(color: color, size: 24);
           }),
           elevation: 0,
         ),
         child: NavigationBar(
           selectedIndex: _index,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
           onDestinationSelected: (i) {
             setState(() => _index = i);
             _pageController.animateToPage(
@@ -69,7 +69,7 @@ class _MTabState extends State<MTab> {
               curve: Curves.easeOutCubic,
             );
           },
-          height: 68,
+          height: 80,
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.home_outlined),
