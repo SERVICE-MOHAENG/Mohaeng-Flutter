@@ -239,18 +239,15 @@ class MainCourseSection extends StatelessWidget {
           onTap: onOpenRoadmap,
           borderRadius: BorderRadius.circular(999.r),
           child: Ink(
-            height: 40.h,
-            padding: EdgeInsets.symmetric(horizontal: 24.w),
+            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 11.h),
             decoration: BoxDecoration(
               color: MColor.white100,
               borderRadius: BorderRadius.circular(999.r),
               border: Border.all(color: MColor.primary500, width: 1.2.w),
             ),
-            child: Center(
-              child: Text(
-                '로드맵 보러가기',
-                style: MTextStyles.sLabelM.copyWith(color: MColor.primary500),
-              ),
+            child: Text(
+              '로드맵 보러가기',
+              style: MTextStyles.sLabelM.copyWith(color: MColor.primary500),
             ),
           ),
         ),
