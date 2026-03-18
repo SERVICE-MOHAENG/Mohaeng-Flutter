@@ -12,11 +12,13 @@ class MainRepositoryImpl implements MainRepository {
 
   @override
   Future<CoursesResponse> getMainCourses({
+    String sortBy = 'popular',
     String? countryCode,
     int page = 1,
     int limit = 10,
   }) {
     return _remoteDataSource.getMainCourses(
+      sortBy: sortBy,
       countryCode: countryCode,
       page: page,
       limit: limit,
@@ -24,8 +26,16 @@ class MainRepositoryImpl implements MainRepository {
   }
 
   @override
-  Future<BlogsResponse> getMainBlogs({int page = 1, int limit = 6}) {
-    return _remoteDataSource.getMainBlogs(page: page, limit: limit);
+  Future<BlogsResponse> getMainBlogs({
+    String sortBy = 'latest',
+    int page = 1,
+    int limit = 6,
+  }) {
+    return _remoteDataSource.getMainBlogs(
+      sortBy: sortBy,
+      page: page,
+      limit: limit,
+    );
   }
 
   @override

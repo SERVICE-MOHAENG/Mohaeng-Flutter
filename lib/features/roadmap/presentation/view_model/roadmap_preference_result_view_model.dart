@@ -140,8 +140,67 @@ class RoadmapPreferenceResultViewModel
     }
   }
 
+  void toggleLike(RoadmapPreferenceResultItem target) {
+    final nextItems = state.items
+        .map((item) {
+          if (!_isSamePreferenceItem(item, target)) return item;
+
+          final isLiked = item.isLiked ?? false;
+          final nextIsLiked = !isLiked;
+          final currentLikeCount = item.likeCount ?? 0;
+          final nextLikeCount = nextIsLiked
+              ? currentLikeCount + 1
+              : currentLikeCount > 0
+              ? currentLikeCount - 1
+              : 0;
+
+          return RoadmapPreferenceResultItem(
+            regionName: item.regionName,
+            description: item.description,
+            imageUrl: item.imageUrl,
+            regionId: item.regionId,
+            likeCount: nextLikeCount,
+            isLiked: nextIsLiked,
+          );
+        })
+        .toList(growable: false);
+
+    state = state.copyWith(items: nextItems);
+  }
+
   void _logPreference(String message) {
     if (!kDebugMode) return;
     debugPrint('[ROADMAP][PREFERENCE] $message');
+  }
+
+  bool _isSamePreferenceItem(
+    RoadmapPreferenceResultItem left,
+    RoadmapPreferenceResultItem right,
+  ) {
+    final leftRegionId = _normalizeComparableValue(left.regionId);
+    final rightRegionId = _normalizeComparableValue(right.regionId);
+    if (leftRegionId != null && rightRegionId != null) {
+      return leftRegionId == rightRegionId;
+    }
+
+    final leftRegionName = left.regionName.trim();
+    final rightRegionName = right.regionName.trim();
+    if (leftRegionName.isNotEmpty && rightRegionName.isNotEmpty) {
+      return leftRegionName == rightRegionName &&
+          _normalizeComparableValue(left.imageUrl) ==
+              _normalizeComparableValue(right.imageUrl) &&
+          _normalizeComparableValue(left.description) ==
+              _normalizeComparableValue(right.description);
+    }
+
+    return identical(left, right);
+  }
+
+  String? _normalizeComparableValue(Object? value) {
+    if (value == null) return null;
+    if (value is Map || value is List) return value.toString();
+
+    final normalized = value.toString().trim();
+    return normalized.isEmpty ? null : normalized;
   }
 }

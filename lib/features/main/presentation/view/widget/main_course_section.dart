@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
-import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/features/main/data/model/course_models.dart';
+import 'package:mohaeng_app_service/features/main/presentation/view/widget/main_course_roadmap_card.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view_model/main_courses_view_model.dart';
 
 class MainCourseSection extends StatelessWidget {
@@ -12,11 +12,19 @@ class MainCourseSection extends StatelessWidget {
     required this.coursesState,
     required this.onSelectCountry,
     required this.onToggleLike,
+    required this.onOpenRoadmap,
+    required this.onOpenCourseDetail,
   });
 
   final MainCoursesState coursesState;
   final ValueChanged<String> onSelectCountry;
   final ValueChanged<CourseResponse> onToggleLike;
+  final VoidCallback onOpenRoadmap;
+  final ValueChanged<CourseResponse> onOpenCourseDetail;
+
+  List<CourseResponse> get _displayCourses {
+    return coursesState.courses;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -108,7 +116,7 @@ class MainCourseSection extends StatelessWidget {
   Widget _buildMainCoursesContent() {
     if (coursesState.isLoading) {
       return SizedBox(
-        height: 194.h,
+        height: 176.h,
         child: Center(
           child: SizedBox(
             width: 20.w,
@@ -125,7 +133,7 @@ class MainCourseSection extends StatelessWidget {
     final errorMessage = coursesState.errorMessage;
     if (errorMessage != null) {
       return SizedBox(
-        height: 194.h,
+        height: 176.h,
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -160,231 +168,127 @@ class MainCourseSection extends StatelessWidget {
       );
     }
 
-    if (coursesState.courses.isEmpty) {
-      return SizedBox(
-        height: 194.h,
-        child: Center(
-          child: Text(
-            '아직 표시할 코스가 없어요.',
-            style: MTextStyles.labelM.copyWith(color: MColor.gray500),
+    final displayCourses = _displayCourses;
+    if (displayCourses.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            child: _buildEmptyCourseCard(),
           ),
-        ),
+          SizedBox(height: 16.h),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            child: _buildOpenRoadmapButton(),
+          ),
+        ],
       );
     }
 
-    return SizedBox(
-      height: 194.h,
-      child: ListView.separated(
-        padding: EdgeInsets.symmetric(horizontal: 20.w),
-        scrollDirection: Axis.horizontal,
-        itemCount: coursesState.courses.length,
-        separatorBuilder: (_, _) => SizedBox(width: 8.w),
-        itemBuilder: (context, index) {
-          return _buildCourseCard(course: coursesState.courses[index]);
-        },
-      ),
-    );
-  }
-
-  Widget _buildCourseCard({required CourseResponse course}) {
-    final title = _resolveCourseTitle(course);
-    final description = _buildCourseDescription(course);
-    final isLiked = course.isLiked ?? false;
-    final likeCount = course.likeCount ?? 0;
-
-    return Container(
-      width: 160.w,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8.16.r),
-        boxShadow: [
-          BoxShadow(
-            color: MColor.black100.withValues(alpha: 0.12),
-            blurRadius: 18.r,
-            offset: Offset(0, 8.h),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8.16.r),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            _buildCourseThumbnail(course.thumbnailUrl),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    MColor.black100.withValues(alpha: 0.28),
-                    MColor.black100.withValues(alpha: 0.62),
-                  ],
-                ),
-              ),
-            ),
-            Positioned(
-              left: 12.32.w,
-              right: 12.32.w,
-              bottom: 16.h,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: MTextStyles.lBodyB.copyWith(
-                      color: MColor.white100,
-                      height: 1.2,
-                    ),
-                  ),
-                  SizedBox(height: 6.h),
-                  Text(
-                    description,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'Pretendard',
-                      fontWeight: FontWeight.w500,
-                      fontSize: 7.sp,
-                      height: 1.28,
-                      color: MColor.white100.withValues(alpha: 0.95),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              top: 8.h,
-              right: 8.w,
-              child: _buildCourseLikeBadge(
-                course: course,
-                isLiked: isLiked,
-                likeCount: likeCount,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCourseLikeBadge({
-    required CourseResponse course,
-    required bool isLiked,
-    required int likeCount,
-  }) {
+    final featuredCourse = displayCourses.first;
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => onToggleLike(course),
-            customBorder: const CircleBorder(),
-            child: Ink(
-              width: 48.w,
-              height: 48.w,
-              decoration: BoxDecoration(
-                color: MColor.white100,
-                shape: BoxShape.circle,
-                border: Border.all(width: 0.3.w, color: MColor.gray200),
-              ),
-              child: Icon(
-                isLiked
-                    ? Icons.favorite_rounded
-                    : Icons.favorite_border_rounded,
-                color: isLiked ? const Color(0xFFFF4C78) : MColor.gray300,
-                size: 24.w,
-              ),
-            ),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20.w),
+          child: MainCourseRoadmapCard(
+            course: featuredCourse,
+            onTapPrimaryAction: () => onOpenCourseDetail(featuredCourse),
           ),
         ),
-        SizedBox(height: 3.h),
-        Text(
-          _formatLikeCount(likeCount),
-          style: TextStyle(
-            fontFamily: 'Pretendard',
-            fontWeight: FontWeight.w500,
-            fontSize: 12.sp,
-            color: MColor.gray300,
-          ),
+        SizedBox(height: 12.h),
+        _RoadmapIndicatorRow(
+          count: displayCourses.length.clamp(1, 4),
+          selectedIndex: 0,
+          activeColor: MColor.gray600,
+          inactiveColor: MColor.gray100,
+        ),
+        SizedBox(height: 16.h),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20.w),
+          child: _buildOpenRoadmapButton(),
         ),
       ],
     );
   }
 
-  Widget _buildCourseThumbnail(String? thumbnailUrl) {
-    final uri = thumbnailUrl == null ? null : Uri.tryParse(thumbnailUrl);
-    final isNetwork = uri != null && uri.hasScheme;
+  Widget _buildEmptyCourseCard() {
+    return Container(
+      constraints: BoxConstraints(minHeight: 102.h),
+      padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 18.h),
+      decoration: BoxDecoration(
+        color: MColor.white100,
+        borderRadius: BorderRadius.circular(18.r),
+      ),
+      child: Center(
+        child: Text(
+          '표시할 여행 코스가 없어요.',
+          textAlign: TextAlign.center,
+          style: MTextStyles.labelM.copyWith(color: MColor.gray400),
+        ),
+      ),
+    );
+  }
 
-    if (isNetwork) {
-      final url = thumbnailUrl!;
-      return Image.network(
-        url,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) =>
-            Image.asset(MImages.sibuya, fit: BoxFit.cover),
-      );
-    }
-
-    return Image.asset(MImages.sibuya, fit: BoxFit.cover);
+  Widget _buildOpenRoadmapButton() {
+    return Align(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onOpenRoadmap,
+          borderRadius: BorderRadius.circular(999.r),
+          child: Ink(
+            height: 40.h,
+            padding: EdgeInsets.symmetric(horizontal: 24.w),
+            decoration: BoxDecoration(
+              color: MColor.white100,
+              borderRadius: BorderRadius.circular(999.r),
+              border: Border.all(color: MColor.primary500, width: 1.2.w),
+            ),
+            child: Center(
+              child: Text(
+                '로드맵 보러가기',
+                style: MTextStyles.sLabelM.copyWith(color: MColor.primary500),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
-String _resolveCourseTitle(CourseResponse course) {
-  final title = (course.title ?? '').trim();
-  if (title.isNotEmpty) return title;
+class _RoadmapIndicatorRow extends StatelessWidget {
+  const _RoadmapIndicatorRow({
+    required this.count,
+    required this.selectedIndex,
+    required this.activeColor,
+    required this.inactiveColor,
+  });
 
-  return course.places
-      .map((place) => (place.name ?? '').trim())
-      .firstWhere(
-        (name) => name.isNotEmpty,
-        orElse: () => _countryLabel(course.countryCode),
-      );
-}
+  final int count;
+  final int selectedIndex;
+  final Color activeColor;
+  final Color inactiveColor;
 
-String _buildCourseDescription(CourseResponse course) {
-  final placeNames = course.places
-      .map((place) => (place.name ?? '').trim())
-      .where((name) => name.isNotEmpty)
-      .take(3)
-      .toList(growable: false);
-  final tagNames = course.tags
-      .map((tag) => tag.replaceFirst('#', '').trim())
-      .where((tag) => tag.isNotEmpty)
-      .take(2)
-      .toList(growable: false);
-
-  final buffer = StringBuffer();
-  final days = course.days;
-  if (days != null && days > 0) {
-    buffer.write('$days일 동안 ');
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (int i = 0; i < count; i++) ...[
+          Container(
+            width: i == selectedIndex ? 22.w : 8.w,
+            height: 4.h,
+            decoration: BoxDecoration(
+              color: i == selectedIndex ? activeColor : inactiveColor,
+              borderRadius: BorderRadius.circular(999.r),
+            ),
+          ),
+          if (i != count - 1) SizedBox(width: 6.w),
+        ],
+      ],
+    );
   }
-
-  if (placeNames.isNotEmpty) {
-    buffer.write('${placeNames.join(', ')}를 둘러보는 여행 코스');
-  } else if (tagNames.isNotEmpty) {
-    buffer.write('${tagNames.join(', ')} 테마를 담은 여행 코스');
-  } else {
-    buffer.write('지금 메인에서 바로 둘러볼 수 있는 추천 여행 코스');
-  }
-
-  return buffer.toString();
-}
-
-String _countryLabel(String? countryCode) {
-  return switch ((countryCode ?? '').trim().toUpperCase()) {
-    'JP' => '일본',
-    'US' => '미국',
-    'FR' => '프랑스',
-    'EG' => '이집트',
-    'DE' => '독일',
-    _ => '여행 코스',
-  };
-}
-
-String _formatLikeCount(int value) {
-  final safeValue = value < 0 ? 0 : value;
-  final raw = safeValue.toString();
-  return raw.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
 }

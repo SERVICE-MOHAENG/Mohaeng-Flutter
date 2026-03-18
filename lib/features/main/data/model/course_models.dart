@@ -49,34 +49,69 @@ class CourseResponse {
   const CourseResponse({
     this.id,
     this.title,
+    this.description,
     this.countryCode,
+    this.countries = const [],
+    this.regionNames = const [],
     this.thumbnailUrl,
+    this.viewCount,
+    this.nights,
     this.days,
     this.likeCount,
+    this.modificationCount,
+    this.userId,
+    this.userName,
     this.isLiked,
     this.tags = const [],
     this.places = const [],
+    this.isPublic,
+    this.isCompleted,
     this.createdAt,
     this.updatedAt,
+    this.sourceCourseId,
   });
 
-  @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
-  final int? id;
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? id;
 
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? title;
 
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? description;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? countryCode;
+
+  @JsonKey(fromJson: _readStringList, toJson: _writeStringList)
+  final List<String> countries;
+
+  @JsonKey(fromJson: _readStringList, toJson: _writeStringList)
+  final List<String> regionNames;
 
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? thumbnailUrl;
+
+  @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
+  final int? viewCount;
+
+  @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
+  final int? nights;
 
   @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
   final int? days;
 
   @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
   final int? likeCount;
+
+  @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
+  final int? modificationCount;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? userId;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? userName;
 
   @JsonKey(fromJson: _readBoolNullable, toJson: _writeBoolNullable)
   final bool? isLiked;
@@ -87,6 +122,12 @@ class CourseResponse {
   @JsonKey(fromJson: _readPlacesList, toJson: _writePlacesList)
   final List<CoursePlaceResponse> places;
 
+  @JsonKey(fromJson: _readBoolNullable, toJson: _writeBoolNullable)
+  final bool? isPublic;
+
+  @JsonKey(fromJson: _readBoolNullable, toJson: _writeBoolNullable)
+  final bool? isCompleted;
+
   /// ISO8601 string.
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? createdAt;
@@ -94,6 +135,9 @@ class CourseResponse {
   /// ISO8601 string.
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? updatedAt;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? sourceCourseId;
 
   factory CourseResponse.fromJson(Map<String, dynamic> json) {
     final normalized = <String, dynamic>{...json};
@@ -104,9 +148,28 @@ class CourseResponse {
     if (!normalized.containsKey('title') && normalized['name'] != null) {
       normalized['title'] = normalized['name'];
     }
+    if (!normalized.containsKey('description')) {
+      normalized['description'] =
+          normalized['description'] ??
+          normalized['summary'] ??
+          normalized['content'];
+    }
+    if (!normalized.containsKey('countryCode')) {
+      final countries = normalized['countries'];
+      if (countries is List && countries.isNotEmpty) {
+        normalized['countryCode'] = countries.first;
+      }
+    }
     if (!normalized.containsKey('thumbnailUrl') &&
         normalized['imageUrl'] != null) {
       normalized['thumbnailUrl'] = normalized['imageUrl'];
+    }
+    if (!normalized.containsKey('thumbnailUrl') &&
+        normalized['thumbnail'] != null) {
+      normalized['thumbnailUrl'] = normalized['thumbnail'];
+    }
+    if (!normalized.containsKey('tags') && normalized['hashTags'] is List) {
+      normalized['tags'] = normalized['hashTags'];
     }
     if (!normalized.containsKey('days') && normalized['durationDays'] != null) {
       normalized['days'] = normalized['durationDays'];
@@ -125,6 +188,10 @@ class CourseResponse {
         normalized['coursePlaces'] is List) {
       normalized['places'] = normalized['coursePlaces'];
     }
+    if (!normalized.containsKey('sourceCourseId') &&
+        normalized['originalCourseId'] != null) {
+      normalized['sourceCourseId'] = normalized['originalCourseId'];
+    }
 
     return _$CourseResponseFromJson(normalized);
   }
@@ -132,30 +199,52 @@ class CourseResponse {
   Map<String, dynamic> toJson() => _$CourseResponseToJson(this);
 
   CourseResponse copyWith({
-    int? id,
+    String? id,
     String? title,
+    String? description,
     String? countryCode,
+    List<String>? countries,
+    List<String>? regionNames,
     String? thumbnailUrl,
+    int? viewCount,
+    int? nights,
     int? days,
     int? likeCount,
+    int? modificationCount,
+    String? userId,
+    String? userName,
     bool? isLiked,
     List<String>? tags,
     List<CoursePlaceResponse>? places,
+    bool? isPublic,
+    bool? isCompleted,
     String? createdAt,
     String? updatedAt,
+    String? sourceCourseId,
   }) {
     return CourseResponse(
       id: id ?? this.id,
       title: title ?? this.title,
+      description: description ?? this.description,
       countryCode: countryCode ?? this.countryCode,
+      countries: countries ?? this.countries,
+      regionNames: regionNames ?? this.regionNames,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      viewCount: viewCount ?? this.viewCount,
+      nights: nights ?? this.nights,
       days: days ?? this.days,
       likeCount: likeCount ?? this.likeCount,
+      modificationCount: modificationCount ?? this.modificationCount,
+      userId: userId ?? this.userId,
+      userName: userName ?? this.userName,
       isLiked: isLiked ?? this.isLiked,
       tags: tags ?? this.tags,
       places: places ?? this.places,
+      isPublic: isPublic ?? this.isPublic,
+      isCompleted: isCompleted ?? this.isCompleted,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      sourceCourseId: sourceCourseId ?? this.sourceCourseId,
     );
   }
 }
@@ -166,21 +255,28 @@ class CoursePlaceResponse {
     this.id,
     this.placeId,
     this.name,
+    this.description,
     this.address,
     this.latitude,
     this.longitude,
     this.order,
+    this.dayNumber,
+    this.memo,
+    this.placeUrl,
     this.visitedAt,
   });
 
-  @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
-  final int? id;
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? id;
 
-  @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
-  final int? placeId;
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? placeId;
 
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? name;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? description;
 
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? address;
@@ -194,6 +290,15 @@ class CoursePlaceResponse {
   @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
   final int? order;
 
+  @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
+  final int? dayNumber;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? memo;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? placeUrl;
+
   /// ISO8601 string.
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? visitedAt;
@@ -203,11 +308,21 @@ class CoursePlaceResponse {
     if (!normalized.containsKey('name') && normalized['title'] != null) {
       normalized['name'] = normalized['title'];
     }
+    if (!normalized.containsKey('name') && normalized['placeName'] != null) {
+      normalized['name'] = normalized['placeName'];
+    }
+    if (!normalized.containsKey('description') &&
+        normalized['placeDescription'] != null) {
+      normalized['description'] = normalized['placeDescription'];
+    }
     if (!normalized.containsKey('latitude') && normalized['lat'] != null) {
       normalized['latitude'] = normalized['lat'];
     }
     if (!normalized.containsKey('longitude') && normalized['lng'] != null) {
       normalized['longitude'] = normalized['lng'];
+    }
+    if (!normalized.containsKey('order') && normalized['visitOrder'] != null) {
+      normalized['order'] = normalized['visitOrder'];
     }
 
     return _$CoursePlaceResponseFromJson(normalized);
@@ -277,6 +392,7 @@ double? _writeDoubleNullable(double? value) => value;
 
 String? _readStringNullable(Object? value) {
   if (value == null) return null;
+  if (value is Map || value is List) return null;
   final s = value.toString().trim();
   return s.isEmpty ? null : s;
 }

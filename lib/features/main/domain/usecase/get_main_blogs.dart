@@ -6,7 +6,15 @@ class GetMainBlogsUsecase {
 
   final MainRepository _repository;
 
-  Future<BlogsResponse> call({int page = 1, int limit = 6}) {
-    return _repository.getMainBlogs(page: page, limit: limit);
+  Future<BlogsResponse> call({
+    String sortBy = 'latest',
+    int page = 1,
+    int limit = 6,
+  }) {
+    return _repository.getMainBlogs(
+      sortBy: sortBy,
+      page: page,
+      limit: limit,
+    );
   }
 }

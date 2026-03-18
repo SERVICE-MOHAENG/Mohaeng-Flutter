@@ -10,9 +10,11 @@ class MainAiRecommendationSection extends StatelessWidget {
   const MainAiRecommendationSection({
     super.key,
     required this.recommendationState,
+    required this.onToggleLike,
   });
 
   final RoadmapPreferenceResultState recommendationState;
+  final ValueChanged<RoadmapPreferenceResultItem> onToggleLike;
 
   @override
   Widget build(BuildContext context) {
@@ -64,6 +66,9 @@ class MainAiRecommendationSection extends StatelessWidget {
                 subtitle: destination.subtitle,
                 imageUrl: destination.imageUrl,
                 fallbackImagePath: destination.fallbackImagePath,
+                likeCount: destination.likeCount,
+                isLiked: destination.isLiked,
+                onToggleLike: () => onToggleLike(destination.item),
               );
             },
           ),
@@ -108,10 +113,13 @@ class MainAiRecommendationSection extends StatelessWidget {
 
       resolved.add(
         _AiDestinationCardData(
+          item: item,
           title: regionName.isEmpty ? '추천 여행지' : regionName,
           subtitle: description ?? '모행 AI가 추천한 여행지입니다.',
           imageUrl: imageUrl,
           fallbackImagePath: MImages.sibuya,
+          likeCount: item.likeCount ?? 0,
+          isLiked: item.isLiked ?? false,
         ),
       );
     }
@@ -187,6 +195,9 @@ class MainAiRecommendationSection extends StatelessWidget {
     required String title,
     required String subtitle,
     required String fallbackImagePath,
+    required int likeCount,
+    required bool isLiked,
+    required VoidCallback onToggleLike,
     String? imageUrl,
   }) {
     return Container(
@@ -199,6 +210,15 @@ class MainAiRecommendationSection extends StatelessWidget {
             child: _buildDestinationImage(
               imageUrl: imageUrl,
               fallbackImagePath: fallbackImagePath,
+            ),
+          ),
+          Positioned(
+            top: 10.h,
+            right: 10.w,
+            child: _buildLikeBadge(
+              likeCount: likeCount,
+              isLiked: isLiked,
+              onTap: onToggleLike,
             ),
           ),
           Positioned(
@@ -227,6 +247,50 @@ class MainAiRecommendationSection extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLikeBadge({
+    required int likeCount,
+    required bool isLiked,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999.r),
+        child: Ink(
+          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+          decoration: BoxDecoration(
+            color: MColor.white100.withValues(alpha: 0.94),
+            borderRadius: BorderRadius.circular(999.r),
+            border: Border.all(width: 0.4.w, color: MColor.gray200),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isLiked
+                    ? Icons.favorite_rounded
+                    : Icons.favorite_border_rounded,
+                color: isLiked ? const Color(0xFFFF4C78) : MColor.gray400,
+                size: 14.w,
+              ),
+              SizedBox(width: 4.w),
+              Text(
+                _formatLikeCount(likeCount),
+                style: TextStyle(
+                  fontFamily: 'Pretendard',
+                  fontWeight: FontWeight.w600,
+                  fontSize: 10.sp,
+                  color: MColor.gray700,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -266,14 +330,26 @@ class MainAiRecommendationSection extends StatelessWidget {
 @immutable
 class _AiDestinationCardData {
   const _AiDestinationCardData({
+    required this.item,
     required this.title,
     required this.subtitle,
     required this.fallbackImagePath,
+    required this.likeCount,
+    required this.isLiked,
     this.imageUrl,
   });
 
+  final RoadmapPreferenceResultItem item;
   final String title;
   final String subtitle;
   final String fallbackImagePath;
+  final int likeCount;
+  final bool isLiked;
   final String? imageUrl;
+}
+
+String _formatLikeCount(int value) {
+  final safeValue = value < 0 ? 0 : value;
+  final raw = safeValue.toString();
+  return raw.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
 }

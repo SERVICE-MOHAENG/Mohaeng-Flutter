@@ -24,12 +24,12 @@ class MainBlogSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '내 여행 블로그',
+          '여행 블로그 보기',
           style: MTextStyles.lBodyM.copyWith(color: MColor.gray800),
         ),
         SizedBox(height: 8.h),
         Text(
-          '내가 작성한 여행 후기를 확인할 수 있어요!',
+          '생생한 여행 후기를 볼 수 있어요!',
           style: MTextStyles.sLabelM.copyWith(color: MColor.gray400),
         ),
         SizedBox(height: 16.h),
@@ -126,7 +126,7 @@ class MainBlogSection extends StatelessWidget {
     final likeCountText = (blog.likeCount ?? 0).toString();
     final fallbackTags = <String>[
       if (blog.isPublic != null) blog.isPublic! ? '#공개' : '#비공개',
-      '#내블로그',
+      '#여행블로그',
     ];
 
     return _buildBlogItem(

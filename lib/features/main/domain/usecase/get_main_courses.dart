@@ -7,11 +7,13 @@ class GetMainCoursesUsecase {
   final MainRepository _repository;
 
   Future<CoursesResponse> call({
+    String sortBy = 'popular',
     String? countryCode,
     int page = 1,
     int limit = 10,
   }) {
     return _repository.getMainCourses(
+      sortBy: sortBy,
       countryCode: countryCode,
       page: page,
       limit: limit,

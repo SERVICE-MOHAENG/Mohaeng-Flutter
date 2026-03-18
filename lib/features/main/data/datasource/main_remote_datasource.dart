@@ -31,10 +31,11 @@ class MainRemoteDataSource {
   final ApiClient _apiClient;
 
   static const String _mainCoursesPath = '${ApiEndpoints.courses}/mainpage';
-  static const String _mainBlogsPath = '${ApiEndpoints.blogs}/me';
+  static const String _mainBlogsPath = '${ApiEndpoints.blogs}/mainpage';
   static const String _mainUserMePath = '${ApiEndpoints.basePath}/users/me';
 
   Future<CoursesResponse> getMainCourses({
+    String sortBy = 'popular',
     String? countryCode,
     int page = 1,
     int limit = 10,
@@ -44,6 +45,7 @@ class MainRemoteDataSource {
     final safeLimit = _sanitizeCoursesLimit(limit);
 
     final queryParameters = removeNullQueryParams({
+      'sortBy': sortBy,
       'countryCode': countryCode,
       'page': safePage,
       'limit': safeLimit,
@@ -60,6 +62,7 @@ class MainRemoteDataSource {
   }
 
   Future<BlogsResponse> getMainBlogs({
+    String sortBy = 'latest',
     int page = 1,
     int limit = 6,
     CancelToken? cancelToken,
@@ -68,6 +71,7 @@ class MainRemoteDataSource {
     final safeLimit = _sanitizeBlogsLimit(limit);
 
     final queryParameters = removeNullQueryParams({
+      'sortBy': sortBy,
       'page': safePage,
       'limit': safeLimit,
     });

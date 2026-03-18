@@ -12,7 +12,9 @@ MainUserResponse _$MainUserResponseFromJson(Map<String, dynamic> json) =>
       name: json['name'] as String?,
       email: json['email'] as String?,
       profileImage: json['profileImage'] as String?,
-      visitedCountries: _readIntNullable(json['visitedCountries']),
+      visitedCountries: json['visitedCountries'] == null
+          ? 0
+          : _readIntNullable(json['visitedCountries']),
       isActivate: _readBoolNullable(json['isActivate']),
       createdAt: json['createdAt'] as String?,
     );

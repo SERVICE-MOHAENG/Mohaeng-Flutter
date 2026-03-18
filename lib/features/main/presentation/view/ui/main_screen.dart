@@ -6,12 +6,15 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
 import 'package:mohaeng_app_service/features/main/data/model/course_models.dart';
+import 'package:mohaeng_app_service/features/main/presentation/view/ui/main_course_roadmap_list_screen.dart';
+import 'package:mohaeng_app_service/features/main/presentation/view/ui/main_course_roadmap_screen.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view/widget/main_ai_recommendation_section.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view/widget/main_blog_section.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view/widget/main_course_section.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view/widget/main_greeting_card.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view/widget/main_hero_section.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view_model/main_providers.dart';
+import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_preference_result_models.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
@@ -95,6 +98,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                 child: MainAiRecommendationSection(
                   recommendationState: recommendationState,
+                  onToggleLike: _onToggleAiRecommendationLike,
                 ),
               ),
               SizedBox(height: 12.h),
@@ -104,6 +108,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 coursesState: coursesState,
                 onSelectCountry: _onTapCountryFilter,
                 onToggleLike: _onToggleCourseLike,
+                onOpenRoadmap: _onOpenCourseRoadmapList,
+                onOpenCourseDetail: _onOpenCourseRoadmapDetail,
               ),
               SizedBox(height: 20.h),
               Padding(
@@ -177,6 +183,32 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   void _onToggleCourseLike(CourseResponse course) {
     ref.read(mainCoursesViewModelProvider.notifier).toggleLike(course);
+  }
+
+  void _onOpenCourseRoadmapList() {
+    final courses = ref.read(mainCoursesViewModelProvider).courses;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MainCourseRoadmapListScreen(
+          courses: courses,
+          onOpenCourseDetail: _onOpenCourseRoadmapDetail,
+        ),
+      ),
+    );
+  }
+
+  void _onOpenCourseRoadmapDetail(CourseResponse course) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MainCourseRoadmapScreen(course: course),
+      ),
+    );
+  }
+
+  void _onToggleAiRecommendationLike(RoadmapPreferenceResultItem item) {
+    ref
+        .read(roadmapPreferenceResultViewModelProvider.notifier)
+        .toggleLike(item);
   }
 
   void _reloadBlogs() {

@@ -52,6 +52,7 @@ class MainCoursesViewModel extends StateNotifier<MainCoursesState> {
 
     try {
       final response = await _getMainCoursesUsecase(
+        sortBy: 'popular',
         countryCode: nextCountryCode,
         page: 1,
         limit: 10,

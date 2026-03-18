@@ -35,13 +35,17 @@ class MainBlogsViewModel extends StateNotifier<MainBlogsState> {
 
   final GetMainBlogsUsecase _getMainBlogsUsecase;
 
-  Future<void> load() async {
+  Future<void> load({String sortBy = 'latest'}) async {
     if (state.isLoading) return;
 
     state = state.copyWith(isLoading: true, clearError: true);
 
     try {
-      final response = await _getMainBlogsUsecase(page: 1, limit: 6);
+      final response = await _getMainBlogsUsecase(
+        sortBy: sortBy,
+        page: 1,
+        limit: 6,
+      );
 
       state = state.copyWith(
         isLoading: false,
