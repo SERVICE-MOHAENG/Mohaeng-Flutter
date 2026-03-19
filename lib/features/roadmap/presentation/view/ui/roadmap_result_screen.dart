@@ -34,6 +34,22 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
   static const double _timelineRowHeight = 88;
   static const int _conversationPanelPageIndex = 0;
   static const int _timelinePanelPageIndex = 1;
+  static const List<Color> _dayPolylineColors = <Color>[
+    Color(0xFF00CCFF),
+    Color(0xFFFF6B6B),
+    Color(0xFF22C55E),
+    Color(0xFFF59E0B),
+    Color(0xFF8B5CF6),
+    Color(0xFF14B8A6),
+  ];
+  static const List<double> _dayMarkerHues = <double>[
+    BitmapDescriptor.hueAzure,
+    BitmapDescriptor.hueRed,
+    BitmapDescriptor.hueGreen,
+    BitmapDescriptor.hueOrange,
+    BitmapDescriptor.hueViolet,
+    BitmapDescriptor.hueCyan,
+  ];
 
   bool _isInitialized = false;
   bool _isRefreshing = false;
@@ -58,6 +74,7 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
   late final ScrollController _timelineScrollController;
   GoogleMapController? _mapController;
   String? _currentTimelineDayKey;
+  int _currentTimelineDayIndex = 0;
   bool _isModificationAssistantTyping = false;
   int _modificationRequestCount = 0;
   List<_ModificationConversationEntry> _modificationConversation =
@@ -793,10 +810,12 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
 
   void _syncTimelineContext({
     required String? dayKey,
+    required int dayIndex,
     required List<RoadmapItineraryPlace> places,
   }) {
     final dayChanged = _currentTimelineDayKey != dayKey;
     _currentTimelineDayKey = dayKey;
+    _currentTimelineDayIndex = dayIndex;
     _currentTimelinePlaces = places;
 
     if (places.isEmpty) {
@@ -951,9 +970,9 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
   String _markerIdForPlace(RoadmapItineraryPlace place, int index) {
     final placeId = place.placeId?.trim();
     if (placeId != null && placeId.isNotEmpty) {
-      return placeId;
+      return 'day_${_currentTimelineDayIndex}_$placeId';
     }
-    return 'place_$index';
+    return 'day_${_currentTimelineDayIndex}_place_$index';
   }
 
   Future<void> _focusMapOnTimelineIndex(
@@ -1011,37 +1030,53 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
         (_jobId?.isNotEmpty ?? false);
     final shouldShowPollingIndicator = isLoading || isPollingStage;
     final roadmapData = resultState.result?.data;
-    final dayPlans = isSuccessStatus
+    final rawDayPlans = isSuccessStatus
         ? _buildDayPlans(roadmapData?.itinerary)
         : const <_DayPlan>[];
 
-    _syncDayPlaceOrderCache(dayPlans);
+    _syncDayPlaceOrderCache(rawDayPlans);
+
+    final dayPlans = [
+      for (final dayPlan in rawDayPlans)
+        _DayPlan(
+          dayNumber: dayPlan.dayNumber,
+          date: dayPlan.date,
+          places: _resolveOrderedPlaces(dayPlan),
+        ),
+    ];
 
     _syncSelectedDayIndex(dayPlans.length);
+    final safeSelectedDayIndex = dayPlans.isEmpty
+        ? 0
+        : _selectedDayIndex.clamp(0, dayPlans.length - 1);
     final selectedDay = dayPlans.isEmpty
         ? null
-        : dayPlans[_selectedDayIndex.clamp(0, dayPlans.length - 1)];
+        : dayPlans[safeSelectedDayIndex];
     final selectedDayKey = selectedDay == null
         ? null
         : _dayOrderKey(selectedDay);
     final timelineItems = selectedDay == null
         ? const <_TimelineItem>[]
-        : _buildTimelineItems(_resolveOrderedPlaces(selectedDay));
+        : _buildTimelineItems(selectedDay.places);
     final selectedPlaces = selectedDay == null
         ? const <RoadmapItineraryPlace>[]
-        : _resolveOrderedPlaces(selectedDay);
+        : selectedDay.places;
     final hasConversationPanel =
         _isAwaitingModifiedTimeline || _modificationConversation.isNotEmpty;
-    _syncTimelineContext(dayKey: selectedDayKey, places: selectedPlaces);
+    _syncTimelineContext(
+      dayKey: selectedDayKey,
+      dayIndex: safeSelectedDayIndex,
+      places: selectedPlaces,
+    );
     final markers = _buildMapMarkers(
       isSuccessStatus: isSuccessStatus,
-      places: selectedPlaces,
+      dayPlans: dayPlans,
     );
     final polylines = _buildMapPolylines(
       isSuccessStatus: isSuccessStatus,
-      places: selectedPlaces,
+      dayPlans: dayPlans,
     );
-    final mapCenter = _resolveMapCenter(selectedPlaces);
+    final mapCenter = _resolveMapCenter(dayPlans);
     final emptyMessage = _resolveEmptyMessage(
       isLoading: isLoading,
       resultStatus: status,
@@ -1068,15 +1103,20 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
               markers: markers,
               polylines: polylines,
               data: roadmapData,
-              mapKey: 'map_${selectedDay?.dayNumber ?? 0}_${markers.length}',
+              mapKey:
+                  'map_${selectedDay?.dayNumber ?? 0}_${dayPlans.length}_${markers.length}_${polylines.length}',
               onMapCreated: (controller) {
                 _mapController = controller;
-                unawaited(
-                  _focusMapOnTimelineIndex(
-                    _focusedTimelineIndex,
-                    animate: false,
-                  ),
-                );
+                if (dayPlans.length > 1) {
+                  unawaited(_fitMapToDayPlans(dayPlans, animate: false));
+                } else {
+                  unawaited(
+                    _focusMapOnTimelineIndex(
+                      _focusedTimelineIndex,
+                      animate: false,
+                    ),
+                  );
+                }
               },
             ),
             Expanded(
@@ -1112,7 +1152,7 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
                                       shouldShowPollingIndicator,
                                   emptyMessage: emptyMessage,
                                   dayPlans: dayPlans,
-                                  selectedDayIndex: _selectedDayIndex,
+                                  selectedDayIndex: safeSelectedDayIndex,
                                   onDayChanged: (index) {
                                     if (_selectedDayIndex == index) return;
                                     setState(() => _selectedDayIndex = index);
@@ -1139,7 +1179,7 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
                         shouldShowPollingIndicator: shouldShowPollingIndicator,
                         emptyMessage: emptyMessage,
                         dayPlans: dayPlans,
-                        selectedDayIndex: _selectedDayIndex,
+                        selectedDayIndex: safeSelectedDayIndex,
                         onDayChanged: (index) {
                           if (_selectedDayIndex == index) return;
                           setState(() => _selectedDayIndex = index);
@@ -1162,9 +1202,9 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
 
   Set<Marker> _buildMapMarkers({
     required bool isSuccessStatus,
-    required List<RoadmapItineraryPlace> places,
+    required List<_DayPlan> dayPlans,
   }) {
-    if (!isSuccessStatus || places.isEmpty) {
+    if (!isSuccessStatus || dayPlans.isEmpty) {
       return {
         const Marker(
           markerId: MarkerId('start'),
@@ -1175,24 +1215,34 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     }
 
     final markers = <Marker>{};
-    for (var i = 0; i < places.length; i++) {
-      final place = places[i];
-      final lat = place.latitude;
-      final lng = place.longitude;
-      if (lat == null || lng == null) continue;
-      if (!_isValidCoordinate(lat, lng)) continue;
+    for (var dayIndex = 0; dayIndex < dayPlans.length; dayIndex++) {
+      final dayPlan = dayPlans[dayIndex];
+      for (var placeIndex = 0; placeIndex < dayPlan.places.length; placeIndex++) {
+        final place = dayPlan.places[placeIndex];
+        final lat = place.latitude;
+        final lng = place.longitude;
+        if (lat == null || lng == null) continue;
+        if (!_isValidCoordinate(lat, lng)) continue;
 
-      final markerId = _markerIdForPlace(place, i);
-      markers.add(
-        Marker(
-          markerId: MarkerId(markerId),
-          position: LatLng(lat, lng),
-          infoWindow: InfoWindow(
-            title: place.placeName ?? '방문 장소',
-            snippet: _formatVisitTime(place.visitTime),
+        final markerId = _markerIdForPlaceForDay(
+          place,
+          dayIndex: dayIndex,
+          placeIndex: placeIndex,
+        );
+        markers.add(
+          Marker(
+            markerId: MarkerId(markerId),
+            position: LatLng(lat, lng),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              _dayMarkerHues[dayIndex % _dayMarkerHues.length],
+            ),
+            infoWindow: InfoWindow(
+              title: place.placeName ?? '방문 장소',
+              snippet: _buildMarkerSnippet(dayPlan, place, dayIndex),
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
 
     if (markers.isEmpty) {
@@ -1210,47 +1260,158 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
 
   Set<Polyline> _buildMapPolylines({
     required bool isSuccessStatus,
-    required List<RoadmapItineraryPlace> places,
+    required List<_DayPlan> dayPlans,
   }) {
-    if (!isSuccessStatus || places.length < 2) {
+    if (!isSuccessStatus || dayPlans.isEmpty) {
       return const <Polyline>{};
     }
 
-    final points = <LatLng>[];
-    for (final place in places) {
-      final lat = place.latitude;
-      final lng = place.longitude;
-      if (lat == null || lng == null) continue;
-      if (!_isValidCoordinate(lat, lng)) continue;
-      points.add(LatLng(lat, lng));
+    final polylines = <Polyline>{};
+    for (var dayIndex = 0; dayIndex < dayPlans.length; dayIndex++) {
+      final points = <LatLng>[];
+      for (final place in dayPlans[dayIndex].places) {
+        final lat = place.latitude;
+        final lng = place.longitude;
+        if (lat == null || lng == null) continue;
+        if (!_isValidCoordinate(lat, lng)) continue;
+        points.add(LatLng(lat, lng));
+      }
+
+      if (points.length < 2) continue;
+
+      polylines.add(
+        Polyline(
+          polylineId: PolylineId('day_route_$dayIndex'),
+          points: points,
+          color: _dayPolylineColors[dayIndex % _dayPolylineColors.length]
+              .withValues(alpha: 0.88),
+          width: 5,
+          startCap: Cap.roundCap,
+          endCap: Cap.roundCap,
+          geodesic: true,
+        ),
+      );
     }
 
-    if (points.length < 2) {
+    if (polylines.isEmpty) {
       return const <Polyline>{};
     }
 
-    return {
-      Polyline(
-        polylineId: const PolylineId('selected_day_route'),
-        points: points,
-        color: MColor.primary500.withValues(alpha: 0.88),
-        width: 5,
-        startCap: Cap.roundCap,
-        endCap: Cap.roundCap,
-        geodesic: true,
-      ),
-    };
+    return polylines;
   }
 
-  LatLng _resolveMapCenter(List<RoadmapItineraryPlace> places) {
-    for (final place in places) {
-      final lat = place.latitude;
-      final lng = place.longitude;
-      if (lat == null || lng == null) continue;
-      if (!_isValidCoordinate(lat, lng)) continue;
-      return LatLng(lat, lng);
+  LatLng _resolveMapCenter(List<_DayPlan> dayPlans) {
+    for (final dayPlan in dayPlans) {
+      for (final place in dayPlan.places) {
+        final lat = place.latitude;
+        final lng = place.longitude;
+        if (lat == null || lng == null) continue;
+        if (!_isValidCoordinate(lat, lng)) continue;
+        return LatLng(lat, lng);
+      }
     }
     return _defaultCenter;
+  }
+
+  Future<void> _fitMapToDayPlans(
+    List<_DayPlan> dayPlans, {
+    bool animate = true,
+  }) async {
+    final controller = _mapController;
+    if (controller == null) return;
+
+    final coordinates = _collectCoordinates(dayPlans);
+    final update = _cameraUpdateForCoordinates(coordinates);
+    if (update == null) return;
+
+    try {
+      if (animate) {
+        await controller.animateCamera(update);
+      } else {
+        await controller.moveCamera(update);
+      }
+    } catch (_) {
+      // Ignore camera sync failures from disposed or not-yet-ready map views.
+    }
+  }
+
+  List<LatLng> _collectCoordinates(List<_DayPlan> dayPlans) {
+    final coordinates = <LatLng>[];
+    for (final dayPlan in dayPlans) {
+      for (final place in dayPlan.places) {
+        final lat = place.latitude;
+        final lng = place.longitude;
+        if (lat == null || lng == null) continue;
+        if (!_isValidCoordinate(lat, lng)) continue;
+        coordinates.add(LatLng(lat, lng));
+      }
+    }
+    return coordinates;
+  }
+
+  CameraUpdate? _cameraUpdateForCoordinates(List<LatLng> coordinates) {
+    if (coordinates.isEmpty) return null;
+    if (coordinates.length == 1 || _allCoordinatesMatch(coordinates)) {
+      return CameraUpdate.newCameraPosition(
+        CameraPosition(target: coordinates.first, zoom: 12.5),
+      );
+    }
+
+    final latitudes = coordinates.map((point) => point.latitude);
+    final longitudes = coordinates.map((point) => point.longitude);
+    final south = latitudes.reduce((left, right) => left < right ? left : right);
+    final north = latitudes.reduce((left, right) => left > right ? left : right);
+    final west = longitudes.reduce((left, right) => left < right ? left : right);
+    final east = longitudes.reduce((left, right) => left > right ? left : right);
+
+    return CameraUpdate.newLatLngBounds(
+      LatLngBounds(
+        southwest: LatLng(south, west),
+        northeast: LatLng(north, east),
+      ),
+      56,
+    );
+  }
+
+  bool _allCoordinatesMatch(List<LatLng> coordinates) {
+    final first = coordinates.first;
+    for (final coordinate in coordinates.skip(1)) {
+      if (coordinate.latitude != first.latitude ||
+          coordinate.longitude != first.longitude) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  String _markerIdForPlaceForDay(
+    RoadmapItineraryPlace place, {
+    required int dayIndex,
+    required int placeIndex,
+  }) {
+    final placeId = place.placeId?.trim();
+    if (placeId != null && placeId.isNotEmpty) {
+      return 'day_${dayIndex}_$placeId';
+    }
+    return 'day_${dayIndex}_place_$placeIndex';
+  }
+
+  String _buildMarkerSnippet(
+    _DayPlan dayPlan,
+    RoadmapItineraryPlace place,
+    int dayIndex,
+  ) {
+    final parts = <String>[_dayLabel(dayPlan, dayIndex)];
+    final visitTime = _formatVisitTime(place.visitTime);
+    if (visitTime.isNotEmpty) {
+      parts.add(visitTime);
+    }
+    return parts.join(' · ');
+  }
+
+  String _dayLabel(_DayPlan dayPlan, int dayIndex) {
+    final dayNumber = dayPlan.dayNumber > 0 ? dayPlan.dayNumber : dayIndex + 1;
+    return 'Day $dayNumber';
   }
 
   bool _isValidCoordinate(double latitude, double longitude) {
