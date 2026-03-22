@@ -58,7 +58,7 @@ final class ApiError implements Exception {
       return ApiError(
         kind: ApiErrorKind.timeout,
         statusCode: error.response?.statusCode,
-        message: _defaultMessage(ApiErrorKind.timeout),
+        message: _timeoutMessage(error.type),
         responseData: error.response?.data,
         dioException: error,
       );
@@ -157,6 +157,15 @@ final class ApiError implements Exception {
       ApiErrorKind.timeout => '요청 시간이 초과되었습니다.',
       ApiErrorKind.cancelled => '요청이 취소되었습니다.',
       ApiErrorKind.unknown => '알 수 없는 오류가 발생했습니다.',
+    };
+  }
+
+  static String _timeoutMessage(DioExceptionType type) {
+    return switch (type) {
+      DioExceptionType.connectionTimeout => '서버 연결 시간이 초과되었습니다.',
+      DioExceptionType.sendTimeout => '요청 전송 시간이 초과되었습니다.',
+      DioExceptionType.receiveTimeout => '서버 응답 대기 시간이 초과되었습니다.',
+      _ => _defaultMessage(ApiErrorKind.timeout),
     };
   }
 
