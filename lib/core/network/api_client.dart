@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:mohaeng_app_service/core/network/api_error.dart';
 import 'package:mohaeng_app_service/core/network/dio_logger.dart';
+import 'package:mohaeng_app_service/core/network/network_options.dart';
 import 'package:mohaeng_app_service/core/network/query_params.dart';
 
 final class ApiClient {
@@ -9,18 +10,14 @@ final class ApiClient {
     Dio? dio,
     List<Interceptor> interceptors = const [],
     bool addLoggerInterceptor = true,
-    Duration connectTimeout = const Duration(seconds: 10),
-    Duration receiveTimeout = const Duration(seconds: 10),
+    NetworkTimeouts timeouts = const NetworkTimeouts(),
   }) : _dio =
            dio ??
            Dio(
-             BaseOptions(
-               baseUrl: _normalizeBaseUrl(baseUrl),
-               contentType: Headers.jsonContentType,
-               responseType: ResponseType.json,
+             buildJsonBaseOptions(
+               baseUrl: baseUrl,
                headers: const {'Accept': 'application/json'},
-               connectTimeout: connectTimeout,
-               receiveTimeout: receiveTimeout,
+               timeouts: timeouts,
              ),
            ) {
     _dio.interceptors.addAll(interceptors);
@@ -133,15 +130,5 @@ final class ApiClient {
     } on DioException catch (error) {
       throw ApiError.fromDioException(error);
     }
-  }
-
-  static String _normalizeBaseUrl(String baseUrl) {
-    final trimmed = baseUrl.trim();
-    if (trimmed.isEmpty) {
-      throw const FormatException('baseUrl is empty.');
-    }
-    return trimmed.endsWith('/')
-        ? trimmed.substring(0, trimmed.length - 1)
-        : trimmed;
   }
 }

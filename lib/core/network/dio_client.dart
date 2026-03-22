@@ -4,13 +4,16 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:mohaeng_app_service/core/network/dio_logger.dart';
+import 'package:mohaeng_app_service/core/network/network_options.dart';
 import 'package:mohaeng_app_service/features/auth/data/auth_token_storage.dart';
 
 class DioClient {
-  DioClient({AuthTokenStorage? tokenStorage})
-      : _tokenStorage = tokenStorage ?? AuthTokenStorage(),
-        _dio = Dio(_buildOptions()),
-        _refreshDio = Dio(_buildOptions()) {
+  DioClient({
+    AuthTokenStorage? tokenStorage,
+    NetworkTimeouts timeouts = const NetworkTimeouts(),
+  }) : _tokenStorage = tokenStorage ?? AuthTokenStorage(),
+       _dio = Dio(_buildOptions(timeouts)),
+       _refreshDio = Dio(_buildOptions(timeouts)) {
     _dio.interceptors.add(
       _AuthInterceptor(
         dio: _dio,
@@ -28,19 +31,13 @@ class DioClient {
 
   Dio get dio => _dio;
 
-  static BaseOptions _buildOptions() {
+  static BaseOptions _buildOptions(NetworkTimeouts timeouts) {
     final baseUrl = dotenv.env['BASE_URL']?.trim() ?? '';
     if (baseUrl.isEmpty) {
       throw const FormatException('BASE_URL is not set.');
     }
 
-    return BaseOptions(
-      baseUrl: baseUrl,
-      contentType: Headers.jsonContentType,
-      responseType: ResponseType.json,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
-    );
+    return buildJsonBaseOptions(baseUrl: baseUrl, timeouts: timeouts);
   }
 }
 
@@ -49,9 +46,9 @@ class _AuthInterceptor extends Interceptor {
     required Dio dio,
     required Dio refreshDio,
     required AuthTokenStorage tokenStorage,
-  })  : _dio = dio,
-        _refreshDio = refreshDio,
-        _tokenStorage = tokenStorage;
+  }) : _dio = dio,
+       _refreshDio = refreshDio,
+       _tokenStorage = tokenStorage;
 
   final Dio _dio;
   final Dio _refreshDio;
@@ -60,7 +57,10 @@ class _AuthInterceptor extends Interceptor {
   Completer<String?>? _refreshCompleter;
 
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+  void onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
     final accessToken = await _tokenStorage.readAccessToken();
     if (accessToken != null && accessToken.isNotEmpty) {
       options.headers['Authorization'] = 'Bearer $accessToken';
@@ -143,8 +143,8 @@ class _AuthInterceptor extends Interceptor {
 
       final refreshToStore =
           nextRefreshToken is String && nextRefreshToken.isNotEmpty
-              ? nextRefreshToken
-              : refreshToken;
+          ? nextRefreshToken
+          : refreshToken;
 
       await _tokenStorage.saveTokens(
         accessToken: accessToken,
