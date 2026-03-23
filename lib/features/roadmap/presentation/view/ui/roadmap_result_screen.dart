@@ -339,6 +339,7 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
   }
 
   Future<void> _fetchRoadmapResult({required bool isManualRefresh}) async {
+    if (!mounted) return;
     if (_isRefreshing) {
       _logResult('skip fetch: already in progress');
       return;
@@ -354,33 +355,48 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     }
     _jobId = jobId;
 
+    if (!mounted) return;
     final resultNotifier = ref.read(
       roadmapItineraryResultViewModelProvider.notifier,
     );
 
+    if (!mounted) return;
     setState(() {
       _isRefreshing = true;
     });
     _logResult('fetch started: jobId=$jobId, isManualRefresh=$isManualRefresh');
 
-    if (!mounted) return;
-    await resultNotifier.load(jobId);
-    if (!mounted) return;
+    try {
+      final loaded = await resultNotifier.load(jobId);
+      if (!mounted) return;
 
-    final resultState = ref.read(roadmapItineraryResultViewModelProvider);
-    _lastResultStatus = resultState.result?.status;
-    final nextTravelCourseId = resultState.result?.travelCourseId?.trim();
-    if (nextTravelCourseId != null && nextTravelCourseId.isNotEmpty) {
-      _travelCourseId = nextTravelCourseId;
+      final resultState = ref.read(roadmapItineraryResultViewModelProvider);
+      _lastResultStatus = resultState.result?.status;
+      final nextTravelCourseId = resultState.result?.travelCourseId?.trim();
+      if (nextTravelCourseId != null && nextTravelCourseId.isNotEmpty) {
+        _travelCourseId = nextTravelCourseId;
+      }
+      _logResult(
+        'fetch finished: status=${_lastResultStatus ?? 'null'}, error=${resultState.errorMessage}',
+      );
+
+      if (!loaded &&
+          _shouldStopPollingOnResultError(resultState.errorMessage)) {
+        _logResult('stop polling: terminal result error detected');
+        _stopResultPolling();
+        _stopDotAnimation();
+      }
+
+      _handleResultStatus(status: _lastResultStatus);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshing = false;
+        });
+      } else {
+        _isRefreshing = false;
+      }
     }
-    _logResult(
-      'fetch finished: status=${_lastResultStatus ?? 'null'}, error=${resultState.errorMessage}',
-    );
-    _handleResultStatus(status: _lastResultStatus);
-
-    setState(() {
-      _isRefreshing = false;
-    });
   }
 
   void _handleResultStatus({required String? status}) {
@@ -417,6 +433,18 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
         status == 'timeout' ||
         status == 'error' ||
         status == 'cancelled';
+  }
+
+  bool _shouldStopPollingOnResultError(String? errorMessage) {
+    final normalized = errorMessage?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      return false;
+    }
+
+    return normalized.contains('찾을 수 없습니다') ||
+        normalized.contains('작업 id') ||
+        normalized.contains('작업 ID') ||
+        normalized.contains('조회할 수 없어요');
   }
 
   String _resolveEmptyMessage({
@@ -478,6 +506,7 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
   }
 
   Future<void> _pollModificationStatus() async {
+    if (!mounted) return;
     final jobId = _modificationJobId?.trim();
     if (jobId == null || jobId.isEmpty) return;
 
@@ -1217,7 +1246,11 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     final markers = <Marker>{};
     for (var dayIndex = 0; dayIndex < dayPlans.length; dayIndex++) {
       final dayPlan = dayPlans[dayIndex];
-      for (var placeIndex = 0; placeIndex < dayPlan.places.length; placeIndex++) {
+      for (
+        var placeIndex = 0;
+        placeIndex < dayPlan.places.length;
+        placeIndex++
+      ) {
         final place = dayPlan.places[placeIndex];
         final lat = place.latitude;
         final lng = place.longitude;
@@ -1359,10 +1392,18 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
 
     final latitudes = coordinates.map((point) => point.latitude);
     final longitudes = coordinates.map((point) => point.longitude);
-    final south = latitudes.reduce((left, right) => left < right ? left : right);
-    final north = latitudes.reduce((left, right) => left > right ? left : right);
-    final west = longitudes.reduce((left, right) => left < right ? left : right);
-    final east = longitudes.reduce((left, right) => left > right ? left : right);
+    final south = latitudes.reduce(
+      (left, right) => left < right ? left : right,
+    );
+    final north = latitudes.reduce(
+      (left, right) => left > right ? left : right,
+    );
+    final west = longitudes.reduce(
+      (left, right) => left < right ? left : right,
+    );
+    final east = longitudes.reduce(
+      (left, right) => left > right ? left : right,
+    );
 
     return CameraUpdate.newLatLngBounds(
       LatLngBounds(
