@@ -15,6 +15,7 @@ class CountryRegionApiService {
            apiClient ??
            ApiClient(
              baseUrl: _readBaseUrl(),
+             loggerLabel: 'REGION-API',
              interceptors: [
                AuthInterceptor(
                  accessTokenProvider:

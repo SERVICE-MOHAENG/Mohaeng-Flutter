@@ -4,11 +4,18 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 class DioLoggerInterceptor extends Interceptor {
-  DioLoggerInterceptor({bool enabled = kDebugMode}) : _enabled = enabled;
+  DioLoggerInterceptor({
+    bool enabled = kDebugMode,
+    String label = 'API',
+    int maxBodyLength = 2000,
+  }) : _enabled = enabled,
+       _label = label.trim().isEmpty ? 'API' : label.trim().toUpperCase(),
+       _maxBodyLength = maxBodyLength;
 
   final bool _enabled;
+  final String _label;
+  final int _maxBodyLength;
 
-  static const int _maxBodyLength = 2000;
   static const List<String> _sensitiveKeys = [
     'authorization',
     'token',
@@ -31,18 +38,19 @@ class DioLoggerInterceptor extends Interceptor {
       final headers = _redactMap(options.headers);
       final query = _redactData(options.queryParameters);
       final body = _redactData(options.data);
+      final endpoint = _describeUri(options.uri);
 
-      debugPrint('[HTTP][$requestId] --> ${options.method} ${options.uri}');
+      _emit('[$_label][$requestId] --> ${options.method} $endpoint');
       if (headers.isNotEmpty) {
-        debugPrint('[HTTP][$requestId] headers: $headers');
+        _emit('[$_label][$requestId] headers: $headers');
       }
       if (query is Map && query.isNotEmpty) {
-        debugPrint('[HTTP][$requestId] query: ${_truncate(_stringify(query))}');
+        _emit('[$_label][$requestId] query: ${_truncate(_stringify(query))}');
       }
       if (body != null) {
-        debugPrint('[HTTP][$requestId] body: ${_truncate(_stringify(body))}');
+        _emit('[$_label][$requestId] body: ${_truncate(_stringify(body))}');
       }
-      debugPrint('[HTTP][$requestId] --> END');
+      _emit('[$_label][$requestId] --> END');
     }
 
     handler.next(options);
@@ -54,17 +62,18 @@ class DioLoggerInterceptor extends Interceptor {
       final requestOptions = response.requestOptions;
       final requestId = requestOptions.extra['logId']?.toString() ?? '----';
       final duration = _durationMs(requestOptions);
+      final endpoint = _describeUri(requestOptions.uri);
 
-      debugPrint(
-        '[HTTP][$requestId] <-- ${response.statusCode} '
-        '${requestOptions.method} ${requestOptions.uri} (${duration}ms)',
+      _emit(
+        '[$_label][$requestId] <-- ${response.statusCode} '
+        '${requestOptions.method} $endpoint (${duration}ms)',
       );
 
       final data = _redactData(response.data);
       if (data != null) {
-        debugPrint('[HTTP][$requestId] response: ${_truncate(_stringify(data))}');
+        _emit('[$_label][$requestId] response: ${_truncate(_stringify(data))}');
       }
-      debugPrint('[HTTP][$requestId] <-- END');
+      _emit('[$_label][$requestId] <-- END');
     }
 
     handler.next(response);
@@ -76,23 +85,24 @@ class DioLoggerInterceptor extends Interceptor {
       final requestOptions = err.requestOptions;
       final requestId = requestOptions.extra['logId']?.toString() ?? '----';
       final duration = _durationMs(requestOptions);
+      final endpoint = _describeUri(requestOptions.uri);
 
-      debugPrint(
-        '[HTTP][$requestId] <-- ERROR ${err.type} '
-        '${requestOptions.method} ${requestOptions.uri} (${duration}ms)',
+      _emit(
+        '[$_label][$requestId] <-- ERROR ${err.type} '
+        '${requestOptions.method} $endpoint (${duration}ms)',
       );
 
       final response = err.response;
       if (response != null) {
         final data = _redactData(response.data);
         if (data != null) {
-          debugPrint('[HTTP][$requestId] error: ${_truncate(_stringify(data))}');
+          _emit('[$_label][$requestId] error: ${_truncate(_stringify(data))}');
         }
       } else {
-        debugPrint('[HTTP][$requestId] error: ${err.message}');
+        _emit('[$_label][$requestId] error: ${err.message}');
       }
 
-      debugPrint('[HTTP][$requestId] <-- END');
+      _emit('[$_label][$requestId] <-- END');
     }
 
     handler.next(err);
@@ -110,8 +120,9 @@ class DioLoggerInterceptor extends Interceptor {
     final result = <String, dynamic>{};
     map.forEach((key, value) {
       final keyStr = key.toString();
-      result[keyStr] =
-          _isSensitiveKey(keyStr) ? '**REDACTED**' : _redactData(value);
+      result[keyStr] = _isSensitiveKey(keyStr)
+          ? '**REDACTED**'
+          : _redactData(value);
     });
     return result;
   }
@@ -134,8 +145,9 @@ class DioLoggerInterceptor extends Interceptor {
       final result = <String, dynamic>{};
       data.forEach((key, value) {
         final keyStr = key.toString();
-        result[keyStr] =
-            _isSensitiveKey(keyStr) ? '**REDACTED**' : _redactData(value);
+        result[keyStr] = _isSensitiveKey(keyStr)
+            ? '**REDACTED**'
+            : _redactData(value);
       });
       return result;
     }
@@ -164,5 +176,15 @@ class DioLoggerInterceptor extends Interceptor {
     if (text.length <= _maxBodyLength) return text;
     final remainder = text.length - _maxBodyLength;
     return '${text.substring(0, _maxBodyLength)}...($remainder more)';
+  }
+
+  String _describeUri(Uri uri) {
+    final path = uri.path.isEmpty ? '/' : uri.path;
+    final query = uri.query;
+    return query.isEmpty ? path : '$path?$query';
+  }
+
+  void _emit(String message) {
+    debugPrint(message);
   }
 }

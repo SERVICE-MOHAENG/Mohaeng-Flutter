@@ -21,6 +21,7 @@ class RoadmapRemoteDataSource {
            apiClient ??
            ApiClient(
              baseUrl: _readBaseUrl(),
+             loggerLabel: 'ROADMAP-API',
              interceptors: [
                AuthInterceptor(
                  accessTokenProvider:

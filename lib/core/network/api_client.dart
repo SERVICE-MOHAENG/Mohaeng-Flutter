@@ -10,6 +10,7 @@ final class ApiClient {
     Dio? dio,
     List<Interceptor> interceptors = const [],
     bool addLoggerInterceptor = true,
+    String loggerLabel = 'API',
     NetworkTimeouts timeouts = const NetworkTimeouts(),
   }) : _dio =
            dio ??
@@ -26,7 +27,7 @@ final class ApiClient {
         !_dio.interceptors.any(
           (interceptor) => interceptor is DioLoggerInterceptor,
         )) {
-      _dio.interceptors.add(DioLoggerInterceptor());
+      _dio.interceptors.add(DioLoggerInterceptor(label: loggerLabel));
     }
   }
 

@@ -18,6 +18,7 @@ class MainRemoteDataSource {
            apiClient ??
            ApiClient(
              baseUrl: _readBaseUrl(),
+             loggerLabel: 'MAIN-API',
              interceptors: [
                AuthInterceptor(
                  accessTokenProvider:

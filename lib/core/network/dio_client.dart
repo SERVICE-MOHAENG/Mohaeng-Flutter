@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:mohaeng_app_service/core/network/dio_logger.dart';
 import 'package:mohaeng_app_service/core/network/network_options.dart';
@@ -21,8 +22,8 @@ class DioClient {
         tokenStorage: _tokenStorage,
       ),
     );
-    _dio.interceptors.add(DioLoggerInterceptor());
-    _refreshDio.interceptors.add(DioLoggerInterceptor());
+    _dio.interceptors.add(DioLoggerInterceptor(label: 'AUTH'));
+    _refreshDio.interceptors.add(DioLoggerInterceptor(label: 'AUTH-REFRESH'));
   }
 
   final Dio _dio;
@@ -80,8 +81,12 @@ class _AuthInterceptor extends Interceptor {
       return;
     }
 
+    _logAuth(
+      '401 detected for ${requestOptions.method} ${requestOptions.path}; refreshing access token.',
+    );
     final newAccessToken = await _refreshAccessToken();
     if (newAccessToken == null || newAccessToken.isEmpty) {
+      _logAuth('token refresh failed; clearing stored tokens.');
       await _tokenStorage.clearTokens();
       handler.next(err);
       return;
@@ -91,9 +96,15 @@ class _AuthInterceptor extends Interceptor {
     requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
 
     try {
+      _logAuth(
+        'retrying ${requestOptions.method} ${requestOptions.path} with refreshed access token.',
+      );
       final response = await _dio.fetch(requestOptions);
       handler.resolve(response);
     } catch (error) {
+      _logAuth(
+        'retry failed for ${requestOptions.method} ${requestOptions.path}.',
+      );
       if (error is DioException) {
         handler.next(error);
       } else {
@@ -114,6 +125,7 @@ class _AuthInterceptor extends Interceptor {
 
   Future<String?> _refreshAccessToken() async {
     if (_refreshCompleter != null) {
+      _logAuth('token refresh already in progress; awaiting existing refresh.');
       return _refreshCompleter!.future;
     }
 
@@ -123,10 +135,12 @@ class _AuthInterceptor extends Interceptor {
     try {
       final refreshToken = await _tokenStorage.readRefreshToken();
       if (refreshToken == null || refreshToken.isEmpty) {
+        _logAuth('no refresh token available.');
         completer.complete(null);
         return completer.future;
       }
 
+      _logAuth('requesting new access token.');
       final response = await _refreshDio.post(
         _refreshPath,
         data: {'refreshToken': refreshToken},
@@ -137,6 +151,7 @@ class _AuthInterceptor extends Interceptor {
       final nextRefreshToken = payload['refreshToken'];
 
       if (accessToken is! String || accessToken.isEmpty) {
+        _logAuth('refresh response did not include a valid access token.');
         completer.complete(null);
         return completer.future;
       }
@@ -151,9 +166,11 @@ class _AuthInterceptor extends Interceptor {
         refreshToken: refreshToStore,
       );
 
+      _logAuth('token refresh succeeded.');
       completer.complete(accessToken);
       return completer.future;
     } catch (_) {
+      _logAuth('token refresh threw an exception.');
       completer.complete(null);
       return completer.future;
     } finally {
@@ -182,5 +199,10 @@ class _AuthInterceptor extends Interceptor {
     }
 
     return const <String, dynamic>{};
+  }
+
+  void _logAuth(String message) {
+    if (!kDebugMode) return;
+    debugPrint('[AUTH] $message');
   }
 }

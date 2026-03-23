@@ -20,6 +20,7 @@ class MyPageRemoteDataSource {
            apiClient ??
            ApiClient(
              baseUrl: _readBaseUrl(),
+             loggerLabel: 'MYPAGE-API',
              interceptors: [
                AuthInterceptor(
                  accessTokenProvider:
