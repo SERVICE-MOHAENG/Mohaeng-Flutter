@@ -99,7 +99,10 @@ class CourseResponse {
   const CourseResponse({
     this.id,
     this.title,
+    this.description,
     this.countryCode,
+    this.countries = const [],
+    this.regionNames = const [],
     this.thumbnailUrl,
     this.nights,
     this.days,
@@ -109,6 +112,7 @@ class CourseResponse {
     this.places = const [],
     this.createdAt,
     this.updatedAt,
+    this.sourceCourseId,
   });
 
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
@@ -118,7 +122,16 @@ class CourseResponse {
   final String? title;
 
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? description;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? countryCode;
+
+  @JsonKey(fromJson: _readStringList, toJson: _writeStringList)
+  final List<String> countries;
+
+  @JsonKey(fromJson: _readStringList, toJson: _writeStringList)
+  final List<String> regionNames;
 
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? thumbnailUrl;
@@ -149,6 +162,9 @@ class CourseResponse {
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? updatedAt;
 
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? sourceCourseId;
+
   factory CourseResponse.fromJson(Map<String, dynamic> json) {
     final normalized = <String, dynamic>{...json};
 
@@ -157,6 +173,18 @@ class CourseResponse {
     }
     if (!normalized.containsKey('title') && normalized['name'] != null) {
       normalized['title'] = normalized['name'];
+    }
+    if (!normalized.containsKey('description')) {
+      normalized['description'] =
+          normalized['description'] ??
+          normalized['summary'] ??
+          normalized['content'];
+    }
+    if (!normalized.containsKey('countryCode')) {
+      final countries = normalized['countries'];
+      if (countries is List && countries.isNotEmpty) {
+        normalized['countryCode'] = countries.first;
+      }
     }
     if (!normalized.containsKey('thumbnailUrl')) {
       normalized['thumbnailUrl'] =
@@ -173,9 +201,20 @@ class CourseResponse {
     if (!normalized.containsKey('likeCount') && normalized['likes'] != null) {
       normalized['likeCount'] = normalized['likes'];
     }
+    if (!normalized.containsKey('isLiked')) {
+      normalized['isLiked'] =
+          normalized['isLiked'] ??
+          normalized['liked'] ??
+          normalized['isBookmarked'] ??
+          normalized['bookmarked'];
+    }
     if (!normalized.containsKey('places') &&
         normalized['coursePlaces'] is List) {
       normalized['places'] = normalized['coursePlaces'];
+    }
+    if (!normalized.containsKey('sourceCourseId') &&
+        normalized['originalCourseId'] != null) {
+      normalized['sourceCourseId'] = normalized['originalCourseId'];
     }
 
     return _$CourseResponseFromJson(normalized);
@@ -190,21 +229,28 @@ class CoursePlaceResponse {
     this.id,
     this.placeId,
     this.name,
+    this.description,
     this.address,
     this.latitude,
     this.longitude,
     this.order,
+    this.dayNumber,
+    this.memo,
+    this.placeUrl,
     this.visitedAt,
   });
 
-  @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
-  final int? id;
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? id;
 
-  @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
-  final int? placeId;
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? placeId;
 
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? name;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? description;
 
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? address;
@@ -218,6 +264,15 @@ class CoursePlaceResponse {
   @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
   final int? order;
 
+  @JsonKey(fromJson: _readIntNullable, toJson: _writeIntNullable)
+  final int? dayNumber;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? memo;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? placeUrl;
+
   /// ISO8601 string.
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? visitedAt;
@@ -227,11 +282,21 @@ class CoursePlaceResponse {
     if (!normalized.containsKey('name') && normalized['title'] != null) {
       normalized['name'] = normalized['title'];
     }
+    if (!normalized.containsKey('name') && normalized['placeName'] != null) {
+      normalized['name'] = normalized['placeName'];
+    }
+    if (!normalized.containsKey('description') &&
+        normalized['placeDescription'] != null) {
+      normalized['description'] = normalized['placeDescription'];
+    }
     if (!normalized.containsKey('latitude') && normalized['lat'] != null) {
       normalized['latitude'] = normalized['lat'];
     }
     if (!normalized.containsKey('longitude') && normalized['lng'] != null) {
       normalized['longitude'] = normalized['lng'];
+    }
+    if (!normalized.containsKey('order') && normalized['visitOrder'] != null) {
+      normalized['order'] = normalized['visitOrder'];
     }
 
     return _$CoursePlaceResponseFromJson(normalized);

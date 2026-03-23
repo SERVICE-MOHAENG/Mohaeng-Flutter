@@ -50,6 +50,8 @@ class CourseResponse {
     this.id,
     this.title,
     this.description,
+    this.startDate,
+    this.endDate,
     this.countryCode,
     this.countries = const [],
     this.regionNames = const [],
@@ -79,6 +81,12 @@ class CourseResponse {
 
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? description;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? startDate;
+
+  @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
+  final String? endDate;
 
   @JsonKey(fromJson: _readStringNullable, toJson: _writeStringNullable)
   final String? countryCode;
@@ -148,6 +156,13 @@ class CourseResponse {
     if (!normalized.containsKey('title') && normalized['name'] != null) {
       normalized['title'] = normalized['name'];
     }
+    if (!normalized.containsKey('startDate') &&
+        normalized['start_date'] != null) {
+      normalized['startDate'] = normalized['start_date'];
+    }
+    if (!normalized.containsKey('endDate') && normalized['end_date'] != null) {
+      normalized['endDate'] = normalized['end_date'];
+    }
     if (!normalized.containsKey('description')) {
       normalized['description'] =
           normalized['description'] ??
@@ -177,9 +192,14 @@ class CourseResponse {
     if (!normalized.containsKey('likeCount') && normalized['likes'] != null) {
       normalized['likeCount'] = normalized['likes'];
     }
+    if (!normalized.containsKey('likeCount') &&
+        normalized['like_count'] != null) {
+      normalized['likeCount'] = normalized['like_count'];
+    }
     if (!normalized.containsKey('isLiked')) {
       normalized['isLiked'] =
           normalized['isLiked'] ??
+          normalized['is_liked'] ??
           normalized['liked'] ??
           normalized['isBookmarked'] ??
           normalized['bookmarked'];
@@ -202,6 +222,8 @@ class CourseResponse {
     String? id,
     String? title,
     String? description,
+    String? startDate,
+    String? endDate,
     String? countryCode,
     List<String>? countries,
     List<String>? regionNames,
@@ -226,6 +248,8 @@ class CourseResponse {
       id: id ?? this.id,
       title: title ?? this.title,
       description: description ?? this.description,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
       countryCode: countryCode ?? this.countryCode,
       countries: countries ?? this.countries,
       regionNames: regionNames ?? this.regionNames,

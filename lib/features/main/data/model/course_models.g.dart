@@ -29,6 +29,8 @@ CourseResponse _$CourseResponseFromJson(Map<String, dynamic> json) =>
       id: _readStringNullable(json['id']),
       title: _readStringNullable(json['title']),
       description: _readStringNullable(json['description']),
+      startDate: _readStringNullable(json['startDate']),
+      endDate: _readStringNullable(json['endDate']),
       countryCode: _readStringNullable(json['countryCode']),
       countries: json['countries'] == null
           ? const []
@@ -61,6 +63,8 @@ Map<String, dynamic> _$CourseResponseToJson(CourseResponse instance) =>
       'id': _writeStringNullable(instance.id),
       'title': _writeStringNullable(instance.title),
       'description': _writeStringNullable(instance.description),
+      'startDate': _writeStringNullable(instance.startDate),
+      'endDate': _writeStringNullable(instance.endDate),
       'countryCode': _writeStringNullable(instance.countryCode),
       'countries': _writeStringList(instance.countries),
       'regionNames': _writeStringList(instance.regionNames),
