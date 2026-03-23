@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
-import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/features/main/data/model/course_models.dart';
 
@@ -20,6 +19,7 @@ class MainCourseRoadmapCard extends StatelessWidget {
     final title = _resolveCourseTitle(course);
     final daysText = _resolveDaysText(course);
     final tags = _resolveTags(course);
+    final thumbnailUrl = _resolveNetworkImageUrl(course.thumbnailUrl);
 
     return Container(
       constraints: BoxConstraints(minHeight: 102.h),
@@ -37,11 +37,13 @@ class MainCourseRoadmapCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16.r),
-            child: _buildCourseThumbnail(course.thumbnailUrl),
-          ),
-          SizedBox(width: 14.w),
+          if (thumbnailUrl != null) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16.r),
+              child: _buildCourseThumbnail(thumbnailUrl),
+            ),
+            SizedBox(width: 14.w),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -78,31 +80,14 @@ class MainCourseRoadmapCard extends StatelessWidget {
     );
   }
 
-  Widget _buildCourseThumbnail(String? thumbnailUrl) {
-    final uri = thumbnailUrl == null ? null : Uri.tryParse(thumbnailUrl);
-    final isNetwork = uri != null && uri.hasScheme;
-
-    if (isNetwork) {
-      final url = thumbnailUrl!;
-      return Image.network(
-        url,
-        width: 76.w,
-        height: 76.w,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => Image.asset(
-          MImages.sibuya,
-          width: 76.w,
-          height: 76.w,
-          fit: BoxFit.cover,
-        ),
-      );
-    }
-
-    return Image.asset(
-      MImages.sibuya,
+  Widget _buildCourseThumbnail(String thumbnailUrl) {
+    return Image.network(
+      thumbnailUrl,
       width: 76.w,
       height: 76.w,
       fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) =>
+          SizedBox(width: 76.w, height: 76.w),
     );
   }
 }
@@ -176,6 +161,9 @@ String _resolveCourseTitle(CourseResponse course) {
 }
 
 String _resolveDaysText(CourseResponse course) {
+  final rangeText = _formatDateRange(course.startDate, course.endDate);
+  if (rangeText != null) return rangeText;
+
   final nights = course.nights;
   final days = course.days;
   if (nights != null && nights >= 0 && days != null && days > 0) {
@@ -194,4 +182,38 @@ List<String> _resolveTags(CourseResponse course) {
       .map((tag) => tag.startsWith('#') ? tag : '#$tag')
       .take(2)
       .toList(growable: false);
+}
+
+String? _resolveNetworkImageUrl(String? value) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+
+  final uri = Uri.tryParse(trimmed);
+  if (uri == null || !uri.hasScheme) return null;
+
+  return trimmed;
+}
+
+String? _formatDateRange(String? startDate, String? endDate) {
+  final start = _tryParseDate(startDate);
+  final end = _tryParseDate(endDate);
+  if (start == null && end == null) return null;
+  if (start != null && end != null) {
+    return '${_formatMonthDay(start)} - ${_formatMonthDay(end)}';
+  }
+  final single = start ?? end;
+  if (single == null) return null;
+  return _formatMonthDay(single);
+}
+
+DateTime? _tryParseDate(String? value) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+  return DateTime.tryParse(trimmed);
+}
+
+String _formatMonthDay(DateTime value) {
+  final month = value.month.toString().padLeft(2, '0');
+  final day = value.day.toString().padLeft(2, '0');
+  return '$month.$day';
 }

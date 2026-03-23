@@ -7,6 +7,9 @@ import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/features/main/data/model/course_models.dart'
+    as main_course;
+import 'package:mohaeng_app_service/features/main/presentation/view/ui/main_course_roadmap_screen.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/blog_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/course_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/liked_region_models.dart';
@@ -143,6 +146,74 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _handleOpenCourseRoadmap(CourseResponse course) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MainCourseRoadmapScreen(course: _toMainCourse(course)),
+      ),
+    );
+  }
+
+  void _handleOpenCreatedRoadmap(CourseResponse course) {
+    final itineraryId = (course.id ?? course.sourceCourseId)?.trim();
+    if (itineraryId == null || itineraryId.isEmpty) {
+      _showMessage('조회할 일정 ID를 확인하지 못했어요.');
+      return;
+    }
+
+    Navigator.pushNamed(
+      context,
+      AppRoutes.roadmapResult,
+      arguments: itineraryId,
+    );
+  }
+
+  main_course.CourseResponse _toMainCourse(CourseResponse course) {
+    final countryCode = course.countryCode?.trim();
+
+    return main_course.CourseResponse(
+      id: course.id,
+      title: course.title,
+      description: course.description,
+      countryCode: countryCode,
+      countries: course.countries.isNotEmpty
+          ? course.countries
+          : (countryCode == null || countryCode.isEmpty
+                ? const <String>[]
+                : <String>[countryCode]),
+      regionNames: course.regionNames,
+      thumbnailUrl: course.thumbnailUrl,
+      nights: course.nights,
+      days: course.days,
+      likeCount: course.likeCount,
+      isLiked: course.isLiked,
+      tags: course.tags,
+      places: course.places.map(_toMainCoursePlace).toList(growable: false),
+      createdAt: course.createdAt,
+      updatedAt: course.updatedAt,
+      sourceCourseId: course.sourceCourseId,
+    );
+  }
+
+  main_course.CoursePlaceResponse _toMainCoursePlace(
+    CoursePlaceResponse place,
+  ) {
+    return main_course.CoursePlaceResponse(
+      id: place.id,
+      placeId: place.placeId,
+      name: place.name,
+      description: place.description,
+      address: place.address,
+      latitude: place.latitude,
+      longitude: place.longitude,
+      order: place.order,
+      dayNumber: place.dayNumber,
+      memo: place.memo,
+      placeUrl: place.placeUrl,
+      visitedAt: place.visitedAt,
+    );
   }
 
   Widget _buildProfileHeader(MyPageState state) {
@@ -346,6 +417,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
       0 => _buildCourseCards(
         courses: state.myCourses?.courses ?? const <CourseResponse>[],
         emptyText: '내 여행 일정(코스)이 없어요.',
+        onOpenCourse: _handleOpenCreatedRoadmap,
       ),
       1 => _buildBlogCards(
         blogs: state.myBlogs?.blogs ?? const <BlogResponse>[],
@@ -354,6 +426,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
       2 => _buildCourseCards(
         courses: state.myCourseLikes?.items ?? const <CourseResponse>[],
         emptyText: '좋아요한 일정이 없어요.',
+        onOpenCourse: _handleOpenCourseRoadmap,
       ),
       3 => _buildBlogCards(
         blogs: state.myBlogLikes?.items ?? const <BlogResponse>[],
@@ -369,6 +442,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
   Widget _buildCourseCards({
     required List<CourseResponse> courses,
     required String emptyText,
+    ValueChanged<CourseResponse>? onOpenCourse,
     bool showTitle = true,
   }) {
     if (courses.isEmpty) {
@@ -388,7 +462,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         for (int i = 0; i < display.length; i++) ...[
-          _buildTripCard(course: display[i]),
+          _buildTripCard(course: display[i], onTapPrimaryAction: onOpenCourse),
           if (i != display.length - 1) SizedBox(height: 10.h),
         ],
         if (showTitle) ...[
@@ -465,8 +539,12 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     );
   }
 
-  Widget _buildTripCard({required CourseResponse course}) {
+  Widget _buildTripCard({
+    required CourseResponse course,
+    ValueChanged<CourseResponse>? onTapPrimaryAction,
+  }) {
     final title = (course.title ?? '여행 코스').trim();
+    final courseThumbnailUrl = _resolveNetworkImageUrl(course.thumbnailUrl);
     final daysText = switch ((course.nights, course.days)) {
       (final nights?, final days?) => '$nights박 $days일',
       (_, final days?) => '$days일 일정',
@@ -486,11 +564,13 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
       ),
       child: Row(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10.r),
-            child: _buildCourseThumbnail(course.thumbnailUrl),
-          ),
-          SizedBox(width: 10.w),
+          if (courseThumbnailUrl != null) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10.r),
+              child: _buildCourseThumbnail(courseThumbnailUrl),
+            ),
+            SizedBox(width: 10.w),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -518,7 +598,12 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
                       _buildTag('#여행코스'),
                     ],
                     Spacer(),
-                    _buildPrimaryButton('바로가기'),
+                    _buildPrimaryButton(
+                      '바로가기',
+                      onTap: onTapPrimaryAction == null
+                          ? null
+                          : () => onTapPrimaryAction(course),
+                    ),
                   ],
                 ),
               ],
@@ -529,27 +614,15 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     );
   }
 
-  Widget _buildCourseThumbnail(String? thumbnailUrl) {
-    final uri = thumbnailUrl == null ? null : Uri.tryParse(thumbnailUrl);
-    final isNetwork = uri != null && uri.hasScheme;
-
-    if (isNetwork) {
-      final url = thumbnailUrl!;
-      return Image.network(
-        url,
-        width: 58.w,
-        height: 58.w,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => Image.asset(
-          MImages.sibuya,
-          width: 58.w,
-          height: 58.w,
-          fit: BoxFit.cover,
-        ),
-      );
-    }
-
-    return Image.asset(MImages.sibuya, width: 58.w, height: 58.w);
+  Widget _buildCourseThumbnail(String thumbnailUrl) {
+    return Image.network(
+      thumbnailUrl,
+      width: 58.w,
+      height: 58.w,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) =>
+          SizedBox(width: 58.w, height: 58.w),
+    );
   }
 
   Widget _buildBlogCard({required BlogResponse blog}) {
@@ -737,6 +810,20 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     return Image.asset(MImages.sibuya, width: 58.w, height: 58.w);
   }
 
+  String? _resolveNetworkImageUrl(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null || !uri.hasScheme) {
+      return null;
+    }
+
+    return trimmed;
+  }
+
   String? _formatCreatedAt(String? createdAt) {
     final value = createdAt?.trim();
     if (value == null || value.isEmpty) return null;
@@ -772,16 +859,23 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     );
   }
 
-  Widget _buildPrimaryButton(String label) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
-      decoration: BoxDecoration(
-        color: MColor.primary500,
+  Widget _buildPrimaryButton(String label, {VoidCallback? onTap}) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(100.r),
-      ),
-      child: Text(
-        label,
-        style: MTextStyles.sLabelB.copyWith(color: MColor.white100),
+        child: Ink(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
+          decoration: BoxDecoration(
+            color: MColor.primary500,
+            borderRadius: BorderRadius.circular(100.r),
+          ),
+          child: Text(
+            label,
+            style: MTextStyles.sLabelB.copyWith(color: MColor.white100),
+          ),
+        ),
       ),
     );
   }
