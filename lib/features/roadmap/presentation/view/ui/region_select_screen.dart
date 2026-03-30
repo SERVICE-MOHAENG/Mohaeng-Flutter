@@ -20,11 +20,13 @@ class _RegionSelectScreenState extends ConsumerState<RegionSelectScreen> {
   static const String _countryName = '미국';
 
   late final TextEditingController _searchController;
+  late final FocusNode _searchFocusNode;
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
+    _searchFocusNode = FocusNode()..addListener(_handleSearchFocusChanged);
     _searchController = TextEditingController()
       ..addListener(_handleSearchChanged);
     Future.microtask(
@@ -35,6 +37,8 @@ class _RegionSelectScreenState extends ConsumerState<RegionSelectScreen> {
 
   @override
   void dispose() {
+    _searchFocusNode.removeListener(_handleSearchFocusChanged);
+    _searchFocusNode.dispose();
     _searchController.removeListener(_handleSearchChanged);
     _searchController.dispose();
     super.dispose();
@@ -62,26 +66,34 @@ class _RegionSelectScreenState extends ConsumerState<RegionSelectScreen> {
             SizedBox(height: 12.h),
             _buildDescription(),
             SizedBox(height: 24.h),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: _buildSearchField(),
-            ),
-            SizedBox(height: 18.h),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: _buildSelectedChips(regionState.selectedCities),
-            ),
-            SizedBox(height: 12.h),
             Expanded(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
-                child: _buildRegionSuggestions(
-                  countryRegionsState: countryRegionsState,
-                  selectedCities: regionState.selectedCities,
+              child: TextFieldTapRegion(
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      child: _buildSearchField(),
+                    ),
+                    SizedBox(height: 18.h),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      child: _buildSelectedChips(regionState.selectedCities),
+                    ),
+                    SizedBox(height: 12.h),
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16.w),
+                        child: _buildRegionSuggestions(
+                          countryRegionsState: countryRegionsState,
+                          selectedCities: regionState.selectedCities,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 16.h),
+                  ],
                 ),
               ),
             ),
-            SizedBox(height: 16.h),
           ],
         ),
       ),
@@ -168,8 +180,10 @@ class _RegionSelectScreenState extends ConsumerState<RegionSelectScreen> {
   Widget _buildSearchField() {
     return TextFormField(
       controller: _searchController,
+      focusNode: _searchFocusNode,
       style: MTextStyles.bodyM.copyWith(color: MColor.gray800),
       onFieldSubmitted: (_) => _handleAddCity(),
+      onTapOutside: (_) => _searchFocusNode.unfocus(),
       decoration: InputDecoration(
         isDense: true,
         filled: true,
@@ -216,6 +230,10 @@ class _RegionSelectScreenState extends ConsumerState<RegionSelectScreen> {
     setState(() => _searchQuery = next);
   }
 
+  void _handleSearchFocusChanged() {
+    setState(() {});
+  }
+
   void _addCity(String city, {bool clearInput = false}) {
     final normalized = city.trim();
     if (normalized.isEmpty) return;
@@ -253,6 +271,10 @@ class _RegionSelectScreenState extends ConsumerState<RegionSelectScreen> {
     required CountryRegionsState countryRegionsState,
     required List<String> selectedCities,
   }) {
+    if (!_searchFocusNode.hasFocus) {
+      return const SizedBox.shrink();
+    }
+
     if (countryRegionsState.isLoading) {
       return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }

@@ -15,10 +15,8 @@ class RegionSelectState {
 }
 
 class RegionSelectViewModel extends StateNotifier<RegionSelectState> {
-  RegionSelectViewModel()
-    : super(
-        const RegionSelectState(),
-      );
+  RegionSelectViewModel({List<String>? initialCities})
+    : super(RegionSelectState(selectedCities: initialCities ?? const []));
 
   void addCity(String rawCity) {
     final city = rawCity.trim();

@@ -130,6 +130,8 @@ class _ScheduleSelectScreenState extends ConsumerState<ScheduleSelectScreen> {
           for (final entry in cities.asMap().entries) ...[
             _CountryChip(
               label: entry.value,
+              scheduleText: _buildCityScheduleText(entry.value, scheduleState),
+              hasSchedule: _hasCitySchedule(entry.value, scheduleState),
               selected: entry.value == scheduleState.selectedCity,
               onTap: () => ref
                   .read(scheduleSelectViewModelProvider.notifier)
@@ -263,11 +265,15 @@ class _ScheduleSelectScreenState extends ConsumerState<ScheduleSelectScreen> {
 class _CountryChip extends StatelessWidget {
   const _CountryChip({
     required this.label,
+    required this.scheduleText,
+    required this.hasSchedule,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
+  final String scheduleText;
+  final bool hasSchedule;
   final bool selected;
   final VoidCallback onTap;
 
@@ -275,27 +281,84 @@ class _CountryChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final background = selected ? MColor.primary50 : MColor.white100;
     final borderWidth = selected ? 2.w : 1.w;
+    final scheduleColor = selected || hasSchedule
+        ? MColor.primary600
+        : MColor.gray400;
+
     return SizedBox(
       width: 159.w,
-      height: 64.h,
-      child: OutlinedButton(
-        onPressed: onTap,
-        style: OutlinedButton.styleFrom(
-          side: BorderSide(color: MColor.primary500, width: borderWidth),
-          foregroundColor: MColor.primary500,
-          backgroundColor: background,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4.r),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 64.h,
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: onTap,
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: MColor.primary500, width: borderWidth),
+                foregroundColor: MColor.primary500,
+                backgroundColor: background,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4.r),
+                ),
+              ),
+              child: Text(
+                label,
+                style: MTextStyles.bodyM.copyWith(color: MColor.primary500),
+                textAlign: TextAlign.center,
+              ),
+            ),
           ),
-        ),
-        child: Text(
-          label,
-          style: MTextStyles.bodyM.copyWith(color: MColor.primary500),
-        ),
+          SizedBox(height: 8.h),
+          Text(
+            scheduleText,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: MTextStyles.sLabelM.copyWith(color: scheduleColor),
+          ),
+        ],
       ),
     );
   }
 }
+
+bool _hasCitySchedule(String city, ScheduleSelectState scheduleState) {
+  return scheduleState.cityDateRanges.containsKey(city) ||
+      (scheduleState.selectedCity == city && scheduleState.startDate != null);
+}
+
+String _buildCityScheduleText(String city, ScheduleSelectState scheduleState) {
+  final savedRange = scheduleState.cityDateRanges[city];
+  if (savedRange != null) {
+    return _formatCityDateRange(savedRange.start, savedRange.end);
+  }
+
+  if (scheduleState.selectedCity != city || scheduleState.startDate == null) {
+    return '날짜를 선택해주세요.';
+  }
+
+  final startDate = scheduleState.startDate!;
+  final endDate = scheduleState.endDate;
+  if (endDate == null) {
+    return '${_formatCityDate(startDate)} 선택 중';
+  }
+
+  return _formatCityDateRange(startDate, endDate);
+}
+
+String _formatCityDateRange(DateTime start, DateTime end) {
+  if (start.year == end.year &&
+      start.month == end.month &&
+      start.day == end.day) {
+    return _formatCityDate(start);
+  }
+
+  return '${_formatCityDate(start)} ~ ${_formatCityDate(end)}';
+}
+
+String _formatCityDate(DateTime date) => '${date.month}.${date.day}';
 
 class _DayCell extends StatelessWidget {
   const _DayCell({
