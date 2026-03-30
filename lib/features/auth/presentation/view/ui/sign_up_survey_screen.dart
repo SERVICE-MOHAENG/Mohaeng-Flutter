@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
+import 'package:mohaeng_app_service/core/widgets/app_snack_bar.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view_model/auth_providers.dart';
 
@@ -186,13 +187,18 @@ class _SignUpSurveyScreenState extends ConsumerState<SignUpSurveyScreen> {
     );
   }
 
-  void _showSnack(String message) {
+  void _showSnack(
+    String message, {
+    String fallbackMessage = '요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.',
+  }) {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(
+    showAppSnackBar(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+      message: message,
+      fallbackMessage: fallbackMessage,
+    );
   }
 
   Future<bool> _submitPreferences() async {
@@ -223,7 +229,10 @@ class _SignUpSurveyScreenState extends ConsumerState<SignUpSurveyScreen> {
       return true;
     }
 
-    _showSnack(result.message ?? '선호도 저장에 실패했어요.');
+    _showSnack(
+      result.message ?? '선호도 저장에 실패했어요.',
+      fallbackMessage: '선호도 저장에 실패했어요.',
+    );
     return false;
   }
 

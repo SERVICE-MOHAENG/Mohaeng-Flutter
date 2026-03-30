@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
+import 'package:mohaeng_app_service/core/widgets/app_snack_bar.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
 
@@ -215,18 +216,22 @@ class _AdditionalRequestScreenState
       final message =
           ref.read(roadmapSurveyViewModelProvider).errorMessage ??
           '로드맵 설문을 저장하지 못했어요.';
-      ScaffoldMessenger.of(
+      showAppSnackBar(
         context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+        message: message,
+        fallbackMessage: '로드맵 설문을 저장하지 못했어요.',
+      );
       setState(() => _isSubmitting = false);
       return;
     }
 
     final surveyResponse = ref.read(roadmapSurveyViewModelProvider).response;
     if (surveyResponse == null || surveyResponse.surveyId.trim().isEmpty) {
-      ScaffoldMessenger.of(
+      showAppSnackBar(
         context,
-      ).showSnackBar(const SnackBar(content: Text('설문 생성 결과를 확인하지 못했어요.')));
+        message: '설문 생성 결과를 확인하지 못했어요.',
+        fallbackMessage: '설문 생성 결과를 확인하지 못했어요.',
+      );
       setState(() => _isSubmitting = false);
       return;
     }
@@ -257,9 +262,11 @@ class _AdditionalRequestScreenState
       }
 
       final message = itineraryState.errorMessage ?? '로드맵 생성을 시작하지 못했어요.';
-      ScaffoldMessenger.of(
+      showAppSnackBar(
         context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+        message: message,
+        fallbackMessage: '로드맵 생성을 시작하지 못했어요.',
+      );
       setState(() => _isSubmitting = false);
       return;
     }
@@ -269,9 +276,11 @@ class _AdditionalRequestScreenState
         .response
         ?.jobId;
     if (itineraryJobId == null || itineraryJobId.trim().isEmpty) {
-      ScaffoldMessenger.of(
+      showAppSnackBar(
         context,
-      ).showSnackBar(const SnackBar(content: Text('로드맵 작업 ID를 확인하지 못했어요.')));
+        message: '로드맵 작업 ID를 확인하지 못했어요.',
+        fallbackMessage: '로드맵 작업 ID를 확인하지 못했어요.',
+      );
       setState(() => _isSubmitting = false);
       return;
     }

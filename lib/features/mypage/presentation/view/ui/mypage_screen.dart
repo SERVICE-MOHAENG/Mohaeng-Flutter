@@ -6,6 +6,7 @@ import 'package:mohaeng_app_service/core/network/api_error.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
+import 'package:mohaeng_app_service/core/widgets/app_snack_bar.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
 import 'package:mohaeng_app_service/features/main/data/model/course_models.dart'
     as main_course;
@@ -143,9 +144,11 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(
+    showAppSnackBar(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+      message: message,
+      fallbackMessage: '요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.',
+    );
   }
 
   void _handleOpenCourseRoadmap(CourseResponse course) {

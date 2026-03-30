@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
+import 'package:mohaeng_app_service/core/widgets/app_snack_bar.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/ui/sign_up_survey_screen.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/widgets/auth_text_field.dart';
@@ -240,13 +241,18 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
     return true;
   }
 
-  void _showSnack(String message) {
+  void _showSnack(
+    String message, {
+    String fallbackMessage = '요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.',
+  }) {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(
+    showAppSnackBar(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+      message: message,
+      fallbackMessage: fallbackMessage,
+    );
   }
 
   Future<void> _submitSignUp(BuildContext context) async {
@@ -272,7 +278,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
       return;
     }
     if (result.message != null) {
-      _showSnack(result.message!);
+      _showSnack(result.message!, fallbackMessage: '회원가입에 실패했어요.');
     }
   }
 
@@ -284,7 +290,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
       return;
     }
     if (result.message != null) {
-      _showSnack(result.message!);
+      _showSnack(result.message!, fallbackMessage: '인증번호 전송에 실패했어요.');
     }
     throw Exception(result.message ?? '인증번호 전송에 실패했어요.');
   }
@@ -300,7 +306,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
       return;
     }
     if (result.message != null) {
-      _showSnack(result.message!);
+      _showSnack(result.message!, fallbackMessage: '인증번호 확인에 실패했어요.');
     }
     throw Exception(result.message ?? '인증번호 확인에 실패했어요.');
   }
