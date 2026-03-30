@@ -9,11 +9,11 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
+import 'package:mohaeng_app_service/core/widgets/app_snack_bar.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
 import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_itinerary_result_models.dart';
-import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_modification_status_models.dart';
-import 'package:mohaeng_app_service/features/roadmap/presentation/view/roadmap_modification_request_limit.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class RoadmapResultScreen extends ConsumerStatefulWidget {
   const RoadmapResultScreen({super.key});
@@ -26,14 +26,7 @@ class RoadmapResultScreen extends ConsumerStatefulWidget {
 class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
   static const LatLng _defaultCenter = LatLng(37.5665, 126.9780);
   static const Duration _resultPollingInterval = Duration(seconds: 30);
-  static const Duration _modificationPollingInterval = Duration(seconds: 30);
-  static const Duration _modificationResponsePreviewDuration = Duration(
-    milliseconds: 1200,
-  );
-  static const double _inputSheetBodySpacing = 86;
   static const double _timelineRowHeight = 88;
-  static const int _conversationPanelPageIndex = 0;
-  static const int _timelinePanelPageIndex = 1;
   static const List<Color> _dayPolylineColors = <Color>[
     Color(0xFF00CCFF),
     Color(0xFFFF6B6B),
@@ -53,42 +46,26 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
 
   bool _isInitialized = false;
   bool _isRefreshing = false;
-  bool _isModificationPolling = false;
-  bool _isAwaitingModifiedTimeline = false;
   bool _hasShownSuccessMessage = false;
   Timer? _resultPollingTimer;
-  Timer? _modificationPollingTimer;
   Timer? _dotAnimationTimer;
   String? _jobId;
-  String? _travelCourseId;
-  String? _modificationJobId;
   String? _lastResultStatus;
   int _dotCount = 1;
-  int _bottomPanelPageIndex = _timelinePanelPageIndex;
   int _selectedDayIndex = 0;
   int _focusedTimelineIndex = 0;
   final Map<String, List<String>> _dayPlaceOrderCache =
       <String, List<String>>{};
-  late final PageController _bottomPanelPageController;
-  late final TextEditingController _requestInputController;
   late final ScrollController _timelineScrollController;
   GoogleMapController? _mapController;
   String? _currentTimelineDayKey;
   int _currentTimelineDayIndex = 0;
-  bool _isModificationAssistantTyping = false;
-  int _modificationRequestCount = 0;
-  List<_ModificationConversationEntry> _modificationConversation =
-      const <_ModificationConversationEntry>[];
   List<RoadmapItineraryPlace> _currentTimelinePlaces =
       const <RoadmapItineraryPlace>[];
 
   @override
   void initState() {
     super.initState();
-    _bottomPanelPageController = PageController(
-      initialPage: _timelinePanelPageIndex,
-    );
-    _requestInputController = TextEditingController();
     _timelineScrollController = ScrollController()
       ..addListener(_handleTimelineScroll);
   }
@@ -119,12 +96,9 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
 
   @override
   void dispose() {
-    _bottomPanelPageController.dispose();
-    _requestInputController.dispose();
     _timelineScrollController
       ..removeListener(_handleTimelineScroll)
       ..dispose();
-    _stopModificationPolling();
     _stopDotAnimation();
     _stopResultPolling();
     super.dispose();
@@ -198,42 +172,6 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     _logResult('result polling stopped');
   }
 
-  void _startModificationPolling(String jobId) {
-    final normalized = jobId.trim();
-    if (normalized.isEmpty) return;
-
-    _modificationPollingTimer?.cancel();
-    _modificationJobId = normalized;
-    setState(() {
-      _isModificationPolling = true;
-    });
-    _modificationPollingTimer = Timer.periodic(_modificationPollingInterval, (
-      _,
-    ) {
-      if (!mounted) return;
-      _logResult(
-        'modification polling tick: interval=${_modificationPollingInterval.inSeconds}s, jobId=$_modificationJobId',
-      );
-      unawaited(_pollModificationStatus());
-    });
-    _logResult('modification polling started: jobId=$normalized');
-    unawaited(_pollModificationStatus());
-  }
-
-  void _stopModificationPolling() {
-    _modificationPollingTimer?.cancel();
-    _modificationPollingTimer = null;
-    _modificationJobId = null;
-    if (mounted) {
-      setState(() {
-        _isModificationPolling = false;
-      });
-    } else {
-      _isModificationPolling = false;
-    }
-    _logResult('modification polling stopped');
-  }
-
   void _startDotAnimation() {
     _dotAnimationTimer?.cancel();
     _dotAnimationTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
@@ -247,95 +185,6 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
   void _stopDotAnimation() {
     _dotAnimationTimer?.cancel();
     _dotAnimationTimer = null;
-  }
-
-  void _jumpToBottomPanelPage(int pageIndex, {bool animate = true}) {
-    void movePage() {
-      if (!_bottomPanelPageController.hasClients) return;
-      if (animate) {
-        unawaited(
-          _bottomPanelPageController.animateToPage(
-            pageIndex,
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-          ),
-        );
-        return;
-      }
-      _bottomPanelPageController.jumpToPage(pageIndex);
-    }
-
-    if (_bottomPanelPageController.hasClients) {
-      movePage();
-      return;
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      movePage();
-    });
-  }
-
-  void _onBottomPanelPageChanged(int pageIndex) {
-    if (_bottomPanelPageIndex == pageIndex) return;
-    setState(() {
-      _bottomPanelPageIndex = pageIndex;
-    });
-  }
-
-  void _showBottomPanel(int pageIndex) {
-    if (_bottomPanelPageIndex != pageIndex) {
-      setState(() {
-        _bottomPanelPageIndex = pageIndex;
-      });
-    }
-    _jumpToBottomPanelPage(pageIndex);
-  }
-
-  void _beginModificationConversation(String requestMessage) {
-    setState(() {
-      _isAwaitingModifiedTimeline = true;
-      _isModificationAssistantTyping = true;
-      _bottomPanelPageIndex = _conversationPanelPageIndex;
-      _modificationConversation = <_ModificationConversationEntry>[
-        ..._modificationConversation,
-        _ModificationConversationEntry.user(requestMessage),
-      ];
-    });
-    _jumpToBottomPanelPage(_conversationPanelPageIndex);
-  }
-
-  void _appendModificationAssistantMessage(String responseMessage) {
-    if (mounted) {
-      setState(() {
-        _isModificationAssistantTyping = false;
-        _modificationConversation = <_ModificationConversationEntry>[
-          ..._modificationConversation,
-          _ModificationConversationEntry.assistant(responseMessage),
-        ];
-      });
-      return;
-    }
-    _isModificationAssistantTyping = false;
-    _modificationConversation = <_ModificationConversationEntry>[
-      ..._modificationConversation,
-      _ModificationConversationEntry.assistant(responseMessage),
-    ];
-  }
-
-  void _restoreModificationConversation({
-    required List<_ModificationConversationEntry> messages,
-    required bool isAwaitingTimeline,
-    required bool isAssistantTyping,
-  }) {
-    _modificationConversation = messages;
-    _isAwaitingModifiedTimeline = isAwaitingTimeline;
-    _isModificationAssistantTyping = isAssistantTyping;
-  }
-
-  void _finishModificationConversationWaiting() {
-    _isAwaitingModifiedTimeline = false;
-    _isModificationAssistantTyping = false;
   }
 
   Future<void> _fetchRoadmapResult({required bool isManualRefresh}) async {
@@ -372,10 +221,6 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
 
       final resultState = ref.read(roadmapItineraryResultViewModelProvider);
       _lastResultStatus = resultState.result?.status;
-      final nextTravelCourseId = resultState.result?.travelCourseId?.trim();
-      if (nextTravelCourseId != null && nextTravelCourseId.isNotEmpty) {
-        _travelCourseId = nextTravelCourseId;
-      }
       _logResult(
         'fetch finished: status=${_lastResultStatus ?? 'null'}, error=${resultState.errorMessage}',
       );
@@ -408,9 +253,11 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
       _stopDotAnimation();
       if (!_hasShownSuccessMessage && mounted) {
         _hasShownSuccessMessage = true;
-        ScaffoldMessenger.of(
+        showAppSnackBar(
           context,
-        ).showSnackBar(const SnackBar(content: Text('로드맵 생성 완료하였습니다.')));
+          message: '로드맵 생성이 완료되었어요.',
+          fallbackMessage: '로드맵 생성이 완료되었어요.',
+        );
       }
       return;
     }
@@ -484,345 +331,6 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     final line = '[ROADMAP][RESULT] $message';
     debugPrint(line);
     developer.log(line, name: 'ROADMAP');
-  }
-
-  String? _resolveItineraryIdForChat(RoadmapItineraryResultResponse? result) {
-    final travelCourseId = result?.travelCourseId?.trim();
-    if (travelCourseId != null && travelCourseId.isNotEmpty) {
-      return travelCourseId;
-    }
-
-    final cachedTravelCourseId = _travelCourseId?.trim();
-    if (cachedTravelCourseId != null && cachedTravelCourseId.isNotEmpty) {
-      return cachedTravelCourseId;
-    }
-
-    final fallback = _jobId?.trim();
-    if (fallback != null && fallback.isNotEmpty) {
-      return fallback;
-    }
-
-    return null;
-  }
-
-  Future<void> _pollModificationStatus() async {
-    if (!mounted) return;
-    final jobId = _modificationJobId?.trim();
-    if (jobId == null || jobId.isEmpty) return;
-
-    final loaded = await ref
-        .read(roadmapModificationStatusViewModelProvider.notifier)
-        .load(jobId);
-
-    if (!mounted) return;
-    if (!loaded) {
-      _logResult('modification polling load failed: jobId=$jobId');
-      return;
-    }
-
-    final statusState = ref.read(roadmapModificationStatusViewModelProvider);
-    final status = statusState.status?.status.trim().toLowerCase();
-    final intent = statusState.status?.intentStatus?.trim().toLowerCase();
-    _logResult('modification polling status=$status, intent=$intent');
-
-    if (status == null || status.isEmpty) return;
-
-    if (_isSuccessStatus(status)) {
-      _stopModificationPolling();
-
-      final nextJobId = statusState.status?.jobId.trim();
-      if (nextJobId != null && nextJobId.isNotEmpty) {
-        if (_jobId != nextJobId) {
-          _dayPlaceOrderCache.clear();
-        }
-        _jobId = nextJobId;
-      }
-
-      final nextTravelCourseId = _extractTravelCourseId(statusState.status);
-      if (nextTravelCourseId != null && nextTravelCourseId.isNotEmpty) {
-        _travelCourseId = nextTravelCourseId;
-      }
-
-      final successMessage =
-          _extractStatusMessage(statusState.status?.message) ??
-          '로드맵 수정이 반영되었습니다.';
-      _appendModificationAssistantMessage(successMessage);
-
-      if (intent == 'ask_clarification') {
-        if (mounted) {
-          setState(_finishModificationConversationWaiting);
-        } else {
-          _finishModificationConversationWaiting();
-        }
-        return;
-      }
-
-      await Future<void>.delayed(_modificationResponsePreviewDuration);
-      if (!mounted) return;
-
-      await _fetchRoadmapResult(isManualRefresh: true);
-      if (mounted) {
-        setState(_finishModificationConversationWaiting);
-      } else {
-        _finishModificationConversationWaiting();
-      }
-      return;
-    }
-
-    if (_isFailedStatus(status)) {
-      _stopModificationPolling();
-      if (mounted) {
-        setState(_finishModificationConversationWaiting);
-      } else {
-        _finishModificationConversationWaiting();
-      }
-
-      final failureMessage =
-          _extractStatusMessage(statusState.status?.errorMessage) ??
-          '로드맵 수정 작업이 실패했습니다.';
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(failureMessage)));
-    }
-  }
-
-  String? _extractTravelCourseId(RoadmapModificationStatusResponse? status) {
-    final value = status?.travelCourseId;
-    if (value is String && value.trim().isNotEmpty) {
-      return value.trim();
-    }
-    if (value is num || value is bool) {
-      return value.toString();
-    }
-    if (value is Map) {
-      for (final entry in value.entries) {
-        final raw = entry.value;
-        if (raw is String && raw.trim().isNotEmpty) {
-          return raw.trim();
-        }
-      }
-    }
-    return null;
-  }
-
-  String? _extractStatusMessage(Object? value) {
-    if (value == null) return null;
-    if (value is String && value.trim().isNotEmpty) {
-      return value.trim();
-    }
-    if (value is num || value is bool) {
-      return value.toString();
-    }
-    if (value is Map) {
-      for (final key in const ['message', 'detail', 'reason']) {
-        final raw = value[key];
-        if (raw is String && raw.trim().isNotEmpty) {
-          return raw.trim();
-        }
-      }
-    }
-    return null;
-  }
-
-  Future<void> _submitRoadmapModification() async {
-    final chatState = ref.read(roadmapChatViewModelProvider);
-    if (chatState.isLoading || _isModificationPolling) return;
-    if (_hasReachedModificationRequestLimit) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('로드맵 수정 요청은 최대 5회까지 가능해요.')));
-      return;
-    }
-
-    final message = _requestInputController.text.trim();
-    if (message.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('수정 요청 내용을 입력해주세요.')));
-      return;
-    }
-
-    final result = ref.read(roadmapItineraryResultViewModelProvider).result;
-    final itineraryId = _resolveItineraryIdForChat(result);
-    if (itineraryId == null || itineraryId.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('로드맵 ID를 확인하지 못했어요.')));
-      return;
-    }
-
-    final previousConversation = List<_ModificationConversationEntry>.from(
-      _modificationConversation,
-    );
-    final previousAwaitingTimeline = _isAwaitingModifiedTimeline;
-    final previousAssistantTyping = _isModificationAssistantTyping;
-
-    _beginModificationConversation(message);
-
-    final isSuccess = await ref
-        .read(roadmapChatViewModelProvider.notifier)
-        .submit(itineraryId: itineraryId, message: message);
-
-    if (!mounted) return;
-
-    if (!isSuccess) {
-      setState(() {
-        _restoreModificationConversation(
-          messages: previousConversation,
-          isAwaitingTimeline: previousAwaitingTimeline,
-          isAssistantTyping: previousAssistantTyping,
-        );
-      });
-      final errorMessage =
-          ref.read(roadmapChatViewModelProvider).errorMessage ??
-          '로드맵 수정 요청을 전송하지 못했어요.';
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(errorMessage)));
-      return;
-    }
-
-    final response = ref.read(roadmapChatViewModelProvider).response;
-    _requestInputController.clear();
-    FocusScope.of(context).unfocus();
-
-    final modificationJobId = response?.jobId.trim();
-    if (modificationJobId != null && modificationJobId.isNotEmpty) {
-      setState(() {
-        _modificationRequestCount = incrementRoadmapModificationRequestCount(
-          _modificationRequestCount,
-        );
-      });
-      _startModificationPolling(modificationJobId);
-      return;
-    }
-
-    setState(() {
-      _restoreModificationConversation(
-        messages: previousConversation,
-        isAwaitingTimeline: previousAwaitingTimeline,
-        isAssistantTyping: previousAssistantTyping,
-      );
-    });
-  }
-
-  Widget _buildRequestBottomSheet(
-    BuildContext context, {
-    required bool isSending,
-  }) {
-    final viewInsetsBottom = MediaQuery.viewInsetsOf(context).bottom;
-    final safeBottom = MediaQuery.paddingOf(context).bottom;
-    final isInputEnabled = !isSending && !_hasReachedModificationRequestLimit;
-    final helperText = _hasReachedModificationRequestLimit
-        ? '로드맵 수정 요청 5/5 · 요청 가능 횟수를 모두 사용했어요.'
-        : '로드맵 수정 요청 $_modificationRequestCount/$roadmapModificationRequestLimit · 남은 횟수 $_remainingModificationRequestCount회';
-
-    return AnimatedPadding(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-      padding: EdgeInsets.only(bottom: viewInsetsBottom),
-      child: Container(
-        color: MColor.white100,
-        padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 10.h + safeBottom),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: EdgeInsets.only(left: 4.w, bottom: 6.h),
-              child: Text(
-                helperText,
-                style: MTextStyles.sLabelM.copyWith(
-                  color: _hasReachedModificationRequestLimit
-                      ? MColor.gray500
-                      : MColor.gray400,
-                ),
-              ),
-            ),
-            Container(
-              height: 44.h,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEDEEF2),
-                borderRadius: BorderRadius.circular(10.r),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _requestInputController,
-                      enabled: isInputEnabled,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) {
-                        if (!isInputEnabled) return;
-                        _submitRoadmapModification();
-                      },
-                      style: MTextStyles.labelM.copyWith(color: MColor.gray700),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 14.w),
-                        hintText: _hasReachedModificationRequestLimit
-                            ? '수정 요청 가능 횟수를 모두 사용했어요.'
-                            : '원하는 일정 수정 내용을 입력해주세요.',
-                        hintStyle: MTextStyles.labelM.copyWith(
-                          color: MColor.gray300,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(right: 6.w),
-                    child: Material(
-                      color: isInputEnabled
-                          ? MColor.primary500
-                          : MColor.gray200,
-                      borderRadius: BorderRadius.circular(9.r),
-                      child: InkWell(
-                        onTap: isInputEnabled
-                            ? _submitRoadmapModification
-                            : null,
-                        borderRadius: BorderRadius.circular(9.r),
-                        child: SizedBox(
-                          width: 32.w,
-                          height: 32.w,
-                          child: Center(
-                            child: isSending
-                                ? SizedBox(
-                                    width: 14.w,
-                                    height: 14.w,
-                                    child: const CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : Icon(
-                                    Icons.arrow_upward_rounded,
-                                    size: 18.sp,
-                                    color: MColor.white100,
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  bool get _hasReachedModificationRequestLimit {
-    return hasReachedRoadmapModificationRequestLimit(_modificationRequestCount);
-  }
-
-  int get _remainingModificationRequestCount {
-    return remainingRoadmapModificationRequests(_modificationRequestCount);
   }
 
   void _syncSelectedDayIndex(int dayCount) {
@@ -1038,13 +546,43 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     }
   }
 
+  Future<void> _openPlaceInGoogleMaps(RoadmapItineraryPlace place) async {
+    final latitude = place.latitude;
+    final longitude = place.longitude;
+    if (latitude == null || longitude == null) {
+      if (!mounted) return;
+      showAppSnackBar(
+        context,
+        message: '위치 정보를 확인하지 못했어요.',
+        fallbackMessage: '위치 정보를 확인하지 못했어요.',
+      );
+      return;
+    }
+
+    final label = place.placeName?.trim();
+    final query = label?.isNotEmpty == true
+        ? '$latitude,$longitude (${label!})'
+        : '$latitude,$longitude';
+    final uri = Uri.https('www.google.com', '/maps/search/', {
+      'api': '1',
+      'query': query,
+    });
+
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (launched || !mounted) {
+      return;
+    }
+
+    showAppSnackBar(
+      context,
+      message: '구글맵을 열지 못했어요.',
+      fallbackMessage: '구글맵을 열지 못했어요.',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final resultState = ref.watch(roadmapItineraryResultViewModelProvider);
-    final chatState = ref.watch(roadmapChatViewModelProvider);
-    final modificationState = ref.watch(
-      roadmapModificationStatusViewModelProvider,
-    );
     final isLoading = _isRefreshing || resultState.isLoading;
     final status = resultState.result?.status ?? _lastResultStatus;
     final normalizedStatus = status?.trim().toLowerCase();
@@ -1090,8 +628,6 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     final selectedPlaces = selectedDay == null
         ? const <RoadmapItineraryPlace>[]
         : selectedDay.places;
-    final hasConversationPanel =
-        _isAwaitingModifiedTimeline || _modificationConversation.isNotEmpty;
     _syncTimelineContext(
       dayKey: selectedDayKey,
       dayIndex: safeSelectedDayIndex,
@@ -1110,19 +646,10 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
       isLoading: isLoading,
       resultStatus: status,
     );
-    final modificationPollingStatus =
-        (modificationState.status?.status.trim().isNotEmpty ?? false)
-        ? modificationState.status!.status.trim().toUpperCase()
-        : 'PENDING';
-    final bottomPanelPadding =
-        _inputSheetBodySpacing.h + MediaQuery.paddingOf(context).bottom;
+    final bottomPanelPadding = 24.h + MediaQuery.paddingOf(context).bottom;
 
     return MLayout(
       backgroundColor: MColor.gray50,
-      bottomSheet: _buildRequestBottomSheet(
-        context,
-        isSending: chatState.isLoading || _isModificationPolling,
-      ),
       body: SafeArea(
         top: false,
         child: Column(
@@ -1132,95 +659,37 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
               markers: markers,
               polylines: polylines,
               data: roadmapData,
-              mapKey:
-                  'map_${selectedDay?.dayNumber ?? 0}_${dayPlans.length}_${markers.length}_${polylines.length}',
               onMapCreated: (controller) {
                 _mapController = controller;
-                if (dayPlans.length > 1) {
-                  unawaited(_fitMapToDayPlans(dayPlans, animate: false));
-                } else {
-                  unawaited(
-                    _focusMapOnTimelineIndex(
-                      _focusedTimelineIndex,
-                      animate: false,
-                    ),
-                  );
-                }
+                unawaited(
+                  _focusMapOnTimelineIndex(
+                    _focusedTimelineIndex,
+                    animate: false,
+                  ),
+                );
               },
             ),
             Expanded(
               child: ColoredBox(
                 color: MColor.white100,
-                child: hasConversationPanel
-                    ? Column(
-                        children: [
-                          SizedBox(height: 16.h),
-                          _BottomPanelSwitcher(
-                            selectedIndex: _bottomPanelPageIndex,
-                            onChanged: _showBottomPanel,
-                          ),
-                          SizedBox(height: 16.h),
-                          Expanded(
-                            child: PageView(
-                              controller: _bottomPanelPageController,
-                              onPageChanged: _onBottomPanelPageChanged,
-                              children: [
-                                _ConversationPanel(
-                                  modificationConversation:
-                                      _modificationConversation,
-                                  isAssistantTyping:
-                                      _isModificationAssistantTyping,
-                                  typingDotCount: _dotCount,
-                                  bottomPadding: bottomPanelPadding,
-                                ),
-                                _TimelinePanelPage(
-                                  topSpacing: 0,
-                                  isSuccessStatus: isSuccessStatus,
-                                  isFailedStatus: isFailedStatus,
-                                  shouldShowPollingIndicator:
-                                      shouldShowPollingIndicator,
-                                  emptyMessage: emptyMessage,
-                                  dayPlans: dayPlans,
-                                  selectedDayIndex: safeSelectedDayIndex,
-                                  onDayChanged: (index) {
-                                    if (_selectedDayIndex == index) return;
-                                    setState(() => _selectedDayIndex = index);
-                                  },
-                                  showModificationPollingBanner:
-                                      _isModificationPolling,
-                                  modificationPollingStatus:
-                                      modificationPollingStatus,
-                                  timelineItems: timelineItems,
-                                  onReorder: null,
-                                  onTapHome: _goToHome,
-                                  scrollController: _timelineScrollController,
-                                  bottomPadding: bottomPanelPadding,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      )
-                    : _TimelinePanelPage(
-                        topSpacing: 16.h,
-                        isSuccessStatus: isSuccessStatus,
-                        isFailedStatus: isFailedStatus,
-                        shouldShowPollingIndicator: shouldShowPollingIndicator,
-                        emptyMessage: emptyMessage,
-                        dayPlans: dayPlans,
-                        selectedDayIndex: safeSelectedDayIndex,
-                        onDayChanged: (index) {
-                          if (_selectedDayIndex == index) return;
-                          setState(() => _selectedDayIndex = index);
-                        },
-                        showModificationPollingBanner: _isModificationPolling,
-                        modificationPollingStatus: modificationPollingStatus,
-                        timelineItems: timelineItems,
-                        onReorder: null,
-                        onTapHome: _goToHome,
-                        scrollController: _timelineScrollController,
-                        bottomPadding: bottomPanelPadding,
-                      ),
+                child: _TimelinePanelPage(
+                  topSpacing: 16.h,
+                  isSuccessStatus: isSuccessStatus,
+                  isFailedStatus: isFailedStatus,
+                  shouldShowPollingIndicator: shouldShowPollingIndicator,
+                  emptyMessage: emptyMessage,
+                  dayPlans: dayPlans,
+                  selectedDayIndex: safeSelectedDayIndex,
+                  onDayChanged: (index) {
+                    if (_selectedDayIndex == index) return;
+                    setState(() => _selectedDayIndex = index);
+                  },
+                  timelineItems: timelineItems,
+                  onReorder: null,
+                  onTapHome: _goToHome,
+                  scrollController: _timelineScrollController,
+                  bottomPadding: bottomPanelPadding,
+                ),
               ),
             ),
           ],
@@ -1269,6 +738,7 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
             icon: BitmapDescriptor.defaultMarkerWithHue(
               _dayMarkerHues[dayIndex % _dayMarkerHues.length],
             ),
+            onTap: () => unawaited(_openPlaceInGoogleMaps(place)),
             infoWindow: InfoWindow(
               title: place.placeName ?? '방문 장소',
               snippet: _buildMarkerSnippet(dayPlan, place, dayIndex),
@@ -1346,85 +816,6 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     return _defaultCenter;
   }
 
-  Future<void> _fitMapToDayPlans(
-    List<_DayPlan> dayPlans, {
-    bool animate = true,
-  }) async {
-    final controller = _mapController;
-    if (controller == null) return;
-
-    final coordinates = _collectCoordinates(dayPlans);
-    final update = _cameraUpdateForCoordinates(coordinates);
-    if (update == null) return;
-
-    try {
-      if (animate) {
-        await controller.animateCamera(update);
-      } else {
-        await controller.moveCamera(update);
-      }
-    } catch (_) {
-      // Ignore camera sync failures from disposed or not-yet-ready map views.
-    }
-  }
-
-  List<LatLng> _collectCoordinates(List<_DayPlan> dayPlans) {
-    final coordinates = <LatLng>[];
-    for (final dayPlan in dayPlans) {
-      for (final place in dayPlan.places) {
-        final lat = place.latitude;
-        final lng = place.longitude;
-        if (lat == null || lng == null) continue;
-        if (!_isValidCoordinate(lat, lng)) continue;
-        coordinates.add(LatLng(lat, lng));
-      }
-    }
-    return coordinates;
-  }
-
-  CameraUpdate? _cameraUpdateForCoordinates(List<LatLng> coordinates) {
-    if (coordinates.isEmpty) return null;
-    if (coordinates.length == 1 || _allCoordinatesMatch(coordinates)) {
-      return CameraUpdate.newCameraPosition(
-        CameraPosition(target: coordinates.first, zoom: 12.5),
-      );
-    }
-
-    final latitudes = coordinates.map((point) => point.latitude);
-    final longitudes = coordinates.map((point) => point.longitude);
-    final south = latitudes.reduce(
-      (left, right) => left < right ? left : right,
-    );
-    final north = latitudes.reduce(
-      (left, right) => left > right ? left : right,
-    );
-    final west = longitudes.reduce(
-      (left, right) => left < right ? left : right,
-    );
-    final east = longitudes.reduce(
-      (left, right) => left > right ? left : right,
-    );
-
-    return CameraUpdate.newLatLngBounds(
-      LatLngBounds(
-        southwest: LatLng(south, west),
-        northeast: LatLng(north, east),
-      ),
-      56,
-    );
-  }
-
-  bool _allCoordinatesMatch(List<LatLng> coordinates) {
-    final first = coordinates.first;
-    for (final coordinate in coordinates.skip(1)) {
-      if (coordinate.latitude != first.latitude ||
-          coordinate.longitude != first.longitude) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   String _markerIdForPlaceForDay(
     RoadmapItineraryPlace place, {
     required int dayIndex,
@@ -1463,47 +854,12 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
   }
 }
 
-class _ModificationPollingBanner extends StatelessWidget {
-  const _ModificationPollingBanner({required this.status});
-
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
-      decoration: BoxDecoration(
-        color: MColor.primary500.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12.r),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 14.w,
-            height: 14.w,
-            child: const CircularProgressIndicator(strokeWidth: 2),
-          ),
-          SizedBox(width: 10.w),
-          Expanded(
-            child: Text(
-              '수정 요청 반영 중... (상태: $status)',
-              style: MTextStyles.sLabelM.copyWith(color: MColor.primary500),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _MapSection extends StatelessWidget {
   const _MapSection({
     required this.center,
     required this.markers,
     required this.polylines,
     required this.data,
-    required this.mapKey,
     required this.onMapCreated,
   });
 
@@ -1511,7 +867,6 @@ class _MapSection extends StatelessWidget {
   final Set<Marker> markers;
   final Set<Polyline> polylines;
   final RoadmapItineraryData? data;
-  final String mapKey;
   final ValueChanged<GoogleMapController> onMapCreated;
 
   @override
@@ -1534,7 +889,6 @@ class _MapSection extends StatelessWidget {
         children: [
           Positioned.fill(
             child: GoogleMap(
-              key: ValueKey(mapKey),
               initialCameraPosition: CameraPosition(target: center, zoom: 12.5),
               onMapCreated: onMapCreated,
               myLocationButtonEnabled: false,
@@ -1890,75 +1244,6 @@ class _PageDots extends StatelessWidget {
   }
 }
 
-class _BottomPanelSwitcher extends StatelessWidget {
-  const _BottomPanelSwitcher({
-    required this.selectedIndex,
-    required this.onChanged,
-  });
-
-  final int selectedIndex;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    const labels = <String>['AI 채팅', '일정표'];
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 24.w),
-      child: Container(
-        padding: EdgeInsets.all(4.r),
-        decoration: BoxDecoration(
-          color: MColor.gray50,
-          borderRadius: BorderRadius.circular(14.r),
-          border: Border.all(color: MColor.gray100, width: 1),
-        ),
-        child: Row(
-          children: [
-            for (int i = 0; i < labels.length; i++) ...[
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => onChanged(i),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOut,
-                    padding: EdgeInsets.symmetric(vertical: 10.h),
-                    decoration: BoxDecoration(
-                      color: i == selectedIndex
-                          ? MColor.white100
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10.r),
-                      boxShadow: i == selectedIndex
-                          ? [
-                              BoxShadow(
-                                color: MColor.gray900.withValues(alpha: 0.05),
-                                blurRadius: 10,
-                                offset: const Offset(0, 2),
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Text(
-                      labels[i],
-                      textAlign: TextAlign.center,
-                      style: MTextStyles.labelM.copyWith(
-                        color: i == selectedIndex
-                            ? MColor.gray900
-                            : MColor.gray400,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              if (i != labels.length - 1) SizedBox(width: 6.w),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _TimelinePanelPage extends StatelessWidget {
   const _TimelinePanelPage({
     required this.topSpacing,
@@ -1969,8 +1254,6 @@ class _TimelinePanelPage extends StatelessWidget {
     required this.dayPlans,
     required this.selectedDayIndex,
     required this.onDayChanged,
-    required this.showModificationPollingBanner,
-    required this.modificationPollingStatus,
     required this.timelineItems,
     required this.onReorder,
     required this.onTapHome,
@@ -1986,8 +1269,6 @@ class _TimelinePanelPage extends StatelessWidget {
   final List<_DayPlan> dayPlans;
   final int selectedDayIndex;
   final ValueChanged<int> onDayChanged;
-  final bool showModificationPollingBanner;
-  final String modificationPollingStatus;
   final List<_TimelineItem> timelineItems;
   final void Function(int oldIndex, int newIndex)? onReorder;
   final VoidCallback onTapHome;
@@ -2016,14 +1297,6 @@ class _TimelinePanelPage extends StatelessWidget {
         else
           SizedBox(height: 2.h),
         SizedBox(height: 20.h),
-        if (showModificationPollingBanner)
-          Padding(
-            padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 10.h),
-            child: _ModificationPollingBanner(
-              status: modificationPollingStatus,
-            ),
-          ),
-        SizedBox(height: showModificationPollingBanner ? 10.h : 0),
         Expanded(
           child: _TimelinePanel(
             isSuccessStatus: isSuccessStatus,
@@ -2038,66 +1311,6 @@ class _TimelinePanelPage extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ConversationPanel extends StatelessWidget {
-  const _ConversationPanel({
-    required this.modificationConversation,
-    required this.isAssistantTyping,
-    required this.typingDotCount,
-    required this.bottomPadding,
-  });
-
-  final List<_ModificationConversationEntry> modificationConversation;
-  final bool isAssistantTyping;
-  final int typingDotCount;
-  final double bottomPadding;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, bottomPadding),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (modificationConversation.isEmpty && !isAssistantTyping)
-              _ConversationBubble(
-                roleLabel: '모행',
-                message:
-                    '원하는 일정 수정을 자유롭게 말씀해 주세요.\n장소 변경, 동선 조정, 시간 여유 확보도 도와드릴게요.',
-                alignment: Alignment.centerLeft,
-                backgroundColor: MColor.gray50,
-                textColor: MColor.gray800,
-                borderColor: MColor.gray100,
-              ),
-            for (int i = 0; i < modificationConversation.length; i++) ...[
-              _ConversationBubble(
-                roleLabel: modificationConversation[i].speaker.label,
-                message: modificationConversation[i].message,
-                alignment: modificationConversation[i].speaker.isUser
-                    ? Alignment.centerRight
-                    : Alignment.centerLeft,
-                backgroundColor: modificationConversation[i].speaker.isUser
-                    ? MColor.primary500
-                    : MColor.gray50,
-                textColor: modificationConversation[i].speaker.isUser
-                    ? MColor.white100
-                    : MColor.gray800,
-                borderColor: modificationConversation[i].speaker.isUser
-                    ? null
-                    : MColor.gray100,
-              ),
-              if (i != modificationConversation.length - 1 || isAssistantTyping)
-                SizedBox(height: 14.h),
-            ],
-            if (isAssistantTyping)
-              _TypingConversationBubble(dotCount: typingDotCount),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -2183,7 +1396,7 @@ class _TimelinePanel extends StatelessWidget {
     if (canReorder) {
       return ReorderableListView.builder(
         scrollController: scrollController,
-        padding: EdgeInsets.only(top: 4.h, bottom: 88.832.h),
+        padding: EdgeInsets.only(top: 4.h, bottom: bottomPadding),
         buildDefaultDragHandles: false,
         itemCount: timelineItems.length,
         onReorder: onReorder!,
@@ -2201,7 +1414,7 @@ class _TimelinePanel extends StatelessWidget {
 
     return ListView.builder(
       controller: scrollController,
-      padding: EdgeInsets.only(top: 4.h, bottom: 88.832.h),
+      padding: EdgeInsets.only(top: 4.h, bottom: bottomPadding),
       itemCount: timelineItems.length,
       itemBuilder: (context, index) {
         final item = timelineItems[index];
@@ -2211,162 +1424,6 @@ class _TimelinePanel extends StatelessWidget {
           isLast: index == timelineItems.length - 1,
         );
       },
-    );
-  }
-}
-
-enum _ModificationConversationSpeaker {
-  user,
-  assistant;
-
-  bool get isUser => this == _ModificationConversationSpeaker.user;
-
-  String get label => switch (this) {
-    _ModificationConversationSpeaker.user => '나',
-    _ModificationConversationSpeaker.assistant => '모행',
-  };
-}
-
-class _ModificationConversationEntry {
-  const _ModificationConversationEntry({
-    required this.speaker,
-    required this.message,
-  });
-
-  const _ModificationConversationEntry.user(String message)
-    : this(speaker: _ModificationConversationSpeaker.user, message: message);
-
-  const _ModificationConversationEntry.assistant(String message)
-    : this(
-        speaker: _ModificationConversationSpeaker.assistant,
-        message: message,
-      );
-
-  final _ModificationConversationSpeaker speaker;
-  final String message;
-}
-
-class _ConversationBubble extends StatelessWidget {
-  const _ConversationBubble({
-    required this.roleLabel,
-    required this.message,
-    required this.alignment,
-    required this.backgroundColor,
-    required this.textColor,
-    this.borderColor,
-  });
-
-  final String roleLabel;
-  final String message;
-  final Alignment alignment;
-  final Color backgroundColor;
-  final Color textColor;
-  final Color? borderColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final isRightAligned = alignment == Alignment.centerRight;
-    return Align(
-      alignment: alignment,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 263.w),
-        child: Column(
-          crossAxisAlignment: isRightAligned
-              ? CrossAxisAlignment.end
-              : CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: EdgeInsets.only(bottom: 6.h),
-              child: Text(
-                roleLabel,
-                style: MTextStyles.sLabelM.copyWith(color: MColor.gray300),
-              ),
-            ),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
-              decoration: BoxDecoration(
-                color: backgroundColor,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(18.r),
-                  topRight: Radius.circular(18.r),
-                  bottomLeft: Radius.circular(isRightAligned ? 18.r : 4.r),
-                  bottomRight: Radius.circular(isRightAligned ? 4.r : 18.r),
-                ),
-                border: borderColor == null
-                    ? null
-                    : Border.all(color: borderColor!, width: 1),
-              ),
-              child: Text(
-                message,
-                style: MTextStyles.labelM.copyWith(
-                  color: textColor,
-                  height: 1.5,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TypingConversationBubble extends StatelessWidget {
-  const _TypingConversationBubble({required this.dotCount});
-
-  final int dotCount;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 180.w),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: EdgeInsets.only(bottom: 6.h),
-              child: Text(
-                '모행',
-                style: MTextStyles.sLabelM.copyWith(color: MColor.gray300),
-              ),
-            ),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-              decoration: BoxDecoration(
-                color: MColor.gray50,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(18.r),
-                  topRight: Radius.circular(18.r),
-                  bottomLeft: Radius.circular(4.r),
-                  bottomRight: Radius.circular(18.r),
-                ),
-                border: Border.all(color: MColor.gray100, width: 1),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (int i = 0; i < 3; i++) ...[
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      width: 8.w,
-                      height: 8.w,
-                      decoration: BoxDecoration(
-                        color: i < dotCount
-                            ? MColor.primary500
-                            : MColor.gray100,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    if (i != 2) SizedBox(width: 6.w),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
