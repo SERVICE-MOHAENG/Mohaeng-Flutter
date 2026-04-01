@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:mohaeng_app_service/core/network/api_logging_config.dart';
 import 'package:mohaeng_app_service/core/network/dio_logger.dart';
 import 'package:mohaeng_app_service/core/network/network_options.dart';
 import 'package:mohaeng_app_service/features/auth/data/auth_token_storage.dart';
@@ -12,6 +13,7 @@ class DioClient {
   DioClient({
     AuthTokenStorage? tokenStorage,
     NetworkTimeouts timeouts = const NetworkTimeouts(),
+    ApiLoggingConfig? loggingConfig,
   }) : _tokenStorage = tokenStorage ?? AuthTokenStorage(),
        _dio = Dio(_buildOptions(timeouts)),
        _refreshDio = Dio(_buildOptions(timeouts)) {
@@ -22,8 +24,17 @@ class DioClient {
         tokenStorage: _tokenStorage,
       ),
     );
-    _dio.interceptors.add(DioLoggerInterceptor(label: 'AUTH'));
-    _refreshDio.interceptors.add(DioLoggerInterceptor(label: 'AUTH-REFRESH'));
+    final resolvedLoggingConfig =
+        loggingConfig ?? ApiLoggingConfig.fromEnvironment();
+    _dio.interceptors.add(
+      DioLoggerInterceptor(label: 'AUTH', config: resolvedLoggingConfig),
+    );
+    _refreshDio.interceptors.add(
+      DioLoggerInterceptor(
+        label: 'AUTH-REFRESH',
+        config: resolvedLoggingConfig,
+      ),
+    );
   }
 
   final Dio _dio;

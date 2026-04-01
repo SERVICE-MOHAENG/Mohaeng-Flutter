@@ -2,15 +2,15 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:mohaeng_app_service/core/network/api_logging_config.dart';
 
 class DioLoggerInterceptor extends Interceptor {
   DioLoggerInterceptor({
-    bool enabled = kDebugMode,
+    ApiLoggingConfig? config,
     String label = 'API',
-    int maxBodyLength = 2000,
-  }) : _enabled = enabled,
+  }) : _enabled = config?.enabled ?? kDebugMode,
        _label = label.trim().isEmpty ? 'API' : label.trim().toUpperCase(),
-       _maxBodyLength = maxBodyLength;
+       _maxBodyLength = config?.maxBodyLength ?? 2000;
 
   final bool _enabled;
   final String _label;

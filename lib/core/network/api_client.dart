@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:mohaeng_app_service/core/network/api_error.dart';
+import 'package:mohaeng_app_service/core/network/api_logging_config.dart';
 import 'package:mohaeng_app_service/core/network/dio_logger.dart';
 import 'package:mohaeng_app_service/core/network/network_options.dart';
 import 'package:mohaeng_app_service/core/network/query_params.dart';
@@ -11,6 +12,7 @@ final class ApiClient {
     List<Interceptor> interceptors = const [],
     bool addLoggerInterceptor = true,
     String loggerLabel = 'API',
+    ApiLoggingConfig? loggingConfig,
     NetworkTimeouts timeouts = const NetworkTimeouts(),
   }) : _dio =
            dio ??
@@ -27,7 +29,12 @@ final class ApiClient {
         !_dio.interceptors.any(
           (interceptor) => interceptor is DioLoggerInterceptor,
         )) {
-      _dio.interceptors.add(DioLoggerInterceptor(label: loggerLabel));
+      _dio.interceptors.add(
+        DioLoggerInterceptor(
+          label: loggerLabel,
+          config: loggingConfig ?? ApiLoggingConfig.fromEnvironment(),
+        ),
+      );
     }
   }
 
