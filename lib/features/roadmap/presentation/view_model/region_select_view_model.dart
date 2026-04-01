@@ -18,6 +18,20 @@ class RegionSelectViewModel extends StateNotifier<RegionSelectState> {
   RegionSelectViewModel({List<String>? initialCities})
     : super(RegionSelectState(selectedCities: initialCities ?? const []));
 
+  void setCities(Iterable<String> rawCities) {
+    final nextCities = <String>[];
+    for (final rawCity in rawCities) {
+      final city = rawCity.trim();
+      if (city.isEmpty || nextCities.contains(city)) continue;
+      nextCities.add(city);
+    }
+    state = state.copyWith(selectedCities: nextCities);
+  }
+
+  void clearCities() {
+    state = state.copyWith(selectedCities: const []);
+  }
+
   void addCity(String rawCity) {
     final city = rawCity.trim();
     if (city.isEmpty) return;

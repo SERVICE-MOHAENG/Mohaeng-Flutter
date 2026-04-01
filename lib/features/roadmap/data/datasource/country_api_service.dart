@@ -4,10 +4,10 @@ import 'package:mohaeng_app_service/core/network/api_client.dart';
 import 'package:mohaeng_app_service/core/network/auth_interceptor.dart';
 import 'package:mohaeng_app_service/core/network/endpoints.dart';
 import 'package:mohaeng_app_service/features/auth/data/auth_token_storage.dart';
-import 'package:mohaeng_app_service/features/roadmap/data/model/country_region_models.dart';
+import 'package:mohaeng_app_service/features/roadmap/data/model/country_models.dart';
 
-class CountryRegionApiService {
-  CountryRegionApiService({
+class CountryApiService {
+  CountryApiService({
     ApiClient? apiClient,
     AccessTokenProvider? accessTokenProvider,
     AuthTokenStorage? tokenStorage,
@@ -15,7 +15,7 @@ class CountryRegionApiService {
            apiClient ??
            ApiClient(
              baseUrl: _readBaseUrl(),
-             loggerLabel: 'REGION-API',
+             loggerLabel: 'COUNTRY-API',
              interceptors: [
                AuthInterceptor(
                  accessTokenProvider:
@@ -28,23 +28,16 @@ class CountryRegionApiService {
 
   final ApiClient _apiClient;
 
-  Future<CountryRegionsResponse> getCountryRegions({
-    required String countryName,
+  Future<CountriesResponse> getCountries({
     CancelToken? cancelToken,
   }) async {
-    final normalizedCountryName = countryName.trim();
-    if (normalizedCountryName.isEmpty) {
-      throw ArgumentError.value(countryName, 'countryName', '국가명은 필수입니다.');
-    }
-
     final response = await _apiClient.get<dynamic>(
-      ApiEndpoints.countryRegions,
-      queryParameters: {'countryName': normalizedCountryName},
+      ApiEndpoints.countries,
       cancelToken: cancelToken,
     );
 
     final payload = _unwrapPayload(response.data);
-    return CountryRegionsResponse.fromJson(payload);
+    return CountriesResponse.fromJson(payload);
   }
 }
 

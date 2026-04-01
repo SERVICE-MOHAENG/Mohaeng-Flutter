@@ -3,6 +3,7 @@ import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/add
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/budget_range_view_model.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/companion_select_view_model.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/concept_select_view_model.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/countries_view_model.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/country_regions_view_model.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/people_select_view_model.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/region_select_view_model.dart';
@@ -15,12 +16,15 @@ import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roa
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_modification_status_view_model.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_preference_result_view_model.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/travel_style_select_view_model.dart';
+import 'package:mohaeng_app_service/features/roadmap/data/repository/country_repository_impl.dart';
 import 'package:mohaeng_app_service/features/roadmap/data/repository/country_region_repository_impl.dart';
 import 'package:mohaeng_app_service/features/roadmap/data/repository/roadmap_repository_impl.dart';
+import 'package:mohaeng_app_service/features/roadmap/domain/repository/country_repository.dart';
 import 'package:mohaeng_app_service/features/roadmap/domain/repository/country_region_repository.dart';
 import 'package:mohaeng_app_service/features/roadmap/domain/repository/roadmap_repository.dart';
 import 'package:mohaeng_app_service/features/roadmap/domain/usecase/create_roadmap_itinerary.dart';
 import 'package:mohaeng_app_service/features/roadmap/domain/usecase/create_roadmap_survey.dart';
+import 'package:mohaeng_app_service/features/roadmap/domain/usecase/get_countries.dart';
 import 'package:mohaeng_app_service/features/roadmap/domain/usecase/get_roadmap_itinerary_status.dart';
 import 'package:mohaeng_app_service/features/roadmap/domain/usecase/get_roadmap_itinerary_result.dart';
 import 'package:mohaeng_app_service/features/roadmap/domain/usecase/get_country_regions.dart';
@@ -32,6 +36,19 @@ import 'package:mohaeng_app_service/features/roadmap/domain/usecase/get_roadmap_
 final regionSelectViewModelProvider =
     StateNotifierProvider<RegionSelectViewModel, RegionSelectState>(
       (ref) => RegionSelectViewModel(),
+    );
+
+final countryRepositoryProvider = Provider<CountryRepository>(
+  (ref) => CountryRepositoryImpl(),
+);
+
+final getCountriesUsecaseProvider = Provider<GetCountriesUsecase>(
+  (ref) => GetCountriesUsecase(ref.watch(countryRepositoryProvider)),
+);
+
+final countriesViewModelProvider =
+    StateNotifierProvider<CountriesViewModel, CountriesState>(
+      (ref) => CountriesViewModel(ref.watch(getCountriesUsecaseProvider)),
     );
 
 final countryRegionRepositoryProvider = Provider<CountryRegionRepository>(

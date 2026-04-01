@@ -40,22 +40,28 @@ class CountryRegionsViewModel extends StateNotifier<CountryRegionsState> {
     : super(const CountryRegionsState());
 
   final GetCountryRegionsUsecase _getCountryRegionsUsecase;
+  int _requestSerial = 0;
 
   Future<bool> load(String countryName) async {
-    if (state.isLoading) return false;
-
     final normalizedCountryName = countryName.trim();
     if (normalizedCountryName.isEmpty) {
       state = state.copyWith(errorMessage: '국가명을 입력해 주세요.');
       return false;
     }
 
-    state = state.copyWith(isLoading: true, clearError: true);
+    final requestSerial = ++_requestSerial;
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+      countryName: normalizedCountryName,
+      regions: const <CountryRegionModel>[],
+    );
 
     try {
       final response = await _getCountryRegionsUsecase(
         countryName: normalizedCountryName,
       );
+      if (requestSerial != _requestSerial) return false;
       state = state.copyWith(
         isLoading: false,
         countryName: normalizedCountryName,
@@ -64,6 +70,7 @@ class CountryRegionsViewModel extends StateNotifier<CountryRegionsState> {
       );
       return true;
     } on CountryNotFoundException catch (error) {
+      if (requestSerial != _requestSerial) return false;
       state = state.copyWith(
         isLoading: false,
         errorMessage: error.message,
@@ -71,12 +78,15 @@ class CountryRegionsViewModel extends StateNotifier<CountryRegionsState> {
       );
       return false;
     } on CountryRegionNetworkException catch (error) {
+      if (requestSerial != _requestSerial) return false;
       state = state.copyWith(isLoading: false, errorMessage: error.message);
       return false;
     } on CountryRegionException catch (error) {
+      if (requestSerial != _requestSerial) return false;
       state = state.copyWith(isLoading: false, errorMessage: error.message);
       return false;
     } catch (_) {
+      if (requestSerial != _requestSerial) return false;
       state = state.copyWith(
         isLoading: false,
         errorMessage: '도시 목록을 불러오지 못했어요.',
