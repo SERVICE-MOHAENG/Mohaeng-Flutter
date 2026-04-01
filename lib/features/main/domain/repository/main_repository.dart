@@ -16,5 +16,12 @@ abstract class MainRepository {
     int limit = 6,
   });
 
+  Future<CourseResponse> getMainCourseDetail({required String id});
+
+  Future<CourseResponse> completeMainCourse({
+    required String id,
+    required bool isCompleted,
+  });
+
   Future<UserSummaryResponse> getMainUserMe();
 }

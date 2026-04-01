@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mohaeng_app_service/features/main/data/repository/main_repository_impl.dart';
 import 'package:mohaeng_app_service/features/main/domain/repository/main_repository.dart';
+import 'package:mohaeng_app_service/features/main/domain/usecase/complete_main_course.dart';
+import 'package:mohaeng_app_service/features/main/domain/usecase/get_main_course_detail.dart';
 import 'package:mohaeng_app_service/features/main/domain/usecase/get_main_blogs.dart';
 import 'package:mohaeng_app_service/features/main/domain/usecase/get_main_courses.dart';
 import 'package:mohaeng_app_service/features/main/domain/usecase/get_main_user_me.dart';
@@ -19,6 +21,16 @@ final getMainCoursesUsecaseProvider = Provider<GetMainCoursesUsecase>(
 final getMainBlogsUsecaseProvider = Provider<GetMainBlogsUsecase>(
   (ref) => GetMainBlogsUsecase(ref.watch(mainRepositoryProvider)),
 );
+
+final getMainCourseDetailUsecaseProvider =
+    Provider<GetMainCourseDetailUsecase>(
+      (ref) => GetMainCourseDetailUsecase(ref.watch(mainRepositoryProvider)),
+    );
+
+final completeMainCourseUsecaseProvider =
+    Provider<CompleteMainCourseUsecase>(
+      (ref) => CompleteMainCourseUsecase(ref.watch(mainRepositoryProvider)),
+    );
 
 final getMainUserMeUsecaseProvider = Provider<GetMainUserMeUsecase>(
   (ref) => GetMainUserMeUsecase(ref.watch(mainRepositoryProvider)),

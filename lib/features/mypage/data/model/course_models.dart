@@ -168,9 +168,13 @@ class CourseResponse {
   factory CourseResponse.fromJson(Map<String, dynamic> json) {
     final normalized = <String, dynamic>{...json};
 
-    if (!normalized.containsKey('id') && normalized['courseId'] != null) {
-      normalized['id'] = normalized['courseId'];
-    }
+    _assignStringIfBlank(normalized, 'id', [
+      normalized['courseId'],
+      normalized['roadmapId'],
+      normalized['roadmap_id'],
+      normalized['course_id'],
+      normalized['roadmapid'],
+    ]);
     if (!normalized.containsKey('title') && normalized['name'] != null) {
       normalized['title'] = normalized['name'];
     }
@@ -326,6 +330,26 @@ List<CoursePlaceResponse> _readPlacesList(Object? value) {
 
 List<Map<String, dynamic>> _writePlacesList(List<CoursePlaceResponse> value) =>
     value.map((e) => e.toJson()).toList();
+
+void _assignStringIfBlank(
+  Map<String, dynamic> normalized,
+  String key,
+  Iterable<Object?> fallbackValues,
+) {
+  final current = normalized[key];
+  final currentText = current?.toString().trim();
+  if (currentText != null && currentText.isNotEmpty) {
+    return;
+  }
+
+  for (final candidate in fallbackValues) {
+    final text = candidate?.toString().trim();
+    if (text != null && text.isNotEmpty) {
+      normalized[key] = text;
+      return;
+    }
+  }
+}
 
 int _readIntWithFallback(Object? value, int fallback) {
   if (value is int) return value;

@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
@@ -10,12 +12,15 @@ import 'package:mohaeng_app_service/core/widgets/app_snack_bar.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
 import 'package:mohaeng_app_service/features/main/data/model/course_models.dart'
     as main_course;
+import 'package:mohaeng_app_service/features/main/presentation/view_model/main_providers.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view/ui/main_course_roadmap_screen.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/blog_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/course_models.dart';
 import 'package:mohaeng_app_service/features/mypage/data/model/liked_region_models.dart';
 import 'package:mohaeng_app_service/features/mypage/presentation/view_model/mypage_providers.dart';
 import 'package:mohaeng_app_service/features/mypage/presentation/view_model/mypage_view_model.dart';
+import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_itinerary_result_models.dart';
+import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/roadmap_result_screen.dart';
 
 class MyPageScreen extends ConsumerStatefulWidget {
   const MyPageScreen({super.key});
@@ -159,18 +164,48 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     );
   }
 
-  void _handleOpenCreatedRoadmap(CourseResponse course) {
+  Future<void> _handleOpenCreatedRoadmap(CourseResponse course) async {
     final itineraryId = (course.id ?? course.sourceCourseId)?.trim();
+    if (kDebugMode) {
+      debugPrint(
+        '[MYPAGE][ROADMAP] open created roadmap: id=${course.id ?? 'null'}, sourceCourseId=${course.sourceCourseId ?? 'null'}, resolved=$itineraryId',
+      );
+    }
+    developer.log(
+      'open created roadmap tapped: id=${course.id ?? 'null'}, sourceCourseId=${course.sourceCourseId ?? 'null'}, resolved=$itineraryId',
+      name: 'MYPAGE',
+    );
     if (itineraryId == null || itineraryId.isEmpty) {
       _showMessage('조회할 일정 ID를 확인하지 못했어요.');
       return;
     }
 
-    Navigator.pushNamed(
-      context,
-      AppRoutes.roadmapResult,
-      arguments: itineraryId,
-    );
+    try {
+      final detailCourse = await ref
+          .read(getMainCourseDetailUsecaseProvider)
+          .call(id: itineraryId);
+      if (!mounted) return;
+      if (kDebugMode) {
+        debugPrint(
+          '[MYPAGE][ROADMAP] detail fetched: id=${detailCourse.id ?? 'null'}, places=${detailCourse.places.length}',
+        );
+      }
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => RoadmapResultScreen(
+            initialResult: _toRoadmapResult(detailCourse),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final message = switch (error) {
+        ApiError(:final message) => message,
+        _ => '로드맵 상세를 불러오지 못했어요.',
+      };
+      _showMessage(message);
+    }
   }
 
   main_course.CourseResponse _toMainCourse(CourseResponse course) {
@@ -217,6 +252,76 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
       placeUrl: place.placeUrl,
       visitedAt: place.visitedAt,
     );
+  }
+
+  RoadmapItineraryResultResponse _toRoadmapResult(
+    main_course.CourseResponse course,
+  ) {
+    final dayPlans = _buildRoadmapDayPlans(course);
+    return RoadmapItineraryResultResponse(
+      status: 'SUCCESS',
+      travelCourseId: course.id,
+      data: RoadmapItineraryData(
+        startDate: _parseDate(course.startDate),
+        endDate: _parseDate(course.endDate),
+        tripDays: course.days ?? dayPlans.length,
+        nights: course.nights,
+        peopleCount: null,
+        tags: course.tags,
+        title: course.title,
+        summary: course.description,
+        itinerary: dayPlans,
+        llmCommentary: null,
+        nextActionSuggestion: const <String>[],
+      ),
+      error: null,
+    );
+  }
+
+  List<RoadmapDailyItinerary> _buildRoadmapDayPlans(
+    main_course.CourseResponse course,
+  ) {
+    if (course.places.isEmpty) return const <RoadmapDailyItinerary>[];
+
+    final grouped = <int, List<main_course.CoursePlaceResponse>>{};
+    for (final place in course.places) {
+      final dayNumber = place.dayNumber ?? 1;
+      grouped.putIfAbsent(dayNumber, () => <main_course.CoursePlaceResponse>[])
+          .add(place);
+    }
+
+    final entries = grouped.entries.toList()
+      ..sort((left, right) => left.key.compareTo(right.key));
+
+    final startDate = _parseDate(course.startDate);
+    return [
+      for (final entry in entries)
+        RoadmapDailyItinerary(
+          dayNumber: entry.key,
+          dailyDate: startDate?.add(Duration(days: entry.key - 1)),
+          places: entry.value
+              .map(
+                (place) => RoadmapItineraryPlace(
+                  placeName: place.name,
+                  placeId: place.placeId ?? place.id,
+                  address: place.address,
+                  latitude: place.latitude,
+                  longitude: place.longitude,
+                  placeUrl: place.placeUrl,
+                  description: place.description,
+                  visitSequence: place.order,
+                  visitTime: place.visitedAt,
+                ),
+              )
+              .toList(growable: false),
+        ),
+    ];
+  }
+
+  DateTime? _parseDate(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return DateTime.tryParse(trimmed);
   }
 
   Widget _buildProfileHeader(MyPageState state) {

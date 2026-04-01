@@ -39,6 +39,22 @@ class MainRepositoryImpl implements MainRepository {
   }
 
   @override
+  Future<CourseResponse> getMainCourseDetail({required String id}) {
+    return _remoteDataSource.getMainCourseDetail(id: id);
+  }
+
+  @override
+  Future<CourseResponse> completeMainCourse({
+    required String id,
+    required bool isCompleted,
+  }) {
+    return _remoteDataSource.completeMainCourse(
+      id: id,
+      isCompleted: isCompleted,
+    );
+  }
+
+  @override
   Future<UserSummaryResponse> getMainUserMe() {
     return _remoteDataSource.getMainUserMe();
   }

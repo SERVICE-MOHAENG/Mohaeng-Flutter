@@ -11,12 +11,16 @@ import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/app_snack_bar.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/core/network/api_error.dart';
+import 'package:mohaeng_app_service/features/main/presentation/view_model/main_providers.dart';
 import 'package:mohaeng_app_service/features/roadmap/data/model/roadmap_itinerary_result_models.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view_model/roadmap_providers.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class RoadmapResultScreen extends ConsumerStatefulWidget {
-  const RoadmapResultScreen({super.key});
+  const RoadmapResultScreen({super.key, this.initialResult});
+
+  final RoadmapItineraryResultResponse? initialResult;
 
   @override
   ConsumerState<RoadmapResultScreen> createState() =>
@@ -47,6 +51,7 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
   bool _isInitialized = false;
   bool _isRefreshing = false;
   bool _hasShownSuccessMessage = false;
+  bool _isCompletingCourse = false;
   Timer? _resultPollingTimer;
   Timer? _dotAnimationTimer;
   String? _jobId;
@@ -75,6 +80,11 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
     super.didChangeDependencies();
     if (_isInitialized) return;
     _isInitialized = true;
+
+    if (widget.initialResult != null) {
+      _lastResultStatus = widget.initialResult!.status;
+      return;
+    }
 
     _jobId = _resolveJobId();
     if (_jobId != null) {
@@ -325,6 +335,60 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
   void _goToHome() {
     if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(context, AppRoutes.root, (_) => false);
+  }
+
+  Future<void> _handleCompleteTravelCourse() async {
+    if (_isCompletingCourse) return;
+
+    final courseId = _resolveCompletionCourseId();
+    if (courseId == null || courseId.isEmpty) {
+      showAppSnackBar(
+        context,
+        message: '완료 처리할 코스 ID를 찾지 못했어요.',
+        fallbackMessage: '완료 처리할 코스 ID를 찾지 못했어요.',
+      );
+      return;
+    }
+
+    setState(() => _isCompletingCourse = true);
+
+    try {
+      await ref.read(completeMainCourseUsecaseProvider).call(
+            id: courseId,
+            isCompleted: true,
+          );
+      if (!mounted) return;
+
+      showAppSnackBar(
+        context,
+        message: '여행 완료로 변경했어요.',
+        fallbackMessage: '여행 완료로 변경했어요.',
+      );
+      _goToHome();
+    } catch (error) {
+      if (!mounted) return;
+      final message = switch (error) {
+        ApiError(:final message) => message,
+        _ => '여행 완료 처리를 하지 못했어요.',
+      };
+      showAppSnackBar(
+        context,
+        message: message,
+        fallbackMessage: '여행 완료 처리를 하지 못했어요.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isCompletingCourse = false);
+      }
+    }
+  }
+
+  String? _resolveCompletionCourseId() {
+    final result =
+        widget.initialResult ?? ref.read(roadmapItineraryResultViewModelProvider).result;
+    final courseId = result?.travelCourseId?.trim();
+    if (courseId != null && courseId.isNotEmpty) return courseId;
+    return null;
   }
 
   void _logResult(String message) {
@@ -583,8 +647,10 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
   @override
   Widget build(BuildContext context) {
     final resultState = ref.watch(roadmapItineraryResultViewModelProvider);
-    final isLoading = _isRefreshing || resultState.isLoading;
-    final status = resultState.result?.status ?? _lastResultStatus;
+    final effectiveResult = widget.initialResult ?? resultState.result;
+    final isLoading =
+        widget.initialResult == null && (_isRefreshing || resultState.isLoading);
+    final status = effectiveResult?.status ?? _lastResultStatus;
     final normalizedStatus = status?.trim().toLowerCase();
     final isSuccessStatus =
         normalizedStatus != null && _isSuccessStatus(normalizedStatus);
@@ -596,7 +662,7 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
         !isFailedStatus &&
         (_jobId?.isNotEmpty ?? false);
     final shouldShowPollingIndicator = isLoading || isPollingStage;
-    final roadmapData = resultState.result?.data;
+    final roadmapData = effectiveResult?.data;
     final rawDayPlans = isSuccessStatus
         ? _buildDayPlans(roadmapData?.itinerary)
         : const <_DayPlan>[];
@@ -659,6 +725,9 @@ class _RoadmapResultScreenState extends ConsumerState<RoadmapResultScreen> {
               markers: markers,
               polylines: polylines,
               data: roadmapData,
+              showCompleteButton: isSuccessStatus,
+              isCompletingCourse: _isCompletingCourse,
+              onTapComplete: _handleCompleteTravelCourse,
               onMapCreated: (controller) {
                 _mapController = controller;
                 unawaited(
@@ -860,6 +929,9 @@ class _MapSection extends StatelessWidget {
     required this.markers,
     required this.polylines,
     required this.data,
+    required this.showCompleteButton,
+    required this.isCompletingCourse,
+    required this.onTapComplete,
     required this.onMapCreated,
   });
 
@@ -867,6 +939,9 @@ class _MapSection extends StatelessWidget {
   final Set<Marker> markers;
   final Set<Polyline> polylines;
   final RoadmapItineraryData? data;
+  final bool showCompleteButton;
+  final bool isCompletingCourse;
+  final VoidCallback onTapComplete;
   final ValueChanged<GoogleMapController> onMapCreated;
 
   @override
@@ -1001,6 +1076,65 @@ class _MapSection extends StatelessWidget {
               ),
             ),
           ),
+          if (showCompleteButton)
+            Positioned(
+              right: 16.w,
+              bottom: 16.h + MediaQuery.paddingOf(context).bottom,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: isCompletingCourse ? null : onTapComplete,
+                  borderRadius: BorderRadius.circular(999.r),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutCubic,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 16.w,
+                      vertical: 12.h,
+                    ),
+                    decoration: BoxDecoration(
+                      color: MColor.primary500,
+                      borderRadius: BorderRadius.circular(999.r),
+                      boxShadow: [
+                        BoxShadow(
+                          color: MColor.primary500.withValues(alpha: 0.28),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: isCompletingCourse
+                        ? SizedBox(
+                            width: 18.sp,
+                            height: 18.sp,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                MColor.white100,
+                              ),
+                            ),
+                          )
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.check_rounded,
+                                size: 18.sp,
+                                color: MColor.white100,
+                              ),
+                              SizedBox(width: 6.w),
+                              Text(
+                                '여행 완료',
+                                style: MTextStyles.labelB.copyWith(
+                                  color: MColor.white100,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
