@@ -12,6 +12,7 @@ class MImages {
   static const String sendIcon = 'assets/images/icons/send_icon.png';
   static const String plusIcon = 'assets/images/icons/plus_icon.png';
   static const String minusIcon = 'assets/images/icons/minus_icon.png';
+  static const String imageIcon = 'assets/images/icons/image_icon.png';
 
   static const String companionAlone = 'assets/images/companion/alone.png';
   static const String companionParent = 'assets/images/companion/parent.png';

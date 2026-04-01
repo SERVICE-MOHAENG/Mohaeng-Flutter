@@ -16,4 +16,5 @@ class AppRoutes {
   static const roadmapBudgetAmount = '/roadmap/budget-amount';
   static const roadmapAdditionalRequest = '/roadmap/additional-request';
   static const roadmapResult = '/roadmap/result';
+  static const blogWrite = '/blog/write';
 }

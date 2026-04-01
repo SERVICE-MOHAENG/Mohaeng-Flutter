@@ -11,10 +11,12 @@ class MainBlogSection extends StatelessWidget {
     super.key,
     required this.blogsState,
     required this.onRetry,
+    this.onWrite,
   });
 
   final MainBlogsState blogsState;
   final VoidCallback onRetry;
+  final VoidCallback? onWrite;
 
   @override
   Widget build(BuildContext context) {
@@ -23,9 +25,29 @@ class MainBlogSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '여행 블로그 보기',
-          style: MTextStyles.lBodyM.copyWith(color: MColor.gray800),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '여행 블로그 보기',
+                style: MTextStyles.lBodyM.copyWith(color: MColor.gray800),
+              ),
+            ),
+            if (onWrite != null)
+              TextButton(
+                onPressed: onWrite,
+                style: TextButton.styleFrom(
+                  foregroundColor: MColor.primary500,
+                  padding: EdgeInsets.symmetric(horizontal: 10.w),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  '블로그 작성하러 가기',
+                  style: MTextStyles.labelB.copyWith(color: MColor.primary500),
+                ),
+              ),
+          ],
         ),
         SizedBox(height: 8.h),
         Text(
