@@ -108,6 +108,7 @@ class CourseResponse {
     this.days,
     this.likeCount,
     this.isLiked,
+    this.isCompleted,
     this.tags = const [],
     this.places = const [],
     this.createdAt,
@@ -147,6 +148,9 @@ class CourseResponse {
 
   @JsonKey(fromJson: _readBoolNullable, toJson: _writeBoolNullable)
   final bool? isLiked;
+
+  @JsonKey(fromJson: _readBoolNullable, toJson: _writeBoolNullable)
+  final bool? isCompleted;
 
   @JsonKey(fromJson: _readStringList, toJson: _writeStringList)
   final List<String> tags;
@@ -211,6 +215,10 @@ class CourseResponse {
           normalized['liked'] ??
           normalized['isBookmarked'] ??
           normalized['bookmarked'];
+    }
+    if (!normalized.containsKey('isCompleted')) {
+      normalized['isCompleted'] =
+          normalized['isCompleted'] ?? normalized['is_completed'];
     }
     if (!normalized.containsKey('places') &&
         normalized['coursePlaces'] is List) {
