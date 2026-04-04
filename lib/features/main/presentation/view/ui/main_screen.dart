@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
+import 'package:mohaeng_app_service/core/widgets/app_snack_bar.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
 import 'package:mohaeng_app_service/features/main/data/model/course_models.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view/ui/main_course_roadmap_list_screen.dart';
@@ -217,7 +218,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     ref.read(mainBlogsViewModelProvider.notifier).load();
   }
 
-  void _openBlogWriteScreen() {
-    Navigator.of(context).pushNamed(AppRoutes.blogWrite);
+  Future<void> _openBlogWriteScreen() async {
+    final result = await Navigator.of(context).pushNamed(AppRoutes.blogWrite);
+    if (!mounted || result == null) return;
+
+    _reloadBlogs();
+    showAppSnackBar(
+      context,
+      message: '블로그를 작성했어요.',
+      fallbackMessage: '블로그를 작성했어요.',
+    );
   }
 }

@@ -8,7 +8,7 @@ import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/widgets/m_tab.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/ui/login_screen.dart';
 import 'package:mohaeng_app_service/features/auth/presentation/view/ui/sign_up_screen.dart';
-import 'package:mohaeng_app_service/features/blog/presentation/view/ui/blog_write_screen.dart';
+import 'package:mohaeng_app_service/features/blog/presentation/view/ui/blog_course_select_screen.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view/ui/main_screen.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/additional_request_screen.dart';
 import 'package:mohaeng_app_service/features/roadmap/presentation/view/ui/budget_amount_screen.dart';
@@ -64,7 +64,7 @@ class MyApp extends StatelessWidget {
           AppRoutes.roadmapBudgetAmount: (_) => BudgetAmountScreen(),
           AppRoutes.roadmapAdditionalRequest: (_) => AdditionalRequestScreen(),
           AppRoutes.roadmapResult: (_) => RoadmapResultScreen(),
-          AppRoutes.blogWrite: (_) => BlogWriteScreen(),
+          AppRoutes.blogWrite: (_) => BlogCourseSelectScreen(),
         },
       ),
     );
