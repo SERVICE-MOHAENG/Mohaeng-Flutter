@@ -1,5 +1,6 @@
 import 'package:mohaeng_app_service/features/blog/data/datasource/blog_remote_datasource.dart';
 import 'package:mohaeng_app_service/features/blog/data/model/blog_create_models.dart';
+import 'package:mohaeng_app_service/features/blog/data/model/blog_detail_models.dart';
 import 'package:mohaeng_app_service/features/blog/domain/repository/blog_repository.dart';
 
 class BlogRepositoryImpl implements BlogRepository {
@@ -16,5 +17,20 @@ class BlogRepositoryImpl implements BlogRepository {
   @override
   Future<CreatedBlogResponse> createBlog({required CreateBlogRequest request}) {
     return _remoteDataSource.createBlog(request: request);
+  }
+
+  @override
+  Future<BlogDetailResponse> getBlogDetail({required String id}) {
+    return _remoteDataSource.getBlogDetail(id: id);
+  }
+
+  @override
+  Future<void> addBlogLike({required String id}) {
+    return _remoteDataSource.addBlogLike(id: id);
+  }
+
+  @override
+  Future<void> removeBlogLike({required String id}) {
+    return _remoteDataSource.removeBlogLike(id: id);
   }
 }

@@ -10,6 +10,8 @@ import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
 import 'package:mohaeng_app_service/core/widgets/app_snack_bar.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/features/blog/presentation/view/ui/blog_detail_screen.dart';
+import 'package:mohaeng_app_service/features/blog/presentation/view/widget/blog_like_button.dart';
 import 'package:mohaeng_app_service/features/main/data/model/course_models.dart'
     as main_course;
 import 'package:mohaeng_app_service/features/main/presentation/view_model/main_providers.dart';
@@ -37,8 +39,13 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     '블로그 좋아요',
     '좋아요한 여행지',
   ];
+  static const double _scheduleCardHeight = 126;
 
   int _scheduleTabIndex = 0;
+  final List<int> _schedulePageIndices = List<int>.filled(
+    _scheduleTabs.length,
+    0,
+  );
 
   @override
   void initState() {
@@ -208,6 +215,18 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     }
   }
 
+  void _handleOpenBlogDetail(BlogResponse blog) {
+    final blogId = blog.id?.trim();
+    if (blogId == null || blogId.isEmpty) {
+      _showMessage('조회할 블로그 ID를 확인하지 못했어요.');
+      return;
+    }
+
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => BlogDetailScreen(blogId: blogId)));
+  }
+
   main_course.CourseResponse _toMainCourse(CourseResponse course) {
     final countryCode = course.countryCode?.trim();
 
@@ -286,7 +305,8 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     final grouped = <int, List<main_course.CoursePlaceResponse>>{};
     for (final place in course.places) {
       final dayNumber = place.dayNumber ?? 1;
-      grouped.putIfAbsent(dayNumber, () => <main_course.CoursePlaceResponse>[])
+      grouped
+          .putIfAbsent(dayNumber, () => <main_course.CoursePlaceResponse>[])
           .add(place);
     }
 
@@ -523,24 +543,29 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
 
     return switch (_scheduleTabIndex) {
       0 => _buildCourseCards(
+        tabIndex: 0,
         courses: state.myCourses?.courses ?? const <CourseResponse>[],
         emptyText: '내 여행 일정(코스)이 없어요.',
         onOpenCourse: _handleOpenCreatedRoadmap,
       ),
       1 => _buildBlogCards(
+        tabIndex: 1,
         blogs: state.myBlogs?.blogs ?? const <BlogResponse>[],
         emptyText: '작성한 여행 기록(블로그)이 없어요.',
       ),
       2 => _buildCourseCards(
+        tabIndex: 2,
         courses: state.myCourseLikes?.items ?? const <CourseResponse>[],
         emptyText: '좋아요한 일정이 없어요.',
         onOpenCourse: _handleOpenCourseRoadmap,
       ),
       3 => _buildBlogCards(
+        tabIndex: 3,
         blogs: state.myBlogLikes?.items ?? const <BlogResponse>[],
         emptyText: '좋아요한 블로그가 없어요.',
       ),
       _ => _buildLikedRegionCards(
+        tabIndex: 4,
         regions: state.likedRegions?.items ?? const <LikedRegionResponse>[],
         emptyText: '좋아요한 여행지가 없어요.',
       ),
@@ -548,10 +573,10 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
   }
 
   Widget _buildCourseCards({
+    required int tabIndex,
     required List<CourseResponse> courses,
     required String emptyText,
     ValueChanged<CourseResponse>? onOpenCourse,
-    bool showTitle = true,
   }) {
     if (courses.isEmpty) {
       return SizedBox(
@@ -565,26 +590,20 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
       );
     }
 
-    final display = courses.take(3).toList(growable: false);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        for (int i = 0; i < display.length; i++) ...[
-          _buildTripCard(course: display[i], onTapPrimaryAction: onOpenCourse),
-          if (i != display.length - 1) SizedBox(height: 10.h),
-        ],
-        if (showTitle) ...[
-          SizedBox(height: 10.h),
-          _buildIndicatorRow(count: display.length),
-        ],
-      ],
+    return _buildPagedCards<CourseResponse>(
+      tabIndex: tabIndex,
+      itemCount: courses.length,
+      itemBuilder: (index) => _buildTripCard(
+        course: courses[index],
+        onTapPrimaryAction: onOpenCourse,
+      ),
     );
   }
 
   Widget _buildBlogCards({
+    required int tabIndex,
     required List<BlogResponse> blogs,
     required String emptyText,
-    bool showTitle = true,
   }) {
     if (blogs.isEmpty) {
       return SizedBox(
@@ -598,26 +617,20 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
       );
     }
 
-    final display = blogs.take(3).toList(growable: false);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        for (int i = 0; i < display.length; i++) ...[
-          _buildBlogCard(blog: display[i]),
-          if (i != display.length - 1) SizedBox(height: 10.h),
-        ],
-        if (showTitle) ...[
-          SizedBox(height: 10.h),
-          _buildIndicatorRow(count: display.length),
-        ],
-      ],
+    return _buildPagedCards<BlogResponse>(
+      tabIndex: tabIndex,
+      itemCount: blogs.length,
+      itemBuilder: (index) => _buildBlogCard(
+        blog: blogs[index],
+        onTap: () => _handleOpenBlogDetail(blogs[index]),
+      ),
     );
   }
 
   Widget _buildLikedRegionCards({
+    required int tabIndex,
     required List<LikedRegionResponse> regions,
     required String emptyText,
-    bool showTitle = true,
   }) {
     if (regions.isEmpty) {
       return SizedBox(
@@ -631,18 +644,36 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
       );
     }
 
-    final display = regions.take(3).toList(growable: false);
+    return _buildPagedCards<LikedRegionResponse>(
+      tabIndex: tabIndex,
+      itemCount: regions.length,
+      itemBuilder: (index) => _buildLikedRegionCard(region: regions[index]),
+    );
+  }
+
+  Widget _buildPagedCards<T>({
+    required int tabIndex,
+    required int itemCount,
+    required Widget Function(int index) itemBuilder,
+  }) {
+    final currentPage = _schedulePageIndices[tabIndex].clamp(0, itemCount - 1);
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        for (int i = 0; i < display.length; i++) ...[
-          _buildLikedRegionCard(region: display[i]),
-          if (i != display.length - 1) SizedBox(height: 10.h),
-        ],
-        if (showTitle) ...[
-          SizedBox(height: 10.h),
-          _buildIndicatorRow(count: display.length),
-        ],
+        SizedBox(
+          height: _scheduleCardHeight.h,
+          child: PageView.builder(
+            key: PageStorageKey<String>('schedule-carousel-$tabIndex'),
+            itemCount: itemCount,
+            onPageChanged: (page) {
+              if (_schedulePageIndices[tabIndex] == page) return;
+              setState(() => _schedulePageIndices[tabIndex] = page);
+            },
+            itemBuilder: (context, index) => itemBuilder(index),
+          ),
+        ),
+        SizedBox(height: 10.h),
+        _buildIndicatorRow(count: itemCount, activeIndex: currentPage),
       ],
     );
   }
@@ -733,7 +764,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     );
   }
 
-  Widget _buildBlogCard({required BlogResponse blog}) {
+  Widget _buildBlogCard({required BlogResponse blog, VoidCallback? onTap}) {
     final title = (blog.title ?? '여행 기록').trim();
     final description = (blog.description ?? '').trim();
     final createdAtText = _formatCreatedAt(blog.createdAt);
@@ -743,7 +774,8 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
         .map((e) => e.startsWith('#') ? e : '#$e')
         .toList(growable: false);
 
-    return Container(
+    final blogId = blog.id?.trim();
+    final card = Container(
       padding: EdgeInsets.all(12.r),
       decoration: BoxDecoration(
         color: MColor.gray50,
@@ -788,24 +820,45 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
                       _buildTag('#여행후기'),
                     ],
                     const Spacer(),
-                    Icon(
-                      Icons.favorite_border,
-                      size: 14.w,
-                      color: MColor.gray300,
-                    ),
-                    SizedBox(width: 4.w),
-                    Text(
-                      (blog.likeCount ?? 0).toString(),
-                      style: MTextStyles.sLabelM.copyWith(
-                        color: MColor.gray400,
+                    if (blogId != null && blogId.isNotEmpty)
+                      BlogLikeButton(
+                        blogId: blogId,
+                        initialIsLiked: blog.isLiked ?? false,
+                        initialLikeCount: blog.likeCount ?? 0,
+                      )
+                    else ...[
+                      Icon(
+                        Icons.favorite_border,
+                        size: 14.w,
+                        color: MColor.gray300,
                       ),
-                    ),
+                      SizedBox(width: 4.w),
+                      Text(
+                        (blog.likeCount ?? 0).toString(),
+                        style: MTextStyles.sLabelM.copyWith(
+                          color: MColor.gray400,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+
+    if (onTap == null) {
+      return card;
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12.r),
+        onTap: onTap,
+        child: card,
       ),
     );
   }
@@ -944,12 +997,12 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     return '${parsed.year}.$month.$day 작성';
   }
 
-  Widget _buildIndicatorRow({int count = 3}) {
+  Widget _buildIndicatorRow({int count = 3, int activeIndex = 0}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         for (int i = 0; i < count; i++) ...[
-          _buildIndicatorDot(isActive: i == 0),
+          _buildIndicatorDot(isActive: i == activeIndex),
           if (i != count - 1) SizedBox(width: 6.w),
         ],
       ],

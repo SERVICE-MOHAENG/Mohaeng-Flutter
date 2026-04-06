@@ -7,6 +7,7 @@ import 'package:mohaeng_app_service/core/constants/app_routes.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/widgets/app_snack_bar.dart';
 import 'package:mohaeng_app_service/core/widgets/m_layout.dart';
+import 'package:mohaeng_app_service/features/blog/presentation/view/ui/blog_detail_screen.dart';
 import 'package:mohaeng_app_service/features/main/data/model/course_models.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view/ui/main_course_roadmap_list_screen.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view/ui/main_course_roadmap_screen.dart';
@@ -120,6 +121,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                   blogsState: blogsState,
                   onRetry: _reloadBlogs,
                   onWrite: _openBlogWriteScreen,
+                  onOpenBlogDetail: _onOpenBlogDetail,
                 ),
               ),
             ],
@@ -216,6 +218,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   void _reloadBlogs() {
     ref.read(mainBlogsViewModelProvider.notifier).load();
+  }
+
+  void _onOpenBlogDetail(String blogId) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => BlogDetailScreen(blogId: blogId)));
   }
 
   Future<void> _openBlogWriteScreen() async {

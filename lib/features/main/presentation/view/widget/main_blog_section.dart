@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_color.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_images.dart';
 import 'package:mohaeng_app_service/core/mohaeng/m_text_styles.dart';
+import 'package:mohaeng_app_service/features/blog/presentation/view/widget/blog_like_button.dart';
 import 'package:mohaeng_app_service/features/main/data/model/blog_models.dart';
 import 'package:mohaeng_app_service/features/main/presentation/view_model/main_blogs_view_model.dart';
 
@@ -12,11 +13,13 @@ class MainBlogSection extends StatelessWidget {
     required this.blogsState,
     required this.onRetry,
     this.onWrite,
+    this.onOpenBlogDetail,
   });
 
   final MainBlogsState blogsState;
   final VoidCallback onRetry;
   final VoidCallback? onWrite;
+  final ValueChanged<String>? onOpenBlogDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -140,6 +143,7 @@ class MainBlogSection extends StatelessWidget {
   Widget _buildBlogListItem({required BlogResponse blog}) {
     final title = (blog.title ?? '여행 블로그').trim();
     final description = (blog.description ?? '').trim();
+    final blogId = blog.id?.trim();
     final tags = blog.tags
         .where((e) => e.trim().isNotEmpty)
         .take(2)
@@ -158,6 +162,10 @@ class MainBlogSection extends StatelessWidget {
       likeCountText: likeCountText,
       isLiked: blog.isLiked ?? false,
       thumbnailUrl: blog.thumbnailUrl,
+      blogId: blogId,
+      onTap: blogId == null || blogId.isEmpty || onOpenBlogDetail == null
+          ? null
+          : () => onOpenBlogDetail!(blogId),
     );
   }
 
@@ -168,8 +176,10 @@ class MainBlogSection extends StatelessWidget {
     required String likeCountText,
     required bool isLiked,
     String? thumbnailUrl,
+    String? blogId,
+    VoidCallback? onTap,
   }) {
-    return Container(
+    final content = Padding(
       padding: EdgeInsets.symmetric(vertical: 6.h),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,24 +214,49 @@ class MainBlogSection extends StatelessWidget {
                       if (i != tags.length - 1) SizedBox(width: 6.w),
                     ],
                     const Spacer(),
-                    Icon(
-                      isLiked ? Icons.favorite_rounded : Icons.favorite_border,
-                      size: 14.w,
-                      color: isLiked ? const Color(0xFFFF4C78) : MColor.gray300,
-                    ),
-                    SizedBox(width: 4.w),
-                    Text(
-                      likeCountText,
-                      style: MTextStyles.sLabelM.copyWith(
-                        color: MColor.gray400,
+                    if (blogId != null && blogId.isNotEmpty)
+                      BlogLikeButton(
+                        blogId: blogId,
+                        initialIsLiked: isLiked,
+                        initialLikeCount: int.tryParse(likeCountText) ?? 0,
+                      )
+                    else ...[
+                      Icon(
+                        isLiked
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border,
+                        size: 14.w,
+                        color: isLiked
+                            ? const Color(0xFFFF4C78)
+                            : MColor.gray300,
                       ),
-                    ),
+                      SizedBox(width: 4.w),
+                      Text(
+                        likeCountText,
+                        style: MTextStyles.sLabelM.copyWith(
+                          color: MColor.gray400,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+
+    if (onTap == null) {
+      return content;
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12.r),
+        onTap: onTap,
+        child: content,
       ),
     );
   }

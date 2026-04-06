@@ -162,6 +162,9 @@ class BlogResponse {
     if (!normalized.containsKey('likeCount') && normalized['likes'] != null) {
       normalized['likeCount'] = normalized['likes'];
     }
+    if (!normalized.containsKey('isLiked')) {
+      normalized['isLiked'] = normalized['isLiked'] ?? normalized['liked'];
+    }
     if (!normalized.containsKey('tags') && normalized['hashTags'] is List) {
       normalized['tags'] = normalized['hashTags'];
     }

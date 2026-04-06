@@ -33,6 +33,7 @@ class _MTabState extends State<MTab> {
     return Scaffold(
       body: PageView(
         controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
         onPageChanged: (i) => setState(() => _index = i),
         children: _pages,
       ),

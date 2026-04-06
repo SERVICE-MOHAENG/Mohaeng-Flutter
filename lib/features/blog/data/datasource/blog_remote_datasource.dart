@@ -5,6 +5,7 @@ import 'package:mohaeng_app_service/core/network/auth_interceptor.dart';
 import 'package:mohaeng_app_service/core/network/endpoints.dart';
 import 'package:mohaeng_app_service/features/auth/data/auth_token_storage.dart';
 import 'package:mohaeng_app_service/features/blog/data/model/blog_create_models.dart';
+import 'package:mohaeng_app_service/features/blog/data/model/blog_detail_models.dart';
 
 class BlogRemoteDataSource {
   BlogRemoteDataSource({
@@ -69,6 +70,54 @@ class BlogRemoteDataSource {
 
     final payload = _unwrapPayload(response.data);
     return CreatedBlogResponse.fromJson(payload);
+  }
+
+  Future<BlogDetailResponse> getBlogDetail({
+    required String id,
+    CancelToken? cancelToken,
+  }) async {
+    final normalizedId = id.trim();
+    if (normalizedId.isEmpty) {
+      throw const FormatException('blog id is empty.');
+    }
+
+    final response = await _apiClient.get<dynamic>(
+      '${ApiEndpoints.blogs}/$normalizedId',
+      cancelToken: cancelToken,
+    );
+
+    final payload = _unwrapPayload(response.data);
+    return BlogDetailResponse.fromJson(payload);
+  }
+
+  Future<void> addBlogLike({
+    required String id,
+    CancelToken? cancelToken,
+  }) async {
+    final normalizedId = id.trim();
+    if (normalizedId.isEmpty) {
+      throw const FormatException('blog id is empty.');
+    }
+
+    await _apiClient.post<dynamic>(
+      '${ApiEndpoints.blogs}/$normalizedId/like',
+      cancelToken: cancelToken,
+    );
+  }
+
+  Future<void> removeBlogLike({
+    required String id,
+    CancelToken? cancelToken,
+  }) async {
+    final normalizedId = id.trim();
+    if (normalizedId.isEmpty) {
+      throw const FormatException('blog id is empty.');
+    }
+
+    await _apiClient.delete<dynamic>(
+      '${ApiEndpoints.blogs}/$normalizedId/like',
+      cancelToken: cancelToken,
+    );
   }
 }
 
